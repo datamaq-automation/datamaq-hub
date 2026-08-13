@@ -1,54 +1,67 @@
 # CONVENTIONS.md - Guía de Estilo y Convenciones de Desarrollo
 
 ## 1. Stack Tecnológico & Arquitectura
-* **Lenguaje:** Python 3.10+ con tipado estricto (`typing`, `Annotated`, `TypeAlias`).
+* **Lenguaje:** Python 3.10+ con tipado estricto (`typing`, `Annotated`, `TypeAlias`, `dataclasses`).
+* **Arquitectura:** Clean Architecture (Robert C. Martin / Ports & Adapters) + Domain-Driven Design (DDD).
 * **Framework Web:** FastAPI (asíncrono, OpenAPI autodocumentado).
-* **Validación & Serialización:** Pydantic v2 (`BaseModel`, `Field`, `ConfigDict`, `field_validator`, `model_validator`).
-* **Procesamiento de Documentos:** `pdfplumber` para extracción estructurada y análisis posicional/espacial de PDFs.
-* **Testing:** `pytest` con `httpx.AsyncClient` o `starlette.testclient.TestClient`.
-* **Linter & Formatter:** `ruff` (reglas E, F, I, B, UP).
+* **Validación & Serialización:** Pydantic v2 (`BaseModel`, `Field`, `ConfigDict`).
+* **Configuración:** `pydantic-settings` (`BaseSettings`, `SettingsConfigDict`).
+* **Procesamiento de Documentos:** `pdfplumber` para extracción estructurada en memoria.
+* **Testing:** `pytest` con `starlette.testclient.TestClient` / `httpx`.
+* **Linter & Formatter:** `ruff` (reglas E, F, I, B, UP, RUF).
 
 ---
 
-## 2. Estructura de Directorios (Capas Limpias)
+## 2. Estructura de Directorios (Clean Architecture & DDD Temático)
 ```
 src/
-├── api/            # Controladores, routers y dependencias FastAPI
-│   ├── routes.py
-│   └── dependencies.py
-├── schemas/        # Modelos de datos y DTOs Pydantic v2
-│   ├── recibo.py
-│   └── common.py
-├── services/       # Lógica de negocio, extractores y parsers especializados
-│   ├── pdf_extractor.py
-│   ├── base_parser.py
-│   ├── dgcye_parser.py
-│   ├── generic_parser.py
-│   └── parser_factory.py
-├── utils/          # Funciones auxiliares puras, regex y validadores
-│   ├── validators.py
-│   └── text_helpers.py
-├── config.py       # Configuración global de la app (pydantic-settings)
-└── main.py         # Punto de entrada de FastAPI, middlewares y CORS
+├── domain/                                      # 1. Capa de Dominio (Organizada por Temática)
+│   └── {tematica}/                              # Subcarpeta temática (ej. recibos/)
+│       ├── __init__.py                          # Re-exporta los símbolos del bounded context
+│       ├── entities.py                          # Entidades del dominio (ReciboSueldo, Agente, etc.)
+│       ├── value_objects.py                     # Value Objects inmutables (CUIT, DNI, Dinero, Tipos)
+│       ├── services.py                          # Servicios puros de dominio (Totales, Normalizador)
+│       ├── ports.py                             # Interfaces abstractas (ReceiptParserPort, ExtractorPort)
+│       └── exceptions.py                        # Excepciones de dominio
+│
+├── application/                                 # 2. Capa de Aplicación (Casos de Uso y DTOs)
+│   ├── use_cases/                               # Orquestadores de negocio (ParseReceiptUseCase)
+│   ├── dtos/                                    # Data Transfer Objects (ReceiptResponseDTO, APIResponseDTO)
+│   └── mappers/                                 # Mapeadores Entidad <-> DTO (ReceiptMapper)
+│
+├── adapters/                                    # 3. Capa de Adaptadores (Interface Adapters)
+│   ├── controllers/                             # Inbound: Endpoints FastAPI y dependencias
+│   ├── gateways/                                # Outbound: Extractores (pdfplumber) y Parsers (DGCyE, Genérico)
+│   └── presenters/                              # Presenters de salida HTTP y formato de errores
+│
+├── infrastructure/                              # 4. Capa de Infraestructura (Por Librería Externa)
+│   ├── fastapi/                                 # Servidor FastAPI y middlewares
+│   └── pydantic/                                # Settings con pydantic-settings
+│
+└── main.py                                      # Entrypoint ASGI (app = create_app())
 ```
 
 ---
 
 ## 3. Convenciones de Código y Buenas Prácticas
-1. **Tipado Estricto:**
-   * Todas las funciones deben declarar tipos explícitos para parámetros y retornos (`def parse_pdf(file_bytes: bytes) -> ReciboSueldoResponse:`).
-   * Usar `Optional[T]` o `T | None` consistentemente.
-2. **Inmutabilidad y Validación:**
-   * Utilizar Pydantic v2 para toda entrada/salida de la API.
-   * Evitar manipular diccionarios planos (`dict`) sin esquema cuando se transfieran datos de negocio.
-3. **Manejo de Errores:**
-   * Levantar excepciones de dominio específicas (`ReceiptParsingError`, `InvalidPDFError`) en la capa de servicios.
-   * Mapear las excepciones a respuestas HTTP enriquecidas en la capa `api/` con códigos semánticos (400, 422, 500).
-4. **Funciones Puras en `utils/`:**
-   * Los formateadores de moneda, parseadores de CUIT/CUIL y funciones regex no deben tener efectos secundarios ni depender de I/O.
-5. **Testing & Cobertura:**
-   * Cada parser o servicio nuevo debe tener su archivo de prueba correspondiente en `tests/` (`test_<nombre_servicio>.py`).
-   * Los tests deben validar casos felices, datos incompletos y archivos corruptos.
+1. **Regla de Dependencia en Clean Architecture:**
+   * Las capas internas (`domain`) nunca deben importar de capas externas (`application`, `adapters`, `infrastructure`).
+   * `application` solo depende de `domain`.
+   * `adapters` depende de `application` y `domain`.
+   * `infrastructure` aísla frameworks y bibliotecas externas.
+2. **Organización Temática del Dominio:**
+   * Cada subdominio o bounded context vive en `src/domain/{tematica}/`.
+   * Dentro de cada temática, los archivos siguen un naming uniforme: `entities.py`, `value_objects.py`, `services.py`, `ports.py`, `exceptions.py`.
+3. **Tipado Estricto:**
+   * Todas las funciones deben declarar tipos explícitos para parámetros y retornos.
+   * Usar `Annotated` para dependencias de FastAPI.
+4. **Inmutabilidad y Value Objects:**
+   * Los Value Objects del dominio son inmutables (`@dataclass(frozen=True)`).
+5. **Manejo de Errores Semántico:**
+   * Levantar excepciones de dominio (`DomainException`, `ReceiptParsingError`, `InvalidPDFError`) que son capturadas y mapeadas a códigos HTTP en `ErrorPresenter` y middlewares.
+6. **Testing & Cobertura:**
+   * Tests unitarios organizados en `tests/unit/`.
+   * Tests de integración organizados en `tests/integration/`.
 
 ---
 
