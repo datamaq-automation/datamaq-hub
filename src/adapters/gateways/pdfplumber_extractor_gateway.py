@@ -1,6 +1,7 @@
 """Gateway adapter implementing PDFExtractorPort using pdfplumber."""
 
 import io
+from typing import Any
 
 import pdfplumber
 
@@ -25,7 +26,7 @@ class PdfPlumberExtractorGateway(PDFExtractorPort):
 
         try:
             with pdfplumber.open(io.BytesIO(pdf_bytes)) as pdf:
-                pdf_meta = pdf.metadata or {}
+                pdf_meta: dict[str, Any] = dict(pdf.metadata or {})
                 for i, page in enumerate(pdf.pages):
                     page_text = page.extract_text(layout=False) or ""
                     lines = [

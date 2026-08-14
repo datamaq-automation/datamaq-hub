@@ -79,3 +79,71 @@ def test_receipt_mapper():
     assert len(dto.resumen_liquidos) == 1
     assert len(dto.liquidaciones) == 1
     assert dto.totales.total_liquido == 300000.0
+
+
+def test_simulation_mapper():
+    from src.application.dtos.simulation_dto import DesignacionInputDTO
+    from src.application.mappers.simulation_mapper import SimulationMapper
+    from src.domain.liquidacion.entities import (
+        ConceptoLiquidado,
+        LiquidacionCargoResultado,
+        LiquidacionConsolidadaResultado,
+    )
+    from src.domain.liquidacion.value_objects import (
+        NivelCargo,
+        SituacionRevista,
+        TipoConceptoLiquidacion,
+    )
+
+    dto = DesignacionInputDTO(
+        secuencia="016",
+        escuela_codigo="IS-0199",
+        escuela_nombre="ISFDyT 199",
+        cargo_nivel=NivelCargo.SM,
+        carga_horaria=7.0,
+        situacion_revista=SituacionRevista.PROVISIONAL,
+    )
+    # When periodo_liquidado is None, it inherits default period
+    domain = SimulationMapper.to_domain_designacion(dto, periodo_por_defecto="202608")
+    assert domain.periodo_liquidado == "202608"
+    assert domain.cargo_nivel == NivelCargo.SM
+    assert domain.carga_horaria == 7.0
+
+    resultado = LiquidacionConsolidadaResultado(
+        periodo_proyectado="202608",
+        anios_antiguedad=4,
+        cargos_liquidados=(
+            LiquidacionCargoResultado(
+                secuencia="016",
+                escuela_codigo="IS-0199",
+                escuela_nombre="ISFDyT 199",
+                cargo_nivel=NivelCargo.SM,
+                carga_horaria=7.0,
+                situacion_revista=SituacionRevista.PROVISIONAL,
+                periodo_liquidado="202608",
+                dias_trabajados=30.0,
+                es_retroactivo=False,
+                conceptos=(
+                    ConceptoLiquidado(
+                        codigo="0510",
+                        descripcion="BASICO",
+                        tipo=TipoConceptoLiquidacion.REMUNERATIVO,
+                        haberes=300000.0,
+                    ),
+                ),
+                subtotal_haberes=300000.0,
+                subtotal_descuentos=0.0,
+                liquido=300000.0,
+            ),
+        ),
+        total_haberes_remunerativos=300000.0,
+        total_haberes=300000.0,
+        total_liquido=300000.0,
+        total_liquido_regular=300000.0,
+    )
+
+    resp_dto = SimulationMapper.to_dto(resultado)
+    assert resp_dto.periodo_proyectado == "202608"
+    assert resp_dto.total_liquido == 300000.0
+    assert len(resp_dto.cargos_liquidados) == 1
+    assert resp_dto.cargos_liquidados[0].secuencia == "016"

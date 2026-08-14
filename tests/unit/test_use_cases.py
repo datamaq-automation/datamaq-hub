@@ -63,3 +63,59 @@ def test_parse_receipt_use_case():
     mock_extractor.extract_from_bytes.assert_called_once_with(b"%PDF-mock")
     mock_parser_registry.get_parser.assert_called_once_with(dummy_extracted)
     mock_parser.parse.assert_called_once_with(dummy_extracted)
+
+
+def test_project_salary_use_case():
+    from src.application.dtos.simulation_dto import (
+        DesignacionInputDTO,
+        SimulacionSueldoRequestDTO,
+    )
+    from src.application.use_cases.project_salary import ProjectSalaryUseCase
+    from src.domain.liquidacion.ports import ParitariaRepositoryPort
+    from src.domain.liquidacion.value_objects import (
+        NivelCargo,
+        ParametrosParitaria,
+        SituacionRevista,
+    )
+
+    mock_repo = MagicMock(spec=ParitariaRepositoryPort)
+    mock_paritaria = ParametrosParitaria(
+        periodo="202608",
+        basico_por_modulo_sm=42894.625,
+        basico_por_modulo_pm=22877.1325,
+        bonif_0455_sm=14125.9425,
+        bonif_0455_pm=9281.9325,
+        bonif_0667_sm=14796.8575,
+        bonif_0667_pm=9722.7825,
+        bonif_2575_sm=3390.187,
+        bonif_2575_pm=2009.00,
+        alicuota_ips=0.1600,
+        alicuota_ioma=0.0480,
+        alicuota_suteba_sindicato=0.0155,
+        alicuota_suteba_os=0.0464,
+        tope_bonificaciones_modulos=30.0,
+    )
+    mock_repo.obtener_por_periodo.return_value = mock_paritaria
+
+    use_case = ProjectSalaryUseCase(paritaria_repo=mock_repo)
+    request = SimulacionSueldoRequestDTO(
+        anios_antiguedad=4,
+        periodo_proyectado="202608",
+        designaciones=[
+            DesignacionInputDTO(
+                secuencia="016",
+                escuela_codigo="IS-0199",
+                escuela_nombre="ISFDyT 199",
+                cargo_nivel=NivelCargo.SM,
+                carga_horaria=7.0,
+                situacion_revista=SituacionRevista.PROVISIONAL,
+            )
+        ],
+    )
+
+    response = use_case.execute(request)
+    assert response.periodo_proyectado == "202608"
+    assert response.anios_antiguedad == 4
+    assert len(response.cargos_liquidados) == 1
+    assert response.total_liquido > 0
+    mock_repo.obtener_por_periodo.assert_called_once_with("202608")
