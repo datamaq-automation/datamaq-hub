@@ -4,10 +4,14 @@ from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
-from src.adapters.controllers.http_health_controller import router as health_router
-from src.adapters.controllers.http_receipt_controller import router as receipt_router
 from src.adapters.presenters.error_presenter import ErrorPresenter
+from src.domain.liquidacion.exceptions import LiquidacionDomainException
 from src.domain.recibos.exceptions import DomainException
+from src.infrastructure.fastapi.routes.health_routes import router as health_router
+from src.infrastructure.fastapi.routes.receipt_routes import router as receipt_router
+from src.infrastructure.fastapi.routes.simulation_routes import (
+    router as simulation_router,
+)
 from src.infrastructure.pydantic.config import get_settings
 
 
@@ -33,16 +37,25 @@ def create_app() -> FastAPI:
         allow_headers=["*"],
     )
 
-    # Domain exception handler
+    # Domain exception handlers
     @app.exception_handler(DomainException)
     async def domain_exception_handler(
         _: Request, exc: DomainException
     ) -> JSONResponse:
-        return ErrorPresenter.format_domain_error(exc)
+        payload, status_code = ErrorPresenter.format_domain_error(exc)
+        return JSONResponse(status_code=status_code, content=payload.model_dump())
+
+    @app.exception_handler(LiquidacionDomainException)
+    async def liquidacion_exception_handler(
+        _: Request, exc: LiquidacionDomainException
+    ) -> JSONResponse:
+        payload, status_code = ErrorPresenter.format_domain_error(exc)
+        return JSONResponse(status_code=status_code, content=payload.model_dump())
 
     # Mount API routers under prefix /api/v1
     app.include_router(health_router, prefix="/api/v1")
     app.include_router(receipt_router, prefix="/api/v1")
+    app.include_router(simulation_router, prefix="/api/v1")
 
     # Root redirect/info endpoint
     @app.get("/", include_in_schema=False)

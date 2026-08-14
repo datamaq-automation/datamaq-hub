@@ -62,7 +62,7 @@ class CargoDetalle:
     cargo_real: str | None = None
     carga_horaria: float | None = None
     antiguedad_anios: int | None = None
-    dias_trabajados: float | None = 30.0
+    dias_trabajados: float | None = None
     inasistencias: float | None = 0.0
     periodo_liquidado: str | None = None
     orden_pago: str | None = None
@@ -74,7 +74,7 @@ class LiquidacionSecuencia:
 
     establecimiento: EstablecimientoDetalle
     cargo: CargoDetalle
-    conceptos: list[ConceptoItem] = field(default_factory=list)
+    conceptos: list[ConceptoItem] = field(default_factory=list[ConceptoItem])
     subtotal_haberes: float = 0.0
     subtotal_descuentos: float = 0.0
     liquido_calculado: float = 0.0
@@ -111,7 +111,11 @@ class ReciboSueldo:
     tipo_recibo: TipoRecibo
     empleador: Empleador
     agente: Agente
-    resumen_liquidos: list[ResumenLiquidoItem] = field(default_factory=list)
-    liquidaciones: list[LiquidacionSecuencia] = field(default_factory=list)
+    resumen_liquidos: list[ResumenLiquidoItem] = field(
+        default_factory=list[ResumenLiquidoItem]
+    )
+    liquidaciones: list[LiquidacionSecuencia] = field(
+        default_factory=list[LiquidacionSecuencia]
+    )
     totales: TotalesConsolidados = field(default_factory=TotalesConsolidados)
-    metadata: dict[str, Any] = field(default_factory=dict)
+    metadata: dict[str, Any] = field(default_factory=dict[str, Any])

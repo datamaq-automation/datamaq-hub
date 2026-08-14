@@ -5,10 +5,10 @@ API FastAPI que parsea recibos de sueldo en PDF (DGCyE PBA / Genérico). Clean A
 ## Comandos (siempre desde la raíz del repo)
 
 - Servidor dev: `./run.sh` — activa `venv/`, setea `PYTHONPATH=src`, corre `uvicorn src.main:app --reload` en `:8000`.
-- Verificación pre-push: `./scripts/pre-push.sh` — `python scripts/verify_architecture.py` → `ruff check .` → `ruff format --check .` → `pytest tests/test_empty_inits.py` → `pytest -n auto -q tests/unit/ tests/test_architecture_boundaries.py`.
+- Verificación pre-push: `./scripts/pre-push.sh` — `python scripts/verify_architecture.py` → `ruff check .` → `ruff format --check .` → `pyright` → `pytest tests/test_empty_inits.py` → `pytest -n auto -q tests/unit/ tests/test_architecture_boundaries.py`.
 - Suite completa: `./scripts/ci.sh` — AST guard + pytest completo + `__init__.py` + pyright/mypy.
 - Test individual: `pytest tests/unit/test_value_objects.py::test_cuit_validation` (desde la raíz).
-- **No hay `pyproject.toml` ni config de ruff/pytest**: ruff usa reglas default, no existe gate de cobertura, y `pytest --cov` falla (pytest-cov no instalado). El tipado estricto es convención de código, no comando verificable.
+- **Tipado Estricto con `pyrightconfig.json`**: `pyright` corre en pre-push y CI. Se exige tipado exhaustivo en `src/`.
 - No existe `spec.md` ni `specs/` (el flujo SDD global los exige); el diseño vive en `docs/recibo_parser_plan.md`.
 
 ## Arquitectura y reglas de dependencia
@@ -32,6 +32,7 @@ API FastAPI que parsea recibos de sueldo en PDF (DGCyE PBA / Genérico). Clean A
 - **Imports absolutos `from src....` — nunca relativos.** pytest/uvicorn corren desde la raíz; los `tests/__init__.py` vacíos son load-bearing para el modo de import de pytest.
 - **Todos los `__init__.py` (`src/` y `tests/`) deben quedar en 0 bytes** — testeado por `tests/test_empty_inits.py`. README.md y CONVENTIONS.md dicen que re-exportan símbolos: documentación obsoleta, el test manda.
 - Identificadores de dominio en español (`ReciboSueldo`, `Agente`, `CUIT`, `DNI`, `ImporteMonetario`, `TipoConcepto`, `TipoRecibo`).
+- **Tipado Estricto de Contenedores (`default_factory`):** Todo `default_factory` en `@dataclass` o `Field()` debe estar parametrizado con su tipo genérico completo (ej. `field(default_factory=dict[str, Any])`, `Field(default_factory=list[ItemDTO])`). Prohibido usar callables genéricos sin parametrizar (`dict`, `list`).
 - Excepciones de dominio (`DomainException` y subclases en `exceptions.py`) mapeadas a HTTP en `ErrorPresenter`; no exponer excepciones de librerías en la API.
 - Commits: Conventional Commits (`feat:` `fix:` `refactor:` `test:` `docs:`) — ver CONVENTIONS.md.
 

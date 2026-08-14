@@ -121,7 +121,11 @@ class ReceiptResponseDTO(BaseModel):
     tipo_recibo: TipoRecibo
     empleador: EmpleadorDTO
     agente: AgenteDTO
-    resumen_liquidos: list[ResumenLiquidoItemDTO] = Field(default_factory=list)
-    liquidaciones: list[LiquidacionSecuenciaDTO] = Field(default_factory=list)
+    resumen_liquidos: list[ResumenLiquidoItemDTO] = Field(
+        default_factory=list[ResumenLiquidoItemDTO]
+    )
+    liquidaciones: list[LiquidacionSecuenciaDTO] = Field(
+        default_factory=list[LiquidacionSecuenciaDTO]
+    )
     totales: TotalesConsolidadosDTO
-    metadata: dict[str, Any] = Field(default_factory=dict)
+    metadata: dict[str, Any] = Field(default_factory=dict[str, Any])
