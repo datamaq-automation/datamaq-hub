@@ -8,14 +8,21 @@ elif [ -d ".venv/bin" ]; then
     export PATH=".venv/bin:$PATH"
 fi
 
-echo "🔍 [1/3] Ejecutando linter (ruff check)..."
-ruff check .
+echo "🏛️  [1/5] Verificación instantánea de Arquitectura y DDD (< 30ms)..."
+python scripts/verify_architecture.py
 
-echo "🎨 [2/3] Verificando formato (ruff format)..."
+echo "🛠️  [2/5] Auto-reparación rápida en local (ruff check --fix & format)..."
+ruff check --fix . || true
+ruff format . || true
+
+echo "🔍 [3/5] Verificando linter (ruff check) y formato..."
+ruff check .
 ruff format --check .
 
-echo "🧪 [3/3] Ejecutando tests unitarios en paralelo (8 threads) y __init__.py..."
-pytest -n auto -q tests/unit/ tests/test_empty_inits.py
+echo "🔒 [4/5] Verificando inmutabilidad estricta de __init__.py (0 bytes)..."
+pytest -q tests/test_empty_inits.py
+
+echo "🧪 [5/5] Ejecutando suite de tests en paralelo (8 threads)..."
+pytest -n auto -q tests/unit/ tests/test_architecture_boundaries.py
 
 echo "✅ Pre-push verification exitosa!"
-

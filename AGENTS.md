@@ -1,42 +1,47 @@
-# AGENTS.md - Directivas y Arquitectura de Software para Agentes de IA
+# AGENTS.md — Datamaq Hub
 
-Este repositorio implementa una estricta **Clean Architecture** (Robert C. Martin / Ports & Adapters) combinada con **Domain-Driven Design (DDD)** temático y tipado estricto en Python 3.10+.
+API FastAPI que parsea recibos de sueldo en PDF (DGCyE PBA / Genérico). Clean Architecture + DDD temático, tipado estricto, Python 3.10+ (venv local: 3.14 en `venv/`). Documentación y comentarios en español.
 
----
+## Comandos (siempre desde la raíz del repo)
 
-## 1. Reglas de Dependencia y Capas
+- Servidor dev: `./run.sh` — activa `venv/`, setea `PYTHONPATH=src`, corre `uvicorn src.main:app --reload` en `:8000`.
+- Verificación pre-push: `./scripts/pre-push.sh` — `python scripts/verify_architecture.py` → `ruff check .` → `ruff format --check .` → `pytest tests/test_empty_inits.py` → `pytest -n auto -q tests/unit/ tests/test_architecture_boundaries.py`.
+- Suite completa: `./scripts/ci.sh` — AST guard + pytest completo + `__init__.py` + pyright/mypy.
+- Test individual: `pytest tests/unit/test_value_objects.py::test_cuit_validation` (desde la raíz).
+- **No hay `pyproject.toml` ni config de ruff/pytest**: ruff usa reglas default, no existe gate de cobertura, y `pytest --cov` falla (pytest-cov no instalado). El tipado estricto es convención de código, no comando verificable.
+- No existe `spec.md` ni `specs/` (el flujo SDD global los exige); el diseño vive en `docs/recibo_parser_plan.md`.
 
-1. **`src/domain/{modulo_contexto}/` (Capa de Dominio):**
-   * **Archivos obligatorios:** `__init__.py`, `entities.py`, `exceptions.py`, `ports.py`, `services.py`, `value_objects.py`.
-   * **Restricción:** El dominio es **100% puro**. Prohibido importar frameworks o librerías externas. Únicamente la librería estándar de Python y dataclasses nativas inmutables (`@dataclass(frozen=True)`).
-2. **`src/application/` (Capa de Aplicación):**
-   * **Subcarpetas:** `dtos/`, `mappers/`, `use_cases/`.
-   * **Nombrado plano:** `{contexto}_dtos.py`, `{contexto}_mappers.py`, `{contexto}_use_cases.py`.
-   * **Uso de Pydantic:** Se permite Pydantic v2 **ÚNICAMENTE** dentro de `src/application/dtos/` para validación y serialización.
-   * **Restricción:** Solo puede importar de `src/domain/`.
-3. **`src/adapters/` (Capa de Adaptadores de Interfaz):**
-   * **Subcarpetas:** `controllers/`, `gateways/`, `presenters/`.
-   * **Regla Sagrada:** Los adaptadores **NUNCA** deben importar ni depender directamente de `src/infrastructure/`. Implementan los puertos (`ports.py`) de dominio y consumen casos de uso de aplicación.
-4. **`src/infrastructure/` (Capa de Infraestructura):**
-   * **Settings:** `src/infrastructure/settings/` con `__init__.py`, `logger.py` y `config.py` (usando `pydantic-settings`).
-   * **Adaptadores de Infraestructura:** `fastapi/`, `opencv/`, `numpy/`, etc. Se inyectan en runtime hacia los adaptadores vía Inyección de Dependencias.
+## Arquitectura y reglas de dependencia
 
----
+- `src/domain/{tematica}/` — estructura plana: `entities.py`, `value_objects.py`, `services.py`, `ports.py`, `exceptions.py`. Dominio 100% puro: solo stdlib + `@dataclass(frozen=True)`; **terminantemente prohibido importar frameworks o librerías de terceros**.
+  - **Inmutabilidad Temporal (Prohibición de Datos Volátiles Hardcodeados):** Prohibido asignar defaults monetarios, paritarios o períodos fijos en Value Objects/Entidades. Todo dato sujeto a paritaria/fecha debe modelarse con un `Port` (`ports.py`) y resolverse en `adapters/gateways/`.
+- `src/application/` — `dtos/` (Pydantic v2 permitido **solo** aquí), `mappers/`, `use_cases/`. Solo importa de `domain/`. Prohibido importar frameworks web (`fastapi`, `starlette`) o librerías de infraestructura.
+- `src/adapters/` — `controllers/`, `gateways/`, `presenters/`.
+  - **Regla sagrada 1 (Inversión de Dependencias):** Nunca importa `src/infrastructure/`.
+  - **Regla sagrada 2 (Agnosticismo Web):** Prohibido acoplar `controllers/` o `presenters/` a frameworks web (`fastapi`, `starlette`). Los controladores y presenters deben ser clases/funciones puras de Python agnósticas de transporte.
+  - **Gateways:** Implementan exclusivamente los `ports.py` de dominio (pueden encapsular librerías especializadas como `pdfplumber` o loaders JSON de paritarias en `data/paritarias/`).
+  - La DI vive en `controllers/dependencies.py` con `@lru_cache`.
+- `src/infrastructure/` — organizado por librería externa:
+  - `fastapi/` (`server.py` = `create_app()`, `routes/` con routers HTTP, endpoints `@router.post`, inyecciones `Depends`, manejo de `UploadFile` y middlewares web).
+  - `pydantic/` (`config.py` = `Settings` con `pydantic-settings`, soporta `.env`, `get_settings()` cacheado).
+  - `src/main.py` es el entrypoint ASGI (`app = create_app()`).
+- **Principio Anti-Mimetismo (Regla sobre Código Legado):** Si un archivo preexistente en el repositorio viola estas reglas de pureza de capas (por ejemplo, importando `fastapi` en `adapters/controllers/`), **NUNCA repliques esa violación al crear código nuevo o modificarlo**. La regla arquitectónica siempre prevalece sobre el código legado.
 
-## 2. Inmutabilidad de Paquetes
-* **TODOS los archivos `__init__.py` deben permanecer 100% VACÍOS (0 bytes).**
-* Prohibido colocar imports implícitos, variables globales o `__all__` en los `__init__.py`. Las importaciones deben hacerse siempre de forma explícita directamente desde los módulos específicos.
+## Convenciones que rompen el repo si se ignoran
 
----
+- **Imports absolutos `from src....` — nunca relativos.** pytest/uvicorn corren desde la raíz; los `tests/__init__.py` vacíos son load-bearing para el modo de import de pytest.
+- **Todos los `__init__.py` (`src/` y `tests/`) deben quedar en 0 bytes** — testeado por `tests/test_empty_inits.py`. README.md y CONVENTIONS.md dicen que re-exportan símbolos: documentación obsoleta, el test manda.
+- Identificadores de dominio en español (`ReciboSueldo`, `Agente`, `CUIT`, `DNI`, `ImporteMonetario`, `TipoConcepto`, `TipoRecibo`).
+- Excepciones de dominio (`DomainException` y subclases en `exceptions.py`) mapeadas a HTTP en `ErrorPresenter`; no exponer excepciones de librerías en la API.
+- Commits: Conventional Commits (`feat:` `fix:` `refactor:` `test:` `docs:`) — ver CONVENTIONS.md.
 
-## 3. Tipado Estricto (Pyright / Pylance Strict)
-* Todas las funciones, métodos y atributos deben tener anotaciones de tipo explícitas (`-> None`, `-> int`, etc.).
-* Utilizar `typing` moderno (`Annotated`, `TypeAlias`, `Sequence`, `Mapping`, `Optional`).
+## Tests
 
----
+- `tests/unit/` — puros, sin PDF. `tests/integration/` — `TestClient` + gateways con PDF real. Fixtures en `tests/conftest.py` (`client`, `sample_pdf_path`, `sample_pdf_bytes`).
+- Los tests de integración con PDF real dependen de `data/36528392-2026-08-13-17_12_03_336.pdf`, pero `data/` está en `.gitignore`: en un clone fresco el fixture hace `pytest.skip` y `test_parse_real_pdf_controller` retorna sin asertar — **skipped por diseño, no "arreglar"**. Si se regenera el fixture, los valores golden (BUSTOS AGUSTÍN, DNI 36528392, CUIL 20-36528392-4, 14 liquidaciones, total 2585423.32) deben coincidir.
+- pytest-xdist: correr con `-n auto` es la norma (pre-push y ci lo usan).
 
-## 4. Scripts y Comandos de Calidad
-* **Ejecución local:** `./run.sh`
-* **Verificación pre-push:** `./scripts/pre-push.sh`
-* **Integración continua:** `./scripts/ci.sh`
-* **Test de inits vacíos:** `pytest tests/test_empty_inits.py`
+## Referencias
+
+- `CONVENTIONS.md` — convenciones de estilo y git (su claim de `__init__.py` re-exportadores está desactualizado).
+- `docs/recibo_parser_plan.md` — diseño original (su diagrama de directorios con `entities/` como carpeta está desactualizado; la estructura real es plana).
