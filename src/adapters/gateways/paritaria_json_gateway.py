@@ -17,10 +17,14 @@ class ParitariaJsonGateway(ParitariaRepositoryPort):
             self._data_dir = Path(__file__).resolve().parents[3] / "data" / "paritarias"
         else:
             self._data_dir = data_dir
+        self._cache: dict[str, ParametrosParitaria] = {}
 
     def obtener_por_periodo(self, periodo: str) -> ParametrosParitaria:
         """Load and return paritary parameters for period YYYYMM."""
         clean_period = periodo.replace(" ", "").replace("/", "")
+        if clean_period in self._cache:
+            return self._cache[clean_period]
+
         json_path = self._data_dir / f"{clean_period}.json"
 
         if not json_path.exists():
@@ -30,7 +34,7 @@ class ParitariaJsonGateway(ParitariaRepositoryPort):
 
         try:
             data = json.loads(json_path.read_text(encoding="utf-8"))
-            return ParametrosParitaria(
+            parametros = ParametrosParitaria(
                 periodo=str(data["periodo"]),
                 basico_por_modulo_sm=float(data["basico_por_modulo_sm"]),
                 basico_por_modulo_pm=float(data["basico_por_modulo_pm"]),
@@ -46,6 +50,8 @@ class ParitariaJsonGateway(ParitariaRepositoryPort):
                 alicuota_suteba_os=float(data["alicuota_suteba_os"]),
                 tope_bonificaciones_modulos=float(data["tope_bonificaciones_modulos"]),
             )
+            self._cache[clean_period] = parametros
+            return parametros
         except (KeyError, ValueError, json.JSONDecodeError) as e:
             raise ParitariaNoEncontradaException(
                 f"Error al leer parámetros paritarios de {json_path}: {e}"
