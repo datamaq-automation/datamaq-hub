@@ -1,145 +1,117 @@
 """Domain entities for salary receipts domain."""
 
+from dataclasses import dataclass, field
 from typing import Any
-
-from pydantic import BaseModel, ConfigDict, Field
 
 from src.domain.recibos.value_objects import TipoConcepto, TipoRecibo
 
 
-class Agente(BaseModel):
+@dataclass
+class Agente:
     """Employee / public agent identification entity."""
 
-    model_config = ConfigDict(extra="ignore")
-
-    nombre_completo: str = Field(description="Full employee name")
-    tipo_documento: str = Field(default="DNI", description="Document type")
-    numero_documento: str = Field(description="Document number")
-    sexo: str | None = Field(default=None, description="Gender (M/F/X)")
-    cuil: str = Field(description="CUIL formatted XX-XXXXXXXX-X")
-    mes_pago: str = Field(description="Liquidated payment period")
+    nombre_completo: str
+    numero_documento: str
+    cuil: str
+    mes_pago: str
+    tipo_documento: str = "DNI"
+    sexo: str | None = None
 
 
-class Empleador(BaseModel):
+@dataclass
+class Empleador:
     """Employer entity."""
 
-    model_config = ConfigDict(extra="ignore")
-
-    organismo_o_empresa: str = Field(description="Organization or corporate name")
-    dependencia: str | None = Field(
-        default=None, description="Department or dependency"
-    )
-    cuit: str | None = Field(default=None, description="Employer CUIT")
+    organismo_o_empresa: str
+    dependencia: str | None = None
+    cuit: str | None = None
 
 
-class ConceptoItem(BaseModel):
+@dataclass
+class ConceptoItem:
     """Salary line item concept entity."""
 
-    model_config = ConfigDict(extra="ignore")
-
-    codigo: str = Field(description="Concept code")
-    descripcion: str = Field(description="Concept description")
-    haberes: float | None = Field(default=None, description="Earnings amount")
-    descuentos: float | None = Field(default=None, description="Deduction amount")
-    tipo: TipoConcepto = Field(description="Concept classification")
+    codigo: str
+    descripcion: str
+    tipo: TipoConcepto
+    haberes: float | None = None
+    descuentos: float | None = None
 
 
-class EstablecimientoDetalle(BaseModel):
+@dataclass
+class EstablecimientoDetalle:
     """School / Establishment entity."""
 
-    model_config = ConfigDict(extra="ignore")
-
-    codigo: str | None = Field(default=None, description="Establishment code")
-    distrito: str | None = Field(default=None, description="District name")
-    categoria: str | None = Field(default=None, description="Category code")
-    desfavorabilidad: int | None = Field(default=0, description="Hardship percentage")
-    secciones: int | None = Field(default=0, description="Sections count")
-    es_carcel: bool | None = Field(
-        default=False, description="Is penitentiary facility"
-    )
-    doble_escolaridad: bool | None = Field(
-        default=False, description="Double schooling"
-    )
-    turnos: int | None = Field(default=1, description="Shifts count")
-    nombre: str | None = Field(default=None, description="Establishment name")
+    codigo: str | None = None
+    distrito: str | None = None
+    categoria: str | None = None
+    desfavorabilidad: int | None = 0
+    secciones: int | None = 0
+    es_carcel: bool | None = False
+    doble_escolaridad: bool | None = False
+    turnos: int | None = 1
+    nombre: str | None = None
 
 
-class CargoDetalle(BaseModel):
+@dataclass
+class CargoDetalle:
     """Position / Cargo attributes entity."""
 
-    model_config = ConfigDict(extra="ignore")
-
-    secuencia: str = Field(description="Sequence number")
-    situacion_revista: str | None = Field(default=None, description="Tenure status")
-    cargo_real: str | None = Field(default=None, description="Job title / code")
-    carga_horaria: float | None = Field(default=None, description="Assigned hours")
-    antiguedad_anios: int | None = Field(default=None, description="Seniority years")
-    dias_trabajados: float | None = Field(default=30.0, description="Days worked")
-    inasistencias: float | None = Field(default=0.0, description="Absences")
-    periodo_liquidado: str | None = Field(default=None, description="Liquidated period")
-    orden_pago: str | None = Field(default=None, description="Payment order number")
+    secuencia: str
+    situacion_revista: str | None = None
+    cargo_real: str | None = None
+    carga_horaria: float | None = None
+    antiguedad_anios: int | None = None
+    dias_trabajados: float | None = 30.0
+    inasistencias: float | None = 0.0
+    periodo_liquidado: str | None = None
+    orden_pago: str | None = None
 
 
-class LiquidacionSecuencia(BaseModel):
+@dataclass
+class LiquidacionSecuencia:
     """Settlement per sequence / position."""
 
-    model_config = ConfigDict(extra="ignore")
-
-    establecimiento: EstablecimientoDetalle = Field(description="Establishment")
-    cargo: CargoDetalle = Field(description="Position details")
-    conceptos: list[ConceptoItem] = Field(
-        default_factory=list, description="Concepts list"
-    )
-    subtotal_haberes: float = Field(default=0.0, description="Sum of earnings")
-    subtotal_descuentos: float = Field(default=0.0, description="Sum of deductions")
-    liquido_calculado: float = Field(default=0.0, description="Net calculated amount")
+    establecimiento: EstablecimientoDetalle
+    cargo: CargoDetalle
+    conceptos: list[ConceptoItem] = field(default_factory=list)
+    subtotal_haberes: float = 0.0
+    subtotal_descuentos: float = 0.0
+    liquido_calculado: float = 0.0
 
 
-class ResumenLiquidoItem(BaseModel):
+@dataclass
+class ResumenLiquidoItem:
     """Summary table row entity."""
 
-    model_config = ConfigDict(extra="ignore")
-
-    establecimiento_codigo: str = Field(description="Establishment code")
-    secuencia: str = Field(description="Sequence number")
-    periodo_liquidado: str = Field(description="Liquidated period")
-    fecha_pago: str = Field(description="Payment date")
-    orden_pago_codigo: str = Field(description="Payment order code")
-    orden_pago_descripcion: str = Field(description="Payment order description")
-    liquido_pesos: float = Field(description="Net amount in ARS")
+    establecimiento_codigo: str
+    secuencia: str
+    periodo_liquidado: str
+    fecha_pago: str
+    orden_pago_codigo: str
+    orden_pago_descripcion: str
+    liquido_pesos: float
 
 
-class TotalesConsolidados(BaseModel):
+@dataclass
+class TotalesConsolidados:
     """Consolidated totals entity."""
 
-    model_config = ConfigDict(extra="ignore")
-
-    total_haberes_remunerativos: float = Field(
-        default=0.0, description="Taxable earnings"
-    )
-    total_haberes_no_remunerativos: float = Field(
-        default=0.0, description="Non-taxable earnings"
-    )
-    total_haberes: float = Field(default=0.0, description="Total gross earnings")
-    total_descuentos: float = Field(default=0.0, description="Total deductions")
-    total_liquido: float = Field(default=0.0, description="Total net amount")
+    total_haberes_remunerativos: float = 0.0
+    total_haberes_no_remunerativos: float = 0.0
+    total_haberes: float = 0.0
+    total_descuentos: float = 0.0
+    total_liquido: float = 0.0
 
 
-class ReciboSueldo(BaseModel):
+@dataclass
+class ReciboSueldo:
     """Aggregate Root representing a parsed and validated salary receipt."""
 
-    model_config = ConfigDict(extra="ignore")
-
-    tipo_recibo: TipoRecibo = Field(description="Receipt type")
-    empleador: Empleador = Field(description="Employer data")
-    agente: Agente = Field(description="Employee data")
-    resumen_liquidos: list[ResumenLiquidoItem] = Field(
-        default_factory=list, description="Summary table rows"
-    )
-    liquidaciones: list[LiquidacionSecuencia] = Field(
-        default_factory=list, description="Sequence breakdowns"
-    )
-    totales: TotalesConsolidados = Field(description="Consolidated totals")
-    metadata: dict[str, Any] = Field(
-        default_factory=dict, description="Document metadata"
-    )
+    tipo_recibo: TipoRecibo
+    empleador: Empleador
+    agente: Agente
+    resumen_liquidos: list[ResumenLiquidoItem] = field(default_factory=list)
+    liquidaciones: list[LiquidacionSecuencia] = field(default_factory=list)
+    totales: TotalesConsolidados = field(default_factory=TotalesConsolidados)
+    metadata: dict[str, Any] = field(default_factory=dict)

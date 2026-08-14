@@ -1,6 +1,7 @@
 """Gateway implementing ReceiptParserPort for DGCyE PBA salary receipts."""
 
 import re
+from dataclasses import replace
 from typing import ClassVar
 
 from src.domain.recibos.entities import (
@@ -312,8 +313,8 @@ class DGCyEParserGateway(ReceiptParserPort):
 
                     liquidaciones.append(
                         LiquidacionSecuencia(
-                            establecimiento=current_estab.model_copy(),
-                            cargo=current_cargo.model_copy(),
+                            establecimiento=replace(current_estab),
+                            cargo=replace(current_cargo),
                             conceptos=current_conceptos,
                             subtotal_haberes=round(sub_haberes, 2),
                             subtotal_descuentos=round(sub_descuentos, 2),
