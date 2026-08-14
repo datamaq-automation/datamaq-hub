@@ -3,8 +3,8 @@
 from dataclasses import dataclass, field
 from typing import Any
 
-from src.domain.recibos.value_objects import TipoConcepto, TipoRecibo
 from src.domain.recibos.entities import ConceptoItem
+from src.domain.recibos.value_objects import TipoConcepto, TipoRecibo
 
 
 @dataclass
