@@ -8,14 +8,21 @@ from dotenv import load_dotenv
 load_dotenv()
 
 GA4_PROPERTY_ID: str = (os.getenv("GA4_PROPERTY_ID") or "").strip()
-GOOGLE_APPLICATION_CREDENTIALS: str = (os.getenv("GOOGLE_APPLICATION_CREDENTIALS") or "").strip()
+GOOGLE_APPLICATION_CREDENTIALS: str = (
+    os.getenv("GOOGLE_APPLICATION_CREDENTIALS") or ""
+).strip()
 
 
 def get_ga4_status() -> dict[str, Any]:
     """Retorna el estado de configuración de Google Analytics 4 en DataMaq."""
-    creds_exist = bool(GOOGLE_APPLICATION_CREDENTIALS and os.path.exists(GOOGLE_APPLICATION_CREDENTIALS))
+    creds_exist = bool(
+        GOOGLE_APPLICATION_CREDENTIALS
+        and os.path.exists(GOOGLE_APPLICATION_CREDENTIALS)
+    )
     return {
-        "status": "configured" if (GA4_PROPERTY_ID and creds_exist) else "missing_credentials",
+        "status": "configured"
+        if (GA4_PROPERTY_ID and creds_exist)
+        else "missing_credentials",
         "property_id": GA4_PROPERTY_ID or "No configurado",
         "credentials_path": GOOGLE_APPLICATION_CREDENTIALS or "No configurado",
         "credentials_file_found": creds_exist,
@@ -35,7 +42,11 @@ def _run_ga4_report(
     limit: int = 10,
 ) -> dict[str, Any]:
     """Ejecuta un reporte de GA4 con dimensiones y métricas especificadas."""
-    if not GA4_PROPERTY_ID or not GOOGLE_APPLICATION_CREDENTIALS or not os.path.exists(GOOGLE_APPLICATION_CREDENTIALS):
+    if (
+        not GA4_PROPERTY_ID
+        or not GOOGLE_APPLICATION_CREDENTIALS
+        or not os.path.exists(GOOGLE_APPLICATION_CREDENTIALS)
+    ):
         return {
             "status": "missing_credentials",
             "message": "GA4_PROPERTY_ID o GOOGLE_APPLICATION_CREDENTIALS no están configurados válidamente en .env.",
@@ -81,7 +92,9 @@ def _run_ga4_report(
         return {"status": "error", "message": str(e)}
 
 
-def get_ga4_top_pages(days: int = 7, limit: int = 10, segment: str = "all") -> dict[str, Any]:
+def get_ga4_top_pages(
+    days: int = 7, limit: int = 10, segment: str = "all"
+) -> dict[str, Any]:
     """Obtiene las páginas más visitadas y vistas de pantalla en DataMaq.
 
     :param days: Ventana de días hacia atrás (default: 7).

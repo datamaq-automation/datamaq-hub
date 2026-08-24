@@ -22,9 +22,13 @@ def test_ga4_status_structure() -> None:
     assert status["site_url"] == "https://datamaq.com.ar"
 
 
-def test_ga4_missing_credentials_graceful_handling(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_ga4_missing_credentials_graceful_handling(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     monkeypatch.setattr("src.infrastructure.fastmcp.ga4.GA4_PROPERTY_ID", "")
-    monkeypatch.setattr("src.infrastructure.fastmcp.ga4.GOOGLE_APPLICATION_CREDENTIALS", "")
+    monkeypatch.setattr(
+        "src.infrastructure.fastmcp.ga4.GOOGLE_APPLICATION_CREDENTIALS", ""
+    )
 
     status = get_ga4_status()
     assert status["status"] == "missing_credentials"
@@ -51,13 +55,23 @@ def test_ga4_top_pages_segmentation(monkeypatch: pytest.MonkeyPatch) -> None:
         "status": "success",
         "rows": [
             {"pagePath": "/", "pageTitle": "Home", "screenPageViews": "10"},
-            {"pagePath": "/cursos/python", "pageTitle": "Curso Python", "screenPageViews": "8"},
+            {
+                "pagePath": "/cursos/python",
+                "pageTitle": "Curso Python",
+                "screenPageViews": "8",
+            },
             {"pagePath": "/contact", "pageTitle": "Contacto", "screenPageViews": "4"},
-            {"pagePath": "/cursos/fastapi", "pageTitle": "Curso FastAPI", "screenPageViews": "3"},
+            {
+                "pagePath": "/cursos/fastapi",
+                "pageTitle": "Curso FastAPI",
+                "screenPageViews": "3",
+            },
         ],
     }
 
-    def _mock_report(dimensions: list[str], metrics: list[str], days: int = 7, limit: int = 10) -> dict[str, Any]:
+    def _mock_report(
+        dimensions: list[str], metrics: list[str], days: int = 7, limit: int = 10
+    ) -> dict[str, Any]:
         return dict(mock_data)
 
     monkeypatch.setattr("src.infrastructure.fastmcp.ga4._run_ga4_report", _mock_report)

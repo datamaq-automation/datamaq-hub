@@ -40,7 +40,9 @@ def test_clarity_tools_without_token(monkeypatch: pytest.MonkeyPatch) -> None:
 
 
 def test_clarity_api_request_success(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setattr("src.infrastructure.fastmcp.clarity.CLARITY_API_TOKEN", "fake_token")
+    monkeypatch.setattr(
+        "src.infrastructure.fastmcp.clarity.CLARITY_API_TOKEN", "fake_token"
+    )
 
     fake_response = MagicMock()
     fake_response.read.return_value = b'{"metricName": "RageClickCount"}'
@@ -57,7 +59,9 @@ def test_clarity_api_request_success(monkeypatch: pytest.MonkeyPatch) -> None:
 
 
 def test_clarity_api_request_http_error(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setattr("src.infrastructure.fastmcp.clarity.CLARITY_API_TOKEN", "fake_token")
+    monkeypatch.setattr(
+        "src.infrastructure.fastmcp.clarity.CLARITY_API_TOKEN", "fake_token"
+    )
 
     def mock_urlopen_error(req: object, timeout: int = 15) -> object:
         raise HTTPError(

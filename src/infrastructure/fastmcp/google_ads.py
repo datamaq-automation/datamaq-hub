@@ -11,14 +11,22 @@ DEVELOPER_TOKEN: str = (os.getenv("GOOGLE_ADS_DEVELOPER_TOKEN") or "").strip()
 CLIENT_ID: str = (os.getenv("GOOGLE_ADS_CLIENT_ID") or "").strip()
 CLIENT_SECRET: str = (os.getenv("GOOGLE_ADS_CLIENT_SECRET") or "").strip()
 REFRESH_TOKEN: str = (os.getenv("GOOGLE_ADS_REFRESH_TOKEN") or "").strip()
-CUSTOMER_ID: str = (os.getenv("GOOGLE_ADS_LOGIN_CUSTOMER_ID") or "1318780733").replace("-", "").strip()
+CUSTOMER_ID: str = (
+    (os.getenv("GOOGLE_ADS_LOGIN_CUSTOMER_ID") or "1318780733").replace("-", "").strip()
+)
 
 DAILY_BUDGET_LIMIT_ARS: float = 1500.0
 
 
 def get_google_ads_status() -> dict[str, Any]:
     """Retorna el estado de las credenciales y configuración de la Google Ads API."""
-    is_ready = bool(DEVELOPER_TOKEN and CLIENT_ID and CLIENT_SECRET and REFRESH_TOKEN and CUSTOMER_ID)
+    is_ready = bool(
+        DEVELOPER_TOKEN
+        and CLIENT_ID
+        and CLIENT_SECRET
+        and REFRESH_TOKEN
+        and CUSTOMER_ID
+    )
 
     accessible_accounts: list[str] = []
     token_level = "unknown"
@@ -28,7 +36,9 @@ def get_google_ads_status() -> dict[str, Any]:
             if client:
                 customer_service = client.get_service("CustomerService")
                 resp = customer_service.list_accessible_customers()
-                accessible_accounts = [r.replace("customers/", "") for r in resp.resource_names]
+                accessible_accounts = [
+                    r.replace("customers/", "") for r in resp.resource_names
+                ]
                 token_level = "test_or_basic_active"
         except Exception as e:
             if "DEVELOPER_TOKEN_NOT_APPROVED" in str(e):
@@ -236,7 +246,9 @@ def get_daily_budget_pacing() -> dict[str, Any]:
             "pacing_percentage": f"{round(pacing_percentage, 1)}%",
             "is_within_budget": is_safe,
             "clicks_today": today_clicks,
-            "alert": "Presupuesto OK" if is_safe else "ALERTA: Presupuesto diario excedido",
+            "alert": "Presupuesto OK"
+            if is_safe
+            else "ALERTA: Presupuesto diario excedido",
         }
     except Exception as e:
         if "DEVELOPER_TOKEN_NOT_APPROVED" in str(e):

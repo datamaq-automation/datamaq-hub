@@ -9,26 +9,35 @@ API REST profesional construida con **FastAPI**, **Pydantic v2** y **pdfplumber*
 ```
 src/
 ├── domain/                                      # 1. Capa de Dominio (Organizada por Temática)
-│   └── recibos/                                 # Subcarpeta temática: Recibos de Sueldo
-│       ├── __init__.py                          # Re-exporta los símbolos del dominio
-│       ├── entities.py                          # Entidades (ReciboSueldo, Agente, Empleador, etc.)
-│       ├── value_objects.py                     # Value Objects inmutables (CUIT, DNI, Dinero, Tipos)
-│       ├── services.py                          # Servicios puros (TotalesCalculator, Normalizador)
-│       ├── ports.py                             # Interfaces abstractas (ReceiptParserPort, ExtractorPort)
-│       └── exceptions.py                        # Excepciones de dominio
+│   ├── recibos/                                 # Bounded context: Recibos de Sueldo
+│   │   ├── __init__.py                          # 0 bytes (load-bearing para pytest)
+│   │   ├── entities.py                          # Entidades (ReciboSueldo, Agente, Empleador, etc.)
+│   │   ├── value_objects.py                     # Value Objects inmutables (CUIT, DNI, ImporteMonetario, Tipos)
+│   │   ├── services.py                          # Servicios puros (TotalesCalculator, TextNormalizer)
+│   │   ├── ports.py                             # Interfaces abstractas (ReceiptParserPort, PDFExtractorPort)
+│   │   └── exceptions.py                        # Excepciones de dominio
+│   └── liquidacion/                             # Bounded context: Liquidación / Proyección Salarial
+│       ├── __init__.py                          # 0 bytes (load-bearing para pytest)
+│       ├── entities.py                          # Entidades de liquidación y proyección
+│       ├── value_objects.py                     # Value Objects de liquidación
+│       ├── services.py                          # Servicios de cálculo salarial
+│       ├── ports.py                             # Interfaces (ParitariaPort, etc.)
+│       └── exceptions.py                        # Excepciones de dominio de liquidación
 │
 ├── application/                                 # 2. Capa de Aplicación (Casos de Uso y DTOs)
-│   ├── use_cases/                               # Casos de uso (ParseReceiptUseCase)
-│   ├── dtos/                                    # Data Transfer Objects (ReceiptResponseDTO, APIResponseDTO)
-│   └── mappers/                                 # Mapeadores Entidad <-> DTO (ReceiptMapper)
+│   ├── use_cases/                               # Casos de uso (ParseReceiptUseCase, ProjectSalaryUseCase)
+│   ├── dtos/                                    # Data Transfer Objects (ReceiptResponseDTO, SimulationDTO, etc.)
+│   └── mappers/                                 # Mapeadores Entidad <-> DTO (ReceiptMapper, SimulationMapper)
 │
 ├── adapters/                                    # 3. Capa de Adaptadores (Interface Adapters)
-│   ├── controllers/                             # Inbound: Endpoints FastAPI y dependencias
-│   ├── gateways/                                # Outbound: Extractores (pdfplumber) y Parsers (DGCyE, Genérico)
-│   └── presenters/                              # Presenters de salida HTTP y formato de errores
+│   ├── controllers/                             # Inbound: controladores puros agnósticos de transporte
+│   ├── gateways/                                # Outbound: pdfplumber, JSON paritarias, parsers DGCyE/Genérico
+│   └── presenters/                              # Presenters de salida y formato de errores
 │
 ├── infrastructure/                              # 4. Capa de Infraestructura (Por Librería Externa)
-│   ├── fastapi/                                 # Servidor FastAPI y middlewares CORS
+│   ├── fastapi/                                 # Servidor FastAPI, middlewares CORS y routers HTTP
+│   │   └── routes/                              # Routers FastAPI (health, recibos, simulation)
+│   ├── fastmcp/                                 # Servidores MCP (Clarity, GA4, Google Ads)
 │   └── pydantic/                                # Settings con pydantic-settings
 │
 └── main.py                                      # Entrypoint ASGI: app = create_app()

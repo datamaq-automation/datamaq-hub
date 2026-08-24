@@ -16,7 +16,9 @@ from src.infrastructure.fastmcp.ga4 import (
     get_ga4_traffic_sources,
 )
 
-mcp: Any = cast(Any, FastMCP("DataMaq GA4 Analytics MCP")) if FastMCP is not None else None
+mcp: Any = (
+    cast(Any, FastMCP("DataMaq GA4 Analytics MCP")) if FastMCP is not None else None
+)
 
 if mcp:
     mcp.tool()(get_ga4_status)

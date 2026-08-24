@@ -16,26 +16,28 @@
 ```
 src/
 ├── domain/                                      # 1. Capa de Dominio (Organizada por Temática)
-│   └── {tematica}/                              # Subcarpeta temática (ej. recibos/)
-│       ├── __init__.py                          # Re-exporta los símbolos del bounded context
+│   └── {tematica}/                              # Subcarpeta temática (ej. recibos/, liquidacion/)
+│       ├── __init__.py                          # 0 bytes (load-bearing para pytest)
 │       ├── entities.py                          # Entidades del dominio (ReciboSueldo, Agente, etc.)
-│       ├── value_objects.py                     # Value Objects inmutables (CUIT, DNI, Dinero, Tipos)
+│       ├── value_objects.py                     # Value Objects inmutables (CUIT, DNI, ImporteMonetario, Tipos)
 │       ├── services.py                          # Servicios puros de dominio (Totales, Normalizador)
-│       ├── ports.py                             # Interfaces abstractas (ReceiptParserPort, ExtractorPort)
+│       ├── ports.py                             # Interfaces abstractas (ReceiptParserPort, PDFExtractorPort)
 │       └── exceptions.py                        # Excepciones de dominio
 │
 ├── application/                                 # 2. Capa de Aplicación (Casos de Uso y DTOs)
-│   ├── use_cases/                               # Orquestadores de negocio (ParseReceiptUseCase)
-│   ├── dtos/                                    # Data Transfer Objects (ReceiptResponseDTO, APIResponseDTO)
-│   └── mappers/                                 # Mapeadores Entidad <-> DTO (ReceiptMapper)
+│   ├── use_cases/                               # Orquestadores de negocio (ParseReceiptUseCase, ProjectSalaryUseCase)
+│   ├── dtos/                                    # Data Transfer Objects (ReceiptResponseDTO, SimulationDTO, etc.)
+│   └── mappers/                                 # Mapeadores Entidad <-> DTO (ReceiptMapper, SimulationMapper)
 │
 ├── adapters/                                    # 3. Capa de Adaptadores (Interface Adapters)
-│   ├── controllers/                             # Inbound: Endpoints FastAPI y dependencias
-│   ├── gateways/                                # Outbound: Extractores (pdfplumber) y Parsers (DGCyE, Genérico)
-│   └── presenters/                              # Presenters de salida HTTP y formato de errores
+│   ├── controllers/                             # Inbound: controladores puros agnósticos de transporte
+│   ├── gateways/                                # Outbound: pdfplumber, JSON paritarias, parsers DGCyE/Genérico
+│   └── presenters/                              # Presenters de salida y formato de errores
 │
 ├── infrastructure/                              # 4. Capa de Infraestructura (Por Librería Externa)
-│   ├── fastapi/                                 # Servidor FastAPI y middlewares
+│   ├── fastapi/                                 # Servidor FastAPI, middlewares y routers HTTP
+│   │   └── routes/                              # Routers FastAPI (health, recibos, simulation)
+│   ├── fastmcp/                                 # Servidores MCP (Clarity, GA4, Google Ads)
 │   └── pydantic/                                # Settings con pydantic-settings
 │
 └── main.py                                      # Entrypoint ASGI (app = create_app())

@@ -18,7 +18,9 @@ def test_google_ads_status_structure() -> None:
     assert status["daily_budget_limit_ars"] == DAILY_BUDGET_LIMIT_ARS
 
 
-def test_google_ads_missing_credentials_handling(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_google_ads_missing_credentials_handling(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     monkeypatch.setattr("src.infrastructure.fastmcp.google_ads.REFRESH_TOKEN", "")
     monkeypatch.setattr("src.infrastructure.fastmcp.google_ads.CUSTOMER_ID", "")
 

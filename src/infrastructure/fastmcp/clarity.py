@@ -15,7 +15,9 @@ CLARITY_ID: str = (os.getenv("CLARITY_ID") or "wx5hfvmv5y").strip()
 CLARITY_API_TOKEN: str = (os.getenv("CLARITY_API_TOKEN") or "").strip()
 
 
-def _clarity_api_request(endpoint: str, params: dict[str, Any] | None = None) -> dict[str, Any]:
+def _clarity_api_request(
+    endpoint: str, params: dict[str, Any] | None = None
+) -> dict[str, Any]:
     """Ejecuta una petición autenticada a la Clarity Export API."""
     if not CLARITY_API_TOKEN:
         return {
