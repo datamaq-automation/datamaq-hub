@@ -68,9 +68,20 @@ src/
 ---
 
 ## 4. Convenciones de Git y Commits
-Seguir el estándar **Conventional Commits**:
+Seguir el estándar **Conventional Commits** de manera rigurosa:
 * `feat:` Nueva funcionalidad o parser.
 * `fix:` Corrección de bugs o errores de parsing.
 * `refactor:` Mejoras en la estructura de código sin cambios en el comportamiento.
 * `test:` Adición o actualización de tests unitarios/integración.
-* `docs:` Documentación, OpenAPI y guías.
+* `docs:` Documentación, OpenAPI y guías de uso interno.
+
+---
+
+## 5. Gobernanza Interna y Control de Calidad Obligatorio
+Antes de integrar cambios al entorno de ejecución del Hub (repositorio interno), es obligatorio validar:
+1. **Tipado Estricto con Pyright:** 0 errores de tipado estático con `pyright`.
+2. **Autoformateo y Calidad de Código:** Limpieza impecable mediante `ruff check .` y `ruff format --check .`.
+3. **Tests de Regresión:** La suite de pruebas debe pasar al 100% (incluyendo el Architecture Guard `test_architecture_boundaries.py` y `test_empty_inits.py`).
+4. **Verificación Pre-push Automatizada:** Ejecutar `./scripts/pre-push.sh` localmente.
+5. **Aislamiento en __init__.py:** Garantizar que todos los archivos `__init__.py` permanezcan vacíos (0 bytes) para evitar mimetismos en el descubrimiento de módulos por pytest.
+

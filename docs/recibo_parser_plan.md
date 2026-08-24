@@ -1,15 +1,16 @@
-# Plan de Implementación: Clean Architecture y DDD (Infraestructura por Librería Externa)
+# Plan de Implementación Interno: Clean Architecture y DDD
 
 ## 1. Goal Description
-Estructurar **Datamaq Hub** bajo un diseño arquitectónico riguroso y desacoplado, combinando **Clean Architecture**, **Ports & Adapters** y **Domain-Driven Design (DDD)**:
+Estructurar **Datamaq Hub** bajo un diseño arquitectónico riguroso y desacoplado, combinando **Clean Architecture**, **Ports & Adapters** y **Domain-Driven Design (DDD)** con el fin de robustecer el motor de procesamiento interno de recibos de sueldo del ecosistema DataMaq. 
 
-- **`src/domain/`**: Entidades y reglas de negocio del dominio (`entities/`, `value_objects/`, `services/`, `ports/`, `exceptions/`).
-- **`src/application/`**: Orquestación de casos de uso y modelos de transferencia (`use_cases/`, `dtos/`, `mappers/`).
-- **`src/adapters/`**: Adaptadores de interfaz (`controllers/`, `gateways/`, `presenters/`).
-- **`src/infrastructure/`**: Organizado por **librería externa / tecnología proveedora**:
-  - **`fastapi/`**: Servidor ASGI, middlewares, CORS y bootstrap de FastAPI (`server.py`).
-  - **`pydantic/`**: Configuración de entorno y settings con `pydantic-settings` (`config.py`).
-- **`src/main.py`**: Punto de entrada raíz para Uvicorn (`app = create_app()`).
+Esta arquitectura mitigará la introducción de desvíos lógicos y fallas en producción, garantizando la inmutabilidad de las reglas de negocio críticas frente a cambios en frameworks, y asegurando el control exacto de las liquidaciones de haberes de clientes corporativos y personal docente.
+
+La estructura interna se organiza de la siguiente manera:
+- **`src/domain/`**: Reglas puras de negocio del dominio.
+- **`src/application/`**: Casos de uso específicos del negocio y serialización.
+- **`src/adapters/`**: Puentes agnósticos entre el transporte y el dominio.
+- **`src/infrastructure/`**: Aislamiento de librerías externas y bootstrap del servidor.
+- **`src/main.py`**: Entrypoint ASGI para la ejecución del servidor.
 
 ```mermaid
 flowchart TD
