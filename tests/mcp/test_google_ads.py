@@ -2,17 +2,15 @@
 
 import pytest
 
-from src.infrastructure.fastmcp.google_ads import (
+import src.infrastructure.fastmcp.google_ads as google_ads_mcp
+from src.adapters.gateways.google_ads_gateway import (
     DAILY_BUDGET_LIMIT_ARS,
-    get_campaign_performance,
-    get_daily_budget_pacing,
-    get_google_ads_status,
-    get_search_terms_report,
+    GoogleAdsGateway,
 )
 
 
 def test_google_ads_status_structure() -> None:
-    status = get_google_ads_status()
+    status = google_ads_mcp.get_google_ads_status()
     assert "status" in status
     assert "daily_budget_limit_ars" in status
     assert status["daily_budget_limit_ars"] == DAILY_BUDGET_LIMIT_ARS
@@ -21,18 +19,24 @@ def test_google_ads_status_structure() -> None:
 def test_google_ads_missing_credentials_handling(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    monkeypatch.setattr("src.infrastructure.fastmcp.google_ads.REFRESH_TOKEN", "")
-    monkeypatch.setattr("src.infrastructure.fastmcp.google_ads.CUSTOMER_ID", "")
+    mock_gateway = GoogleAdsGateway(
+        developer_token="",
+        client_id="",
+        client_secret="",
+        refresh_token="",
+        customer_id="",
+    )
+    monkeypatch.setattr(google_ads_mcp, "_gateway", mock_gateway)
 
-    status = get_google_ads_status()
+    status = google_ads_mcp.get_google_ads_status()
     assert status["status"] == "pending_credentials"
 
-    camp = get_campaign_performance(7)
+    camp = google_ads_mcp.get_campaign_performance(7)
     assert camp["status"] == "missing_credentials"
 
-    terms = get_search_terms_report(7)
+    terms = google_ads_mcp.get_search_terms_report(7)
     assert terms["status"] == "missing_credentials"
 
-    pacing = get_daily_budget_pacing()
+    pacing = google_ads_mcp.get_daily_budget_pacing()
     assert pacing["status"] == "missing_credentials"
     assert pacing["daily_limit_ars"] == 1500.0

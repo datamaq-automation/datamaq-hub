@@ -23,6 +23,21 @@ class Settings(BaseSettings):
     cors_origins: list[str] = ["*"]
     max_upload_size_bytes: int = 25 * 1024 * 1024  # 25 MB
 
+    # === MICROSOFT CLARITY ===
+    clarity_id: str = ""
+    clarity_api_token: str = ""
+
+    # === GOOGLE ANALYTICS 4 ===
+    ga4_property_id: str = ""
+    google_application_credentials: str = ""
+
+    # === GOOGLE ADS ===
+    google_ads_developer_token: str = ""
+    google_ads_client_id: str = ""
+    google_ads_client_secret: str = ""
+    google_ads_refresh_token: str = ""
+    google_ads_login_customer_id: str = ""
+
 
 @lru_cache
 def get_settings() -> Settings:

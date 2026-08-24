@@ -6,16 +6,17 @@ from urllib.error import HTTPError
 
 import pytest
 
-from src.infrastructure.fastmcp.clarity import (
+import src.infrastructure.fastmcp.clarity as clarity_mcp
+from src.adapters.gateways.clarity_gateway import (
+    ClarityGateway,
     _clarity_api_request,
-    get_clarity_project_info,
-    get_dashboard_insights,
-    get_live_insights,
 )
+from src.infrastructure.pydantic.config import Settings
 
 
 def test_clarity_project_info() -> None:
-    info = get_clarity_project_info()
+    gateway = ClarityGateway(clarity_id="wx5hfvmv5y", clarity_api_token="fake")
+    info = gateway.get_project_info()
     assert info["project_id"] == "wx5hfvmv5y"
     assert "https://datamaq.com.ar" in info["site_url"]
     assert "clarity.microsoft.com" in info["dashboard_url"]
@@ -23,26 +24,39 @@ def test_clarity_project_info() -> None:
     assert "heatmaps" in info["heatmaps_url"]
 
 
-def test_clarity_missing_token_handling(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setattr("src.infrastructure.fastmcp.clarity.CLARITY_API_TOKEN", "")
-    res = _clarity_api_request("test-endpoint")
+def test_clarity_missing_token_handling() -> None:
+    res = _clarity_api_request(
+        clarity_id="wx5hfvmv5y", clarity_api_token="", endpoint="test-endpoint"
+    )
     assert res["status"] == "missing_token"
     assert "CLARITY_API_TOKEN" in res["message"]
 
 
 def test_clarity_tools_without_token(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setattr("src.infrastructure.fastmcp.clarity.CLARITY_API_TOKEN", "")
-    live = get_live_insights()
+    mock_settings = Settings(clarity_api_token="", clarity_id="wx5hfvmv5y")
+
+    # Inyectar gateway sin token en el módulo del servidor MCP
+    monkeypatch.setattr(
+        clarity_mcp,
+        "_gateway",
+        ClarityGateway(
+            clarity_id=mock_settings.clarity_id,
+            clarity_api_token=mock_settings.clarity_api_token,
+        ),
+    )
+
+    live = clarity_mcp.get_live_insights()
     assert live["status"] == "missing_token"
 
-    dash = get_dashboard_insights(2)
+    dash = clarity_mcp.get_dashboard_insights(2)
     assert dash["status"] == "missing_token"
 
 
 def test_clarity_api_request_success(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setattr(
-        "src.infrastructure.fastmcp.clarity.CLARITY_API_TOKEN", "fake_token"
+    mock_gateway = ClarityGateway(
+        clarity_id="wx5hfvmv5y", clarity_api_token="fake_token"
     )
+    monkeypatch.setattr(clarity_mcp, "_gateway", mock_gateway)
 
     fake_response = MagicMock()
     fake_response.read.return_value = b'{"metricName": "RageClickCount"}'
@@ -53,15 +67,16 @@ def test_clarity_api_request_success(monkeypatch: pytest.MonkeyPatch) -> None:
 
     monkeypatch.setattr("urllib.request.urlopen", mock_urlopen_success)
 
-    res = get_dashboard_insights(3)
+    res = clarity_mcp.get_dashboard_insights(3)
     assert res["status"] == "success"
     assert res["data"] == {"metricName": "RageClickCount"}
 
 
 def test_clarity_api_request_http_error(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setattr(
-        "src.infrastructure.fastmcp.clarity.CLARITY_API_TOKEN", "fake_token"
+    mock_gateway = ClarityGateway(
+        clarity_id="wx5hfvmv5y", clarity_api_token="fake_token"
     )
+    monkeypatch.setattr(clarity_mcp, "_gateway", mock_gateway)
 
     def mock_urlopen_error(req: object, timeout: int = 15) -> object:
         raise HTTPError(
@@ -74,7 +89,7 @@ def test_clarity_api_request_http_error(monkeypatch: pytest.MonkeyPatch) -> None
 
     monkeypatch.setattr("urllib.request.urlopen", mock_urlopen_error)
 
-    res = get_live_insights()
+    res = clarity_mcp.get_live_insights()
     assert res["status"] == "error"
     assert res["code"] == 401
     assert "Invalid token" in res["message"]

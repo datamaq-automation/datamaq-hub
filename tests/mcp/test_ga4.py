@@ -4,18 +4,15 @@ from typing import Any
 
 import pytest
 
-from src.infrastructure.fastmcp.ga4 import (
+import src.infrastructure.fastmcp.ga4 as ga4_mcp
+from src.adapters.gateways.ga4_gateway import (
+    GA4Gateway,
     _run_ga4_report,
-    get_ga4_conversions,
-    get_ga4_geo_traffic,
-    get_ga4_status,
-    get_ga4_top_pages,
-    get_ga4_traffic_sources,
 )
 
 
 def test_ga4_status_structure() -> None:
-    status = get_ga4_status()
+    status = ga4_mcp.get_ga4_status()
     assert "status" in status
     assert "property_id" in status
     assert "credentials_path" in status
@@ -25,28 +22,26 @@ def test_ga4_status_structure() -> None:
 def test_ga4_missing_credentials_graceful_handling(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    monkeypatch.setattr("src.infrastructure.fastmcp.ga4.GA4_PROPERTY_ID", "")
-    monkeypatch.setattr(
-        "src.infrastructure.fastmcp.ga4.GOOGLE_APPLICATION_CREDENTIALS", ""
-    )
+    mock_gateway = GA4Gateway(ga4_property_id="", google_application_credentials="")
+    monkeypatch.setattr(ga4_mcp, "_gateway", mock_gateway)
 
-    status = get_ga4_status()
+    status = ga4_mcp.get_ga4_status()
     assert status["status"] == "missing_credentials"
 
-    report = _run_ga4_report(["pagePath"], ["screenPageViews"])
+    report = _run_ga4_report("", "", ["pagePath"], ["screenPageViews"])
     assert report["status"] == "missing_credentials"
     assert "setup_guide" in report
 
-    top = get_ga4_top_pages()
+    top = ga4_mcp.get_ga4_top_pages()
     assert top["status"] == "missing_credentials"
 
-    sources = get_ga4_traffic_sources()
+    sources = ga4_mcp.get_ga4_traffic_sources()
     assert sources["status"] == "missing_credentials"
 
-    geo = get_ga4_geo_traffic()
+    geo = ga4_mcp.get_ga4_geo_traffic()
     assert geo["status"] == "missing_credentials"
 
-    conv = get_ga4_conversions()
+    conv = ga4_mcp.get_ga4_conversions()
     assert conv["status"] == "missing_credentials"
 
 
@@ -70,19 +65,30 @@ def test_ga4_top_pages_segmentation(monkeypatch: pytest.MonkeyPatch) -> None:
     }
 
     def _mock_report(
-        dimensions: list[str], metrics: list[str], days: int = 7, limit: int = 10
+        prop_id: str,
+        creds: str,
+        dimensions: list[str],
+        metrics: list[str],
+        days: int = 7,
+        limit: int = 10,
     ) -> dict[str, Any]:
         return dict(mock_data)
 
-    monkeypatch.setattr("src.infrastructure.fastmcp.ga4._run_ga4_report", _mock_report)
+    mock_gateway = GA4Gateway(
+        ga4_property_id="123456789", google_application_credentials="fake_path"
+    )
+    monkeypatch.setattr(ga4_mcp, "_gateway", mock_gateway)
+    monkeypatch.setattr(
+        "src.adapters.gateways.ga4_gateway._run_ga4_report", _mock_report
+    )
 
-    all_res = get_ga4_top_pages(segment="all")
+    all_res = ga4_mcp.get_ga4_top_pages(segment="all")
     assert all_res["total_rows"] == 4
 
-    comm_res = get_ga4_top_pages(segment="commercial")
+    comm_res = ga4_mcp.get_ga4_top_pages(segment="commercial")
     assert comm_res["total_rows"] == 2
     assert all(not r["pagePath"].startswith("/cursos") for r in comm_res["rows"])
 
-    acad_res = get_ga4_top_pages(segment="academic")
+    acad_res = ga4_mcp.get_ga4_top_pages(segment="academic")
     assert acad_res["total_rows"] == 2
     assert all(r["pagePath"].startswith("/cursos") for r in acad_res["rows"])
