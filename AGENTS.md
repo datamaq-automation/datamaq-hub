@@ -39,7 +39,7 @@ API FastAPI que parsea recibos de sueldo en PDF (DGCyE PBA / Genérico). Clean A
 ## Tests
 
 - `tests/unit/` — puros, sin PDF. `tests/integration/` — `TestClient` + gateways con PDF real. Fixtures en `tests/conftest.py` (`client`, `sample_pdf_path`, `sample_pdf_bytes`).
-- Los tests de integración con PDF real dependen de `data/36528392-2026-08-13-17_12_03_336.pdf`, pero `data/` está en `.gitignore`: en un clone fresco el fixture hace `pytest.skip` y `test_parse_real_pdf_controller` retorna sin asertar — **skipped por diseño, no "arreglar"**. Si se regenera el fixture, los valores golden (BUSTOS AGUSTÍN, DNI 36528392, CUIL 20-36528392-4, 14 liquidaciones, total 2585423.32) deben coincidir.
+- Los tests de integración con PDF real dependen de `data/36528392-2026-08-13-17_12_03_336.pdf`, pero `data/` está en `.gitignore`: en un clone fresco el fixture hace `pytest.skip` y `test_parse_real_pdf_controller` retorna sin asertar — **skipped por diseño, no "arreglar"**. Si se regenera el fixture, los valores golden (14 liquidaciones, total 2585423.32) deben coincidir.
 - pytest-xdist: correr con `-n auto` es la norma (pre-push y ci lo usan).
 
 ## Referencias

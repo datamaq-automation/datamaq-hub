@@ -20,10 +20,10 @@ def test_receipt_presenter():
         tipo_recibo=TipoRecibo.DGCYE_PBA,
         empleador=EmpleadorDTO(organismo_o_empresa="DGCyE"),
         agente=AgenteDTO(
-            nombre_completo="BUSTOS AGUSTÍN",
+            nombre_completo="DOCENTE EJEMPLO",
             tipo_documento="DNI",
-            numero_documento="36528392",
-            cuil="20-36528392-4",
+            numero_documento="12345678",
+            cuil="20-12345678-9",
             mes_pago="07/2026",
         ),
         totales=TotalesConsolidadosDTO(
@@ -37,7 +37,7 @@ def test_receipt_presenter():
 
     response = ReceiptPresenter.present(dto)
     assert response.success is True
-    assert response.data.agente.nombre_completo == "BUSTOS AGUSTÍN"
+    assert response.data.agente.nombre_completo == "DOCENTE EJEMPLO"
 
 
 def test_simulation_presenter():

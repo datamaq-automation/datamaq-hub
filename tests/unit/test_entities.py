@@ -15,14 +15,14 @@ from src.domain.recibos.value_objects import TipoConcepto, TipoRecibo
 
 def test_entities_instantiation():
     agente = Agente(
-        nombre_completo="BUSTOS AGUSTÍN",
+        nombre_completo="DOCENTE EJEMPLO",
         tipo_documento="DNI",
-        numero_documento="36528392",
+        numero_documento="12345678",
         sexo="M",
-        cuil="20-36528392-4",
+        cuil="20-12345678-9",
         mes_pago="07 / 2026",
     )
-    assert agente.nombre_completo == "BUSTOS AGUSTÍN"
+    assert agente.nombre_completo == "DOCENTE EJEMPLO"
 
     empleador = Empleador(
         organismo_o_empresa="DGCyE",

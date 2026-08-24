@@ -25,11 +25,11 @@ def test_receipt_mapper():
             cuit="30-62739371-3",
         ),
         agente=Agente(
-            nombre_completo="BUSTOS AGUSTÍN",
+            nombre_completo="DOCENTE EJEMPLO",
             tipo_documento="DNI",
-            numero_documento="36528392",
+            numero_documento="12345678",
             sexo="M",
-            cuil="20-36528392-4",
+            cuil="20-12345678-9",
             mes_pago="07 / 2026",
         ),
         resumen_liquidos=[
@@ -74,7 +74,7 @@ def test_receipt_mapper():
 
     dto = ReceiptMapper.to_dto(entity)
     assert isinstance(dto, ReceiptResponseDTO)
-    assert dto.agente.nombre_completo == "BUSTOS AGUSTÍN"
+    assert dto.agente.nombre_completo == "DOCENTE EJEMPLO"
     assert dto.empleador.cuit == "30-62739371-3"
     assert len(dto.resumen_liquidos) == 1
     assert len(dto.liquidaciones) == 1

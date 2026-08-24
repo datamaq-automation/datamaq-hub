@@ -10,6 +10,8 @@ from src.domain.recibos.entities import (
 )
 from src.domain.recibos.value_objects import TipoConcepto
 
+TOLERANCIA_REDONDEO_CENTAVOS: float = 0.10
+
 
 class TextNormalizerService:
     """Sanitizes text, resolves OCR mis-encodings, and normalizes whitespaces."""
@@ -20,7 +22,6 @@ class TextNormalizerService:
             return ""
 
         t = str(text)
-        t = t.replace("AGUSTÁN", "AGUSTÍN")
         t = re.sub(r"EDUCACI\?N", "EDUCACIÓN", t)
         t = re.sub(r"\bEDUCACIÓ\b", "EDUCACIÓN", t)
 
@@ -30,7 +31,7 @@ class TextNormalizerService:
 
     @staticmethod
     def extract_regex(
-        pattern: str | re.Pattern, text: str, group: int = 0
+        pattern: str | re.Pattern[str], text: str, group: int = 0
     ) -> str | None:
         m = re.search(pattern, text)
         if m:
@@ -70,7 +71,7 @@ class TotalesCalculatorService:
 
         if resumen_liquidos:
             sum_resumen = sum(r.liquido_pesos for r in resumen_liquidos)
-            if abs(sum_resumen - total_liq) < 0.1:
+            if abs(sum_resumen - total_liq) <= TOLERANCIA_REDONDEO_CENTAVOS:
                 total_liq = sum_resumen
 
         return TotalesConsolidados(

@@ -15,7 +15,7 @@ from src.domain.recibos.value_objects import TipoConcepto
 
 
 def test_text_normalizer_service():
-    assert TextNormalizerService.normalize("  BUSTOS  AGUSTÁN  ") == "BUSTOS AGUSTÍN"
+    assert TextNormalizerService.normalize("  JUAN  PEREZ  ") == "JUAN PEREZ"
     assert (
         TextNormalizerService.normalize("ESCUELA DE EDUCACI?N")
         == "ESCUELA DE EDUCACIÓN"
