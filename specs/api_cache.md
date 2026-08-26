@@ -163,6 +163,7 @@ pytest -n auto -q tests/unit/ tests/test_architecture_boundaries.py
 | Integridad | `__init__.py` en 0 bytes (incluido el nuevo `src/domain/cache/__init__.py`) |
 | Estilo | `ruff check .` y `ruff format --check .` → 0 errores |
 | Tipado | `pyright` → 0 diagnósticos (sin `datetime.utcnow`; `# type: ignore` solo en imports de librerías de terceros sin stubs, ej. `google.ads`) |
+| Robustez | Imports de librerías de terceros en gateways (`google.*`) con `try/except ImportError` y fallback (`GoogleAdsException = Exception`, `GoogleAPICallError = Exception`); los MCP arrancan aunque falte la lib. `GoogleAdsGateway` normaliza `customer_id` sin guiones (`405-777-8237` → `4057778237`, requerido por la API) |
 | Tests | 100% aprobados, cobertura ≥ 85% |
 | Fronteras | `test_architecture_boundaries.py` sin violaciones |
 

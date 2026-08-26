@@ -55,7 +55,8 @@ class GoogleAdsGateway:
         self.client_id = client_id.strip()
         self.client_secret = client_secret.strip()
         self.refresh_token = refresh_token.strip()
-        self.customer_id = customer_id.strip()
+        # La API exige el ID sin guiones (ej. "4057778237"); el .env puede usar "405-777-8237".
+        self.customer_id = customer_id.strip().replace("-", "")
         self._cache: ApiCachePort = cache if cache is not None else ApiCacheGateway()
 
     def get_status(self) -> dict[str, Any]:

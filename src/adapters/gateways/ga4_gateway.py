@@ -3,7 +3,11 @@
 import os
 from typing import Any
 
-from google.api_core import exceptions as api_exceptions
+try:
+    from google.api_core.exceptions import GoogleAPICallError
+except ImportError:
+    # google-api-core ausente en entornos de test/CI sin dependencias de Google
+    GoogleAPICallError = Exception
 
 from src.adapters.gateways.api_cache_gateway import ApiCacheGateway
 from src.domain.cache.ports import ApiCachePort
@@ -64,7 +68,9 @@ def _run_ga4_report(
             "total_rows": len(results),
             "rows": results,
         }
-    except (ImportError, api_exceptions.GoogleAPICallError) as e:
+    except ImportError as e:
+        return {"status": "error", "message": str(e)}
+    except GoogleAPICallError as e:
         return {"status": "error", "message": str(e)}
 
 
