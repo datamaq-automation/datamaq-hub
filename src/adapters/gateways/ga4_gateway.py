@@ -3,6 +3,9 @@
 import os
 from typing import Any
 
+from src.application.use_cases.api_cache_service import ApiCacheService
+
+_cache = ApiCacheService()
 
 def _run_ga4_report(
     ga4_property_id: str,
@@ -95,6 +98,11 @@ class GA4Gateway:
         self, days: int = 7, limit: int = 10, segment: str = "all"
     ) -> dict[str, Any]:
         """Obtiene las páginas más visitadas y vistas de pantalla en DataMaq."""
+        key = f"ga4:top_pages:days_{days}:limit_{limit}:segment_{segment}"
+        cached = _cache.get(key)
+        if cached is not None:
+            return cached
+
         fetch_limit = limit * 4 if segment in ("commercial", "academic") else limit
         res = _run_ga4_report(
             self.ga4_property_id,
@@ -118,11 +126,16 @@ class GA4Gateway:
         res["rows"] = rows[:limit]
         res["total_rows"] = len(res["rows"])
         res["segment"] = segment
+        _cache.set(key, res)
         return res
 
     def get_traffic_sources(self, days: int = 7, limit: int = 10) -> dict[str, Any]:
         """Obtiene el desglose de tráfico por fuente, medio y campaña UTM (SEO, Ads, Directo)."""
-        return _run_ga4_report(
+        key = f"ga4:traffic_sources:days_{days}:limit_{limit}"
+        cached = _cache.get(key)
+        if cached is not None:
+            return cached
+        result = _run_ga4_report(
             self.ga4_property_id,
             self.google_application_credentials,
             dimensions=["sessionSource", "sessionMedium", "sessionCampaignName"],
@@ -130,10 +143,17 @@ class GA4Gateway:
             days=days,
             limit=limit,
         )
+        if result.get("status") == "success":
+            _cache.set(key, result)
+        return result
 
     def get_geo_traffic(self, days: int = 7, limit: int = 15) -> dict[str, Any]:
         """Obtiene la distribución geográfica del tráfico por ciudad y región (Pilar, Escobar, Tigre, etc.)."""
-        return _run_ga4_report(
+        key = f"ga4:geo_traffic:days_{days}:limit_{limit}"
+        cached = _cache.get(key)
+        if cached is not None:
+            return cached
+        result = _run_ga4_report(
             self.ga4_property_id,
             self.google_application_credentials,
             dimensions=["city", "region"],
@@ -141,10 +161,17 @@ class GA4Gateway:
             days=days,
             limit=limit,
         )
+        if result.get("status") == "success":
+            _cache.set(key, result)
+        return result
 
     def get_conversions(self, days: int = 7) -> dict[str, Any]:
         """Obtiene el conteo de conversiones y eventos clave (generate_lead, whatsapp_click)."""
-        return _run_ga4_report(
+        key = f"ga4:conversions:days_{days}"
+        cached = _cache.get(key)
+        if cached is not None:
+            return cached
+        result = _run_ga4_report(
             self.ga4_property_id,
             self.google_application_credentials,
             dimensions=["eventName"],
@@ -152,3 +179,6 @@ class GA4Gateway:
             days=days,
             limit=20,
         )
+        if result.get("status") == "success":
+            _cache.set(key, result)
+        return result

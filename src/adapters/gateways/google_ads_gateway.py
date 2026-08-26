@@ -2,7 +2,10 @@
 
 from typing import Any
 
+from src.application.use_cases.api_cache_service import ApiCacheService
+
 DAILY_BUDGET_LIMIT_ARS: float = 1500.0
+_cache = ApiCacheService()
 
 
 def _get_google_ads_client(
@@ -99,6 +102,11 @@ class GoogleAdsGateway:
 
     def get_campaign_performance(self, days: int = 7) -> dict[str, Any]:
         """Obtiene el rendimiento por campaña (impresiones, clics, costo ARS, conversiones, CPC promedio)."""
+        key = f"google_ads:campaign_performance:days_{days}"
+        cached = _cache.get(key)
+        if cached is not None:
+            return cached
+
         status = self.get_status()
         if status["status"] != "ready":
             return {
@@ -157,7 +165,7 @@ class GoogleAdsGateway:
                     }
                 )
 
-            return {
+            result: dict[str, Any] = {
                 "status": "success",
                 "customer_id": self.customer_id,
                 "period_days": days,
@@ -165,6 +173,8 @@ class GoogleAdsGateway:
                 "total_cost_ars": round(total_cost_ars, 2),
                 "campaigns": campaigns,
             }
+            _cache.set(key, result)
+            return result
         except Exception as e:
             if "DEVELOPER_TOKEN_NOT_APPROVED" in str(e):
                 return {
@@ -176,6 +186,11 @@ class GoogleAdsGateway:
 
     def get_search_terms_report(self, days: int = 7, limit: int = 20) -> dict[str, Any]:
         """Obtiene los términos de búsqueda reales que dispararon los anuncios para identificar negativas."""
+        key = f"google_ads:search_terms_report:days_{days}:limit_{limit}"
+        cached = _cache.get(key)
+        if cached is not None:
+            return cached
+
         status = self.get_status()
         if status["status"] != "ready":
             return {"status": "missing_credentials", "details": status}
@@ -223,7 +238,9 @@ class GoogleAdsGateway:
                         "conversions": row.metrics.conversions,
                     }
                 )
-            return {"status": "success", "terms": terms}
+            search_result: dict[str, Any] = {"status": "success", "terms": terms}
+            _cache.set(key, search_result)
+            return search_result
         except Exception as e:
             if "DEVELOPER_TOKEN_NOT_APPROVED" in str(e):
                 return {
@@ -234,6 +251,11 @@ class GoogleAdsGateway:
 
     def get_daily_budget_pacing(self) -> dict[str, Any]:
         """Audita el gasto acumulado de hoy contra el presupuesto máximo permitido de $1.500 ARS/día."""
+        key = "google_ads:daily_budget_pacing"
+        cached = _cache.get(key)
+        if cached is not None:
+            return cached
+
         status = self.get_status()
         if status["status"] != "ready":
             return {
@@ -275,7 +297,7 @@ class GoogleAdsGateway:
             pacing_percentage = (today_cost_ars / DAILY_BUDGET_LIMIT_ARS) * 100.0
             is_safe = today_cost_ars <= DAILY_BUDGET_LIMIT_ARS
 
-            return {
+            pacing_result: dict[str, Any] = {
                 "status": "success",
                 "date": "TODAY",
                 "spent_ars": round(today_cost_ars, 2),
@@ -287,6 +309,8 @@ class GoogleAdsGateway:
                 if is_safe
                 else "ALERTA: Presupuesto diario excedido",
             }
+            _cache.set(key, pacing_result)
+            return pacing_result
         except Exception as e:
             if "DEVELOPER_TOKEN_NOT_APPROVED" in str(e):
                 return {

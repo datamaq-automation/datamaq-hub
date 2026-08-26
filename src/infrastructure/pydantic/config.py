@@ -38,6 +38,11 @@ class Settings(BaseSettings):
     google_ads_refresh_token: str = ""
     google_ads_login_customer_id: str = ""
 
+    # === BASE DE DATOS MySQL (Caché de APIs externas — schema datamaq_hub) ===
+    # Formato: mysql+pymysql://usuario:password@host/datamaq_hub
+    # En VPS: mysql+pymysql://datamaq:PASSWORD@127.0.0.1:3306/datamaq_hub
+    database_url: str = ""
+
 
 @lru_cache
 def get_settings() -> Settings:

@@ -6,6 +6,10 @@ import urllib.request
 from typing import Any
 from urllib.error import HTTPError
 
+from src.application.use_cases.api_cache_service import ApiCacheService
+
+_cache = ApiCacheService()
+
 
 def _clarity_api_request(
     clarity_id: str,
