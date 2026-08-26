@@ -3,9 +3,11 @@
 import os
 from typing import Any
 
-from src.application.use_cases.api_cache_service import ApiCacheService
+from google.api_core import exceptions as api_exceptions
 
-_cache = ApiCacheService()
+from src.adapters.gateways.api_cache_gateway import ApiCacheGateway
+from src.domain.cache.ports import ApiCachePort
+
 
 def _run_ga4_report(
     ga4_property_id: str,
@@ -62,16 +64,22 @@ def _run_ga4_report(
             "total_rows": len(results),
             "rows": results,
         }
-    except Exception as e:
+    except (ImportError, api_exceptions.GoogleAPICallError) as e:
         return {"status": "error", "message": str(e)}
 
 
 class GA4Gateway:
     """Encapsula llamadas I/O a Google Analytics 4 sin acoplamiento a infraestructura."""
 
-    def __init__(self, ga4_property_id: str, google_application_credentials: str):
+    def __init__(
+        self,
+        ga4_property_id: str,
+        google_application_credentials: str,
+        cache: ApiCachePort | None = None,
+    ):
         self.ga4_property_id = ga4_property_id.strip()
         self.google_application_credentials = google_application_credentials.strip()
+        self._cache: ApiCachePort = cache if cache is not None else ApiCacheGateway()
 
     def get_status(self) -> dict[str, Any]:
         """Retorna el estado de configuración de Google Analytics 4 en DataMaq."""
@@ -99,7 +107,7 @@ class GA4Gateway:
     ) -> dict[str, Any]:
         """Obtiene las páginas más visitadas y vistas de pantalla en DataMaq."""
         key = f"ga4:top_pages:days_{days}:limit_{limit}:segment_{segment}"
-        cached = _cache.get(key)
+        cached = self._cache.get(key)
         if cached is not None:
             return cached
 
@@ -126,13 +134,13 @@ class GA4Gateway:
         res["rows"] = rows[:limit]
         res["total_rows"] = len(res["rows"])
         res["segment"] = segment
-        _cache.set(key, res)
+        self._cache.set(key, res)
         return res
 
     def get_traffic_sources(self, days: int = 7, limit: int = 10) -> dict[str, Any]:
         """Obtiene el desglose de tráfico por fuente, medio y campaña UTM (SEO, Ads, Directo)."""
         key = f"ga4:traffic_sources:days_{days}:limit_{limit}"
-        cached = _cache.get(key)
+        cached = self._cache.get(key)
         if cached is not None:
             return cached
         result = _run_ga4_report(
@@ -144,13 +152,13 @@ class GA4Gateway:
             limit=limit,
         )
         if result.get("status") == "success":
-            _cache.set(key, result)
+            self._cache.set(key, result)
         return result
 
     def get_geo_traffic(self, days: int = 7, limit: int = 15) -> dict[str, Any]:
         """Obtiene la distribución geográfica del tráfico por ciudad y región (Pilar, Escobar, Tigre, etc.)."""
         key = f"ga4:geo_traffic:days_{days}:limit_{limit}"
-        cached = _cache.get(key)
+        cached = self._cache.get(key)
         if cached is not None:
             return cached
         result = _run_ga4_report(
@@ -162,13 +170,13 @@ class GA4Gateway:
             limit=limit,
         )
         if result.get("status") == "success":
-            _cache.set(key, result)
+            self._cache.set(key, result)
         return result
 
     def get_conversions(self, days: int = 7) -> dict[str, Any]:
         """Obtiene el conteo de conversiones y eventos clave (generate_lead, whatsapp_click)."""
         key = f"ga4:conversions:days_{days}"
-        cached = _cache.get(key)
+        cached = self._cache.get(key)
         if cached is not None:
             return cached
         result = _run_ga4_report(
@@ -180,5 +188,5 @@ class GA4Gateway:
             limit=20,
         )
         if result.get("status") == "success":
-            _cache.set(key, result)
+            self._cache.set(key, result)
         return result

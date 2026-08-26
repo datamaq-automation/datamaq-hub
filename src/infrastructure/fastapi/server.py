@@ -1,9 +1,13 @@
 """FastAPI Application factory and server bootstrapping."""
 
+from collections.abc import AsyncIterator
+from contextlib import asynccontextmanager
+
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
+from src.adapters.gateways.api_cache_gateway import init_db
 from src.adapters.presenters.error_presenter import ErrorPresenter
 from src.domain.liquidacion.exceptions import LiquidacionDomainException
 from src.domain.recibos.exceptions import DomainException
@@ -19,6 +23,12 @@ def create_app() -> FastAPI:
     """Create and configure FastAPI application instance."""
     settings = get_settings()
 
+    @asynccontextmanager
+    async def lifespan(_: FastAPI) -> AsyncIterator[None]:
+        """Inicializa el schema de caché en MySQL al arrancar el servidor."""
+        init_db(settings.database_url)
+        yield
+
     app = FastAPI(
         title=settings.app_name,
         version=settings.app_version,
@@ -26,6 +36,7 @@ def create_app() -> FastAPI:
         docs_url="/docs",
         redoc_url="/redoc",
         openapi_url="/openapi.json",
+        lifespan=lifespan,
     )
 
     # CORS configuration

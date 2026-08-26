@@ -2,12 +2,19 @@
 
 from typing import Any
 
+from src.adapters.gateways.api_cache_gateway import ApiCacheGateway
 from src.adapters.gateways.clarity_gateway import ClarityGateway
 from src.infrastructure.pydantic.config import get_settings
 
 settings = get_settings()
+_cache = ApiCacheGateway(
+    database_url=settings.database_url,
+    ttl_by_prefix=settings.cache_ttls or None,
+)
 _gateway = ClarityGateway(
-    clarity_id=settings.clarity_id, clarity_api_token=settings.clarity_api_token
+    clarity_id=settings.clarity_id,
+    clarity_api_token=settings.clarity_api_token,
+    cache=_cache,
 )
 
 

@@ -10,5 +10,7 @@
   ],
   "typeCheckingMode": "standard",
   "pythonVersion": "3.10",
-  "reportUnknownVariableType": true
+  "reportUnknownVariableType": true,
+  "venvPath": ".",
+  "venv": "venv"
 }

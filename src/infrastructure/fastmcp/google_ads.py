@@ -2,16 +2,22 @@
 
 from typing import Any
 
+from src.adapters.gateways.api_cache_gateway import ApiCacheGateway
 from src.adapters.gateways.google_ads_gateway import GoogleAdsGateway
 from src.infrastructure.pydantic.config import get_settings
 
 settings = get_settings()
+_cache = ApiCacheGateway(
+    database_url=settings.database_url,
+    ttl_by_prefix=settings.cache_ttls or None,
+)
 _gateway = GoogleAdsGateway(
     developer_token=settings.google_ads_developer_token,
     client_id=settings.google_ads_client_id,
     client_secret=settings.google_ads_client_secret,
     refresh_token=settings.google_ads_refresh_token,
     customer_id=settings.google_ads_login_customer_id,
+    cache=_cache,
 )
 
 

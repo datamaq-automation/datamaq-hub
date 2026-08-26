@@ -6,9 +6,8 @@ import urllib.request
 from typing import Any
 from urllib.error import HTTPError
 
-from src.application.use_cases.api_cache_service import ApiCacheService
-
-_cache = ApiCacheService()
+from src.adapters.gateways.api_cache_gateway import ApiCacheGateway
+from src.domain.cache.ports import ApiCachePort
 
 
 def _clarity_api_request(
@@ -49,16 +48,22 @@ def _clarity_api_request(
     except HTTPError as e:
         error_body = e.read().decode("utf-8")
         return {"status": "error", "code": e.code, "message": error_body}
-    except Exception as e:
+    except (OSError, ValueError) as e:
         return {"status": "error", "message": str(e)}
 
 
 class ClarityGateway:
     """Encapsula llamadas I/O a Microsoft Clarity sin acoplamiento a infraestructura."""
 
-    def __init__(self, clarity_id: str, clarity_api_token: str):
+    def __init__(
+        self,
+        clarity_id: str,
+        clarity_api_token: str,
+        cache: ApiCachePort | None = None,
+    ):
         self.clarity_id = clarity_id.strip()
         self.clarity_api_token = clarity_api_token.strip()
+        self._cache: ApiCachePort = cache if cache is not None else ApiCacheGateway()
 
     def get_project_info(self) -> dict[str, Any]:
         """Obtiene la información del proyecto Microsoft Clarity configurado para DataMaq."""
@@ -73,16 +78,30 @@ class ClarityGateway:
 
     def get_live_insights(self) -> dict[str, Any]:
         """Consulta los usuarios activos y páginas vistas en tiempo real."""
-        return _clarity_api_request(
+        key = "clarity:live_insights"
+        cached = self._cache.get(key)
+        if cached is not None:
+            return cached
+        result = _clarity_api_request(
             self.clarity_id, self.clarity_api_token, "project-live-insights"
         )
+        if result.get("status") == "success":
+            self._cache.set(key, result)
+        return result
 
     def get_dashboard_insights(self, num_of_days: int = 3) -> dict[str, Any]:
         """Obtiene las métricas agregadas de comportamiento de los últimos N días."""
         days = max(1, min(3, num_of_days))
-        return _clarity_api_request(
+        key = f"clarity:dashboard_insights:days_{days}"
+        cached = self._cache.get(key)
+        if cached is not None:
+            return cached
+        result = _clarity_api_request(
             self.clarity_id,
             self.clarity_api_token,
             "project-live-insights",
             {"numOfDays": days},
         )
+        if result.get("status") == "success":
+            self._cache.set(key, result)
+        return result

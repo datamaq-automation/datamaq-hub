@@ -2,6 +2,7 @@
 
 from functools import lru_cache
 
+from pydantic import Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -42,6 +43,11 @@ class Settings(BaseSettings):
     # Formato: mysql+pymysql://usuario:password@host/datamaq_hub
     # En VPS: mysql+pymysql://datamaq:PASSWORD@127.0.0.1:3306/datamaq_hub
     database_url: str = ""
+
+    # === TTLs de caché por prefijo de clave (segundos) ===
+    # JSON en .env. Vacío = el gateway usa sus defaults aprobados (fallback).
+    # Ejemplo: CACHE_TTLS={"google_ads:daily_budget_pacing": 900}
+    cache_ttls: dict[str, int] = Field(default_factory=dict)
 
 
 @lru_cache

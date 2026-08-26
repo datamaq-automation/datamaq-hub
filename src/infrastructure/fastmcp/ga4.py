@@ -2,13 +2,19 @@
 
 from typing import Any
 
+from src.adapters.gateways.api_cache_gateway import ApiCacheGateway
 from src.adapters.gateways.ga4_gateway import GA4Gateway
 from src.infrastructure.pydantic.config import get_settings
 
 settings = get_settings()
+_cache = ApiCacheGateway(
+    database_url=settings.database_url,
+    ttl_by_prefix=settings.cache_ttls or None,
+)
 _gateway = GA4Gateway(
     ga4_property_id=settings.ga4_property_id,
     google_application_credentials=settings.google_application_credentials,
+    cache=_cache,
 )
 
 
