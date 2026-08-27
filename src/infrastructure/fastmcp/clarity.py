@@ -31,3 +31,13 @@ def get_live_insights() -> dict[str, Any]:
 def get_dashboard_insights(num_of_days: int = 3) -> dict[str, Any]:
     """Obtiene las métricas agregadas de comportamiento de los últimos N días."""
     return _gateway.get_dashboard_insights(num_of_days)
+
+
+def get_intent_recording_urls() -> dict[str, str]:
+    """Retorna los enlaces web directos a grabaciones de Clarity filtradas por eventos de conversión (email_click, whatsapp_click, form_submit, etc.)."""
+    return _gateway.get_intent_recording_urls()
+
+
+def get_recording_url(filter_tag: str = "") -> str:
+    """Genera la URL directa a grabaciones de Clarity para un tag de conversión o filtro personalizado."""
+    return _gateway.get_recording_url(filter_tag if filter_tag else None)

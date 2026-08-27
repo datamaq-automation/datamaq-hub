@@ -36,17 +36,30 @@ def gateway() -> Iterator[ApiCacheGateway]:
     _clear_table()
 
 
-def test_get_returns_none_without_db() -> None:
-    """R1: sin DATABASE_URL, get() retorna None sin excepción."""
+def test_get_returns_none_without_db_on_miss() -> None:
+    """R1: sin DATABASE_URL y sin set previo, get() retorna None sin excepción."""
     gw = ApiCacheGateway(database_url=None)
     assert gw.get("cualquier:clave") is None
 
 
-def test_set_noop_without_db() -> None:
-    """R2: sin DATABASE_URL, set() no persiste ni lanza."""
+def test_in_memory_fallback_without_db() -> None:
+    """R2: sin DATABASE_URL, set() y get() operan en memoria con TTL."""
     gw = ApiCacheGateway(database_url=None)
     gw.set("cualquier:clave", {"a": 1})
-    assert gw.get("cualquier:clave") is None
+    assert gw.get("cualquier:clave") == {"a": 1}
+
+    # Expiración en memoria
+    gw.set("clave:expirada", {"b": 2}, ttl_seconds=-1)
+    assert gw.get("clave:expirada") is None
+
+
+def test_invalid_database_url_fallback_gracefully() -> None:
+    """R2b: ante DATABASE_URL rota, opera en memoria sin arrojar excepciones."""
+    gw = ApiCacheGateway(
+        database_url="mysql+pymysql://invalid:fake@127.0.0.1:9999/nonexistent"
+    )
+    gw.set("clave:resiliencia", {"ok": True})
+    assert gw.get("clave:resiliencia") == {"ok": True}
 
 
 def test_get_returns_none_on_miss(gateway: ApiCacheGateway) -> None:

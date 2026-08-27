@@ -39,6 +39,19 @@ def _get_google_ads_client(
         return None
 
 
+def _resolve_gaql_date_range(days: int) -> str:
+    """Mapea una cantidad de días a un literal válido de fecha en Google Ads Query Language (GAQL)."""
+    if days <= 1:
+        return "TODAY"
+    elif days <= 7:
+        return "LAST_7_DAYS"
+    elif days <= 14:
+        return "LAST_14_DAYS"
+    elif days <= 30:
+        return "LAST_30_DAYS"
+    return "LAST_30_DAYS"
+
+
 class GoogleAdsGateway:
     """Encapsula llamadas I/O a Google Ads API sin acoplamiento a infraestructura."""
 
@@ -137,6 +150,7 @@ class GoogleAdsGateway:
             }
 
         ga_service = client.get_service("GoogleAdsService")
+        date_range = _resolve_gaql_date_range(days)
         query = f"""
             SELECT
                 campaign.id,
@@ -148,7 +162,7 @@ class GoogleAdsGateway:
                 metrics.conversions,
                 metrics.average_cpc
             FROM campaign
-            WHERE segments.date DURING LAST_{days}_DAYS
+            WHERE segments.date DURING {date_range}
             ORDER BY metrics.clicks DESC
         """
 
@@ -217,6 +231,7 @@ class GoogleAdsGateway:
             }
 
         ga_service = client.get_service("GoogleAdsService")
+        date_range = _resolve_gaql_date_range(days)
         query = f"""
             SELECT
                 search_term_view.search_term,
@@ -226,7 +241,7 @@ class GoogleAdsGateway:
                 metrics.cost_micros,
                 metrics.conversions
             FROM search_term_view
-            WHERE segments.date DURING LAST_{days}_DAYS
+            WHERE segments.date DURING {date_range}
             ORDER BY metrics.clicks DESC
             LIMIT {limit}
         """

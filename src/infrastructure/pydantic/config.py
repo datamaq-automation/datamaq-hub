@@ -44,10 +44,14 @@ class Settings(BaseSettings):
     # En VPS: mysql+pymysql://datamaq:PASSWORD@127.0.0.1:3306/datamaq_hub
     database_url: str = ""
 
+    # === TELEGRAM BOT & ALERTAS (Watchdog) ===
+    telegram_bot_token: str = ""
+    telegram_chat_id: str = ""
+
     # === TTLs de caché por prefijo de clave (segundos) ===
     # JSON en .env. Vacío = el gateway usa sus defaults aprobados (fallback).
     # Ejemplo: CACHE_TTLS={"google_ads:daily_budget_pacing": 900}
-    cache_ttls: dict[str, int] = Field(default_factory=dict)
+    cache_ttls: dict[str, int] = Field(default_factory=dict[str, int])
 
 
 @lru_cache

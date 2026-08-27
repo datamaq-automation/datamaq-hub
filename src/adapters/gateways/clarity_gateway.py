@@ -52,6 +52,16 @@ def _clarity_api_request(
         return {"status": "error", "message": str(e)}
 
 
+INTENT_RECORDING_FILTERS: dict[str, str] = {
+    "email_click": "lead_intent:email_click",
+    "email_copy": "lead_intent:email_copy",
+    "whatsapp_click": "lead_intent:whatsapp_click",
+    "phone_click": "lead_intent:phone_click",
+    "form_submit": "lead_intent:form_submit",
+    "direct_contact": "lead_intent:direct_contact",
+}
+
+
 class ClarityGateway:
     """Encapsula llamadas I/O a Microsoft Clarity sin acoplamiento a infraestructura."""
 
@@ -65,6 +75,24 @@ class ClarityGateway:
         self.clarity_api_token = clarity_api_token.strip()
         self._cache: ApiCachePort = cache if cache is not None else ApiCacheGateway()
 
+    def get_recording_url(self, filter_tag: str | None = None) -> str:
+        """Retorna la URL parametrizada de grabaciones en Clarity para un tag de intención o filtro."""
+        base = (
+            f"https://clarity.microsoft.com/projects/view/{self.clarity_id}/recordings"
+        )
+        if not filter_tag:
+            return base
+        tag_value = INTENT_RECORDING_FILTERS.get(filter_tag, filter_tag)
+        encoded_filter = urllib.parse.quote(tag_value, safe="")
+        return f"{base}?filter={encoded_filter}"
+
+    def get_intent_recording_urls(self) -> dict[str, str]:
+        """Retorna el mapa de URLs directas a grabaciones en Clarity filtradas por eventos de conversión."""
+        return {
+            intent: self.get_recording_url(intent)
+            for intent in INTENT_RECORDING_FILTERS
+        }
+
     def get_project_info(self) -> dict[str, Any]:
         """Obtiene la información del proyecto Microsoft Clarity configurado para DataMaq."""
         return {
@@ -74,6 +102,7 @@ class ClarityGateway:
             "dashboard_url": f"https://clarity.microsoft.com/projects/view/{self.clarity_id}/dashboard",
             "recordings_url": f"https://clarity.microsoft.com/projects/view/{self.clarity_id}/recordings",
             "heatmaps_url": f"https://clarity.microsoft.com/projects/view/{self.clarity_id}/heatmaps",
+            "intent_recording_urls": self.get_intent_recording_urls(),
         }
 
     def get_live_insights(self) -> dict[str, Any]:

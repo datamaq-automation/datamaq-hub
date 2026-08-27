@@ -93,3 +93,48 @@ def test_clarity_api_request_http_error(monkeypatch: pytest.MonkeyPatch) -> None
     assert res["status"] == "error"
     assert res["code"] == 401
     assert "Invalid token" in res["message"]
+
+
+def test_clarity_intent_recording_urls() -> None:
+    gateway = ClarityGateway(clarity_id="wx5hfvmv5y", clarity_api_token="fake")
+    urls = gateway.get_intent_recording_urls()
+    assert "email_click" in urls
+    assert "lead_intent%3Aemail_click" in urls["email_click"]
+    assert "whatsapp_click" in urls
+    assert "lead_intent%3Awhatsapp_click" in urls["whatsapp_click"]
+    assert "form_submit" in urls
+    assert "lead_intent%3Aform_submit" in urls["form_submit"]
+
+
+def test_clarity_get_recording_url_custom() -> None:
+    gateway = ClarityGateway(clarity_id="wx5hfvmv5y", clarity_api_token="fake")
+    # Base sin filtro
+    assert (
+        gateway.get_recording_url()
+        == "https://clarity.microsoft.com/projects/view/wx5hfvmv5y/recordings"
+    )
+    # Con alias conocido
+    assert "filter=lead_intent%3Aemail_click" in gateway.get_recording_url(
+        "email_click"
+    )
+    # Con filtro ad-hoc
+    assert "filter=custom_tag%3Avalue" in gateway.get_recording_url("custom_tag:value")
+
+
+def test_clarity_project_info_contains_intent_urls() -> None:
+    gateway = ClarityGateway(clarity_id="wx5hfvmv5y", clarity_api_token="fake")
+    info = gateway.get_project_info()
+    assert "intent_recording_urls" in info
+    assert "email_click" in info["intent_recording_urls"]
+
+
+def test_clarity_mcp_recording_tools(monkeypatch: pytest.MonkeyPatch) -> None:
+    mock_gateway = ClarityGateway(clarity_id="wx5hfvmv5y", clarity_api_token="fake")
+    monkeypatch.setattr(clarity_mcp, "_gateway", mock_gateway)
+
+    urls = clarity_mcp.get_intent_recording_urls()
+    assert isinstance(urls, dict)
+    assert "email_click" in urls
+
+    url = clarity_mcp.get_recording_url("email_click")
+    assert "lead_intent%3Aemail_click" in url

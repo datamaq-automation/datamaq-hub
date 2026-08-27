@@ -7,22 +7,19 @@ Las respuestas de los servidores FastMCP (Google Ads, GA4 y Microsoft Clarity) s
 consultan en tiempo real contra las APIs externas en cada invocación. Esto consume
 cuotas, añade latencia y expone a errores de *rate-limit*.
 
-**Solución:** capa de caché persistente en MySQL (schema dedicado `datamaq_hub`,
-separado de `datamaq_leads` de `www-datamaq`) usando SQLAlchemy ORM. Las respuestas
-se serializan a JSON con un TTL por tipo de endpoint.
+**Solución:** capa de caché persistente en MySQL (schema dedicado `datamaq_hub`)
+usando SQLAlchemy ORM, con **fallback automático y transparente en memoria** (`_memory_cache` con TTL)
+cuando la base de datos no está configurada o se encuentra inaccesible. Las respuestas se serializan
+a JSON con un TTL por tipo de endpoint.
 
 ### Límites (fuera de alcance)
-- Migraciones versionadas (Alembic). Se usa `CREATE TABLE IF NOT EXISTS` idempotente.
+- Migraciones versionadas complejas (Alembic). Se usa `CREATE TABLE IF NOT EXISTS` idempotente.
 - Invalidación manual / purga de entradas. El TTL es la única política de expiración.
-- Caché distribuida o en memoria (Redis). Solo persistencia en MySQL.
+- Caché distribuida externa (Redis/Memcached). Solo persistencia en MySQL + fallback in-process.
 
-### Decisión de arquitectura (corrige deuda del intento previo)
-La implementación anterior ubicó `ApiCacheService` en `src/application/use_cases/`
-importando `src.infrastructure.database`, lo que **rompe la pureza de la capa de
-aplicación** (`tests/test_architecture_boundaries.py`) y la Regla Sagrada 1
-(adapters nunca importa infrastructure). Este spec **reubica** la persistencia como
-un **gateway** que encapsula SQLAlchemy directamente (mismo patrón que
-`pdfplumber_extractor_gateway`), consumido vía un **Puerto de dominio** inyectado.
+### Decisión de arquitectura
+La persistencia reside en un **gateway** (`ApiCacheGateway`) que encapsula SQLAlchemy directamente
+(mismo patrón que `pdfplumber_extractor_gateway`), consumido vía el puerto de dominio `ApiCachePort`.
 
 ## 2. Dominio & Puertos
 
@@ -32,8 +29,8 @@ Interfaz abstracta (`abc.ABC`), sin dependencias externas ni frameworks:
 
 | Método | Contrato |
 |---|---|
-| `get(key: str) -> Any \| None` | Retorna el valor deserializado si hay entrada vigente; `None` en miss, expirado o sin BD. |
-| `set(key: str, value: Any, ttl_seconds: int \| None = None) -> None` | Persiste `value` serializado. `ttl_seconds=None` resuelve por prefijo de clave. No-op sin BD. |
+| `get(key: str) -> Any \| None` | Retorna el valor deserializado si hay entrada vigente (BD o memoria); `None` en miss o expirado. |
+| `set(key: str, value: Any, ttl_seconds: int \| None = None) -> None` | Persiste `value` en memoria y en BD si está disponible. `ttl_seconds=None` resuelve por prefijo. |
 
 ### Regla de inmutabilidad temporal
 Los TTL son períodos operativos sujetos a configuración. Quedan **prohibidos como
@@ -130,8 +127,8 @@ MySQL en CI. `sqlite3` es stdlib y SQLAlchemy lo soporta.
 
 | # | Escenario Gherkin | Resultado esperado |
 |---|---|---|
-| R1 | **Dado** `DATABASE_URL` vacío, **Cuando** `get(clave)`, **Entonces** retorna `None` | None (sin excepción) |
-| R2 | **Dado** `DATABASE_URL` vacío, **Cuando** `set(clave, valor)`, **Entonces** no persiste ni lanza | no-op |
+| R1 | **Dado** `DATABASE_URL` vacío y sin set, **Cuando** `get(clave)`, **Entonces** retorna `None` | None (sin excepción) |
+| R2 | **Dado** `DATABASE_URL` vacío, **Cuando** `set(clave, valor)`, **Entonces** opera en memoria con TTL | cached in-memory |
 | R3 | **Dado** tabla vacía, **Cuando** `get(clave_inexistente)`, **Entonces** retorna `None` | miss |
 | R4 | **Dado** entrada vigente, **Cuando** `get(clave)`, **Entonces** retorna el valor deserializado | hit JSON |
 | R5 | **Dado** entrada con `expires_at` en el pasado, **Cuando** `get(clave)`, **Entonces** retorna `None` | expirado |

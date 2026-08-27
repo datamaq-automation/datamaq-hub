@@ -8,8 +8,7 @@ API FastAPI que parsea recibos de sueldo en PDF (DGCyE PBA / Genérico). Clean A
 - Verificación pre-push: `./scripts/pre-push.sh` — `python scripts/verify_architecture.py` → `ruff check .` → `ruff format --check .` → `pyright` → `pytest tests/test_empty_inits.py` → `pytest -n auto -q tests/unit/ tests/test_architecture_boundaries.py`.
 - Suite completa: `./scripts/ci.sh` — AST guard + pytest completo + `__init__.py` + pyright/mypy.
 - Test individual: `pytest tests/unit/test_value_objects.py::test_cuit_validation` (desde la raíz).
-- **Tipado Estricto con `pyrightconfig.json`**: `pyright` corre en pre-push y CI. Se exige tipado exhaustivo en `src/`.
-- No existe `spec.md` ni `specs/` (el flujo SDD global los exige); el diseño vive en `docs/recibo_parser_plan.md`.
+- **Especificaciones y Documentación:** Las especificaciones formales residen en `specs/` (`receipt_parser.md`, `api_cache.md`, `analytics_mcp.md`) y la documentación viva en `docs/` (`docs/README.md`, `docs/recibo_parser_plan.md`, `docs/analytics_and_ads.md`).
 
 ## Arquitectura y reglas de dependencia
 
@@ -43,6 +42,7 @@ API FastAPI que parsea recibos de sueldo en PDF (DGCyE PBA / Genérico). Clean A
 - pytest-xdist: correr con `-n auto` es la norma (pre-push y ci lo usan).
 
 ## Referencias
-
-- `CONVENTIONS.md` — convenciones de estilo y git (su claim de `__init__.py` re-exportadores está desactualizado).
-- `docs/recibo_parser_plan.md` — diseño original (su diagrama de directorios con `entities/` como carpeta está desactualizado; la estructura real es plana).
+ 
+- `CONVENTIONS.md` — convenciones de estilo y git (los `__init__.py` deben quedar en 0 bytes).
+- `specs/README.md` — especificaciones técnicas de subsistemas (`receipt_parser.md`, `api_cache.md`, `analytics_mcp.md`).
+- `docs/README.md` — índice maestro de documentación viva SSOT (`docs/recibo_parser_plan.md`, `docs/analytics_and_ads.md`, etc.).

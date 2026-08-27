@@ -11,6 +11,9 @@ from src.adapters.gateways.api_cache_gateway import init_db
 from src.adapters.presenters.error_presenter import ErrorPresenter
 from src.domain.liquidacion.exceptions import LiquidacionDomainException
 from src.domain.recibos.exceptions import DomainException
+from src.infrastructure.fastapi.routes.analytics_routes import (
+    router as analytics_router,
+)
 from src.infrastructure.fastapi.routes.health_routes import router as health_router
 from src.infrastructure.fastapi.routes.receipt_routes import router as receipt_router
 from src.infrastructure.fastapi.routes.simulation_routes import (
@@ -67,6 +70,7 @@ def create_app() -> FastAPI:
     app.include_router(health_router, prefix="/api/v1")
     app.include_router(receipt_router, prefix="/api/v1")
     app.include_router(simulation_router, prefix="/api/v1")
+    app.include_router(analytics_router, prefix="/api/v1")
 
     # Root redirect/info endpoint
     @app.get("/", include_in_schema=False)

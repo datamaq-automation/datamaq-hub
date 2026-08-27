@@ -19,19 +19,21 @@ La plataforma tecnológica de DataMaq se organiza en cuatro proyectos desacoplad
 
 ---
 
-## 2. Estructura del Proyecto
+## 2. Estructura de Documentación y Especificaciones
 
-* **[docs/](docs)**: Suite canónica de documentación viva (SSOT):
-  * **[srs.md](docs/srs.md)**: Requisitos del sistema, propuesta de valor ("Máquinas + Datos + Dinero"), modelo SaaS $0 y catálogo comercial.
-  * **[specs.md](docs/specs.md)**: Arquitectura Hexagonal/DDD real, Critical CSS, observabilidad (`X-Request-ID`), integración del ecosistema y testing.
-  * **[ops.md](docs/ops.md)**: Manual de operaciones en VPS DonWeb, Systemd, Nginx, despliegues seguros y gestión de incidentes.
-  * **[todo.md](docs/todo.md)**: Registro de Certezas vigentes (C-01 a C-14) y roadmap técnico.
-  * **[analytics_and_ads.md](docs/analytics_and_ads.md)**: Gobernanza de cuentas Google, tracking de conversiones, Google Ads, GA4, Clarity y MCPs.
-  * **[google_ads_campaigns_setup.md](docs/google_ads_campaigns_setup.md)**: Ficha técnica de carga de campañas SEM (Search B2B GBA Norte, keywords y negativas).
-  * **[prompt_investigacion_profunda_gemini.md](docs/prompt_investigacion_profunda_gemini.md)**: Prompt maestro de Deep Research para posicionamiento B2B, embudo asíncrono y pricing.
-  * **[informe_estrategico_gemini_2026.md](docs/informe_estrategico_gemini_2026.md)**: Informe estratégico integral sobre posicionamiento, marco ENRE 544/2024, Payback y monetización remota.
-  * **[CHANGELOG.md](docs/CHANGELOG.md)**: Historial cronológico de hitos, refactorizaciones y decisiones de negocio.
-* **[src/](src)**: Código fuente organizado en capas limpias (`domain`, `application`, `adapters`, `infrastructure`).
+El repositorio cuenta con una jerarquía de documentación técnica viva (SSOT) y especificaciones formales:
+
+### 📐 Especificaciones Técnicas ([`specs/`](specs/README.md))
+* **[`specs/receipt_parser.md`](specs/receipt_parser.md)**: Especificación formal del motor de parseo y liquidación de haberes (Clean Architecture & DDD).
+* **[`specs/api_cache.md`](specs/api_cache.md)**: Especificación de la capa de caché persistente (SQLAlchemy + MySQL) y fallback en memoria.
+* **[`specs/analytics_mcp.md`](specs/analytics_mcp.md)**: Especificación de servidores FastMCP (Google Ads, GA4, Clarity) y Watchdog de alertas.
+
+### 📚 Documentación Central SSOT ([`docs/`](docs/README.md))
+* **[`docs/recibo_parser_plan.md`](docs/recibo_parser_plan.md)**: Plan y diseño original de Clean Architecture + DDD para recibos.
+* **[`docs/adr/2026-08-25_api_cache_gateway_sqlalchemy.md`](docs/adr/2026-08-25_api_cache_gateway_sqlalchemy.md)**: ADR de persistencia y caché.
+* **[`docs/analytics_and_ads.md`](docs/analytics_and_ads.md)**: SSOT de gobernanza Google Ads (**Basic Access Aprobado**), GA4, Clarity, Watchdog y Atribución B2B.
+
+---
 
 
 ## 🏛️ Arquitectura del Sistema

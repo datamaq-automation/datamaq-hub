@@ -1,44 +1,53 @@
-# Guía de Gobernanza de Cuentas Google, Analytics, Ads y MCPs — DataMaq
+# Guía y SSOT de Gobernanza Analítica, Google Ads, GA4, Clarity & MCPs — DataMaq
 
 > **Proyecto:** DataMaq (`datamaq.com.ar`)  
-> **Estado:** Documento Vivo (Living SSOT)  
-> **Ámbito:** Topología de cuentas Google, OAuth2, tracking de conversiones, Google Ads, GA4, Microsoft Clarity y Model Context Protocol (MCP).
+> **Estado:** Documento Vivo (Living SSOT de Telemetría, Campañas & Analítica)  
+> **Ámbito:** Gobernanza de cuentas Google, Google Ads API (**Basic Access Aprobado**), GA4, Microsoft Clarity, Servidores FastMCP y Automatización de Despliegues.  
 
 ---
 
 ## 1. Topología y Gobernanza de Cuentas
 
-DataMaq opera con una separación clara de responsabilidades entre la cuenta de desarrollo/técnica y la cuenta institucional/comercial:
+DataMaq opera con una separación clara de responsabilidades entre la cuenta de infraestructura técnica y la cuenta institucional comercial:
 
-```mermaid
-flowchart TD
-    subgraph GCP["🛠️ Consola de Desarrollo (Google Cloud)"]
-        ACC_DEV["agustin.deoz@gmail.com\n(Proyecto GCP, Client ID, APIs, Service Accounts)"]
-    end
-
-    subgraph ADS["💼 Entorno de Negocio & Publicidad"]
-        ACC_BIZ["contacto.datamaq@gmail.com\n(Google Ads, Facturación, Tarjeta de Crédito)"]
-    end
-
-    subgraph LINK["🔗 Vinculación & Puentes"]
-        TEST_USERS["1. Usuarios de Prueba en GCP\n(contacto.datamaq agregado)"]
-        ADS_ADMIN["2. Acceso Admin en Google Ads\n(agustin.deoz invitado como Admin)"]
-        GA4_PERM["3. Permisos en GA4\n(Acceso compartido para ambas cuentas)"]
-    end
-
-    GCP --> LINK
-    ADS --> LINK
+```
+┌────────────────────────────────────────────────────────┐
+│   🛠️ CONSOLA DE DESARROLLO (Google Cloud / GCP)       │
+│                                                        │
+│   • Cuenta: agustin.deoz@gmail.com                     │
+│   • Proyecto GCP: 395333970129                         │
+│   • Pantalla OAuth2 & Service Accounts                 │
+└───────────────────────────┬────────────────────────────┘
+                            │ (Credenciales & Tokens)
+                            ▼
+┌────────────────────────────────────────────────────────┐
+│   🔗 VINCULACIÓN & ACCESOS CRUZADOS                    │
+│                                                        │
+│   1. Service Account GA4: ga4-analytics-reader...      │
+│   2. Developer Token Aprobado: ETBq93xk... (Basic)     │
+│   3. Propiedad GA4: 533265197 (Lector / Admin)         │
+└───────────────────────────┬────────────────────────────┘
+                            │ (Telemetría & Publicidad)
+                            ▼
+┌────────────────────────────────────────────────────────┐
+│   💼 ENTORNO DE NEGOCIO & PUBLICIDAD                   │
+│                                                        │
+│   • Cuenta: contacto.datamaq@gmail.com                 │
+│   • Google Ads ID: 405-777-8237 (ENABLED / SERVING)    │
+│   • Microsoft Clarity ID: wx5hfvmv5y                   │
+└────────────────────────────────────────────────────────┘
 ```
 
 ### Matriz de Permisos y Accesos Cruzados
 
-| Servicio / Consola | Cuenta Propietaria (Owner) | Cuenta Secundaria / Invitada | Rol Asignado & Estado |
+| Servicio / Consola | Cuenta Propietaria | Identificador / Recurso | Rol Asignado & Estado |
 |---|---|---|---|
-| **Google Cloud Console (GCP)** | `agustin.deoz@gmail.com` *(Project: 395333970129)* | `contacto.datamaq@gmail.com` | Usuario de prueba (*Test User*) en Pantalla OAuth |
-| **Google Ads Anuncios (`405-777-8237`)** | `contacto.datamaq@gmail.com` | `agustin.deoz@gmail.com` | **Administrador** (Vinculación Activa) |
-| **Google Ads MCC (`131-878-0733`)** | `agustin.deoz@gmail.com` | N/A | Propietario del Developer Token (Solicitud Basic Access Presentada) |
-| **Google Analytics 4 (`G-ME...`)** | `contacto.datamaq@gmail.com` | `agustin.deoz@gmail.com` | Editor / Administrador |
-| **Microsoft Clarity (`wx5hfvmv5y`)** | `contacto.datamaq@gmail.com` | `agustin.deoz@gmail.com` | Administrador de proyecto |
+| **Google Cloud Console (GCP)** | `agustin.deoz@gmail.com` | Proyecto: `395333970129` | Owner / OAuth2 Pantalla Activa |
+| **Google Ads (`405-777-8237`)** | `contacto.datamaq@gmail.com` | Cuenta de Anuncios | **Basic Access APROBADO (15k ops/día)** |
+| **Google Ads MCC (`131-878-0733`)** | `agustin.deoz@gmail.com` | Administrador MCC | Propietario del Developer Token `ETBq...` |
+| **Google Analytics 4** | `contacto.datamaq@gmail.com` | Propiedad `533265197` | Service Account con rol Lector |
+| **Microsoft Clarity** | `contacto.datamaq@gmail.com` | Proyecto `wx5hfvmv5y` | Administrador con Custom Tags (`lead_intent`) |
+| **Google Search Console** | `contacto.datamaq@gmail.com` | `sc-domain:datamaq.com.ar` | Activación en curso (API + Service Account) |
 
 ---
 
@@ -48,145 +57,222 @@ flowchart TD
 # ==============================================================================
 # 1. FRONTEND / TRACKING EN PRODUCCIÓN (VPS DonWeb)
 # ==============================================================================
-GOOGLE_ANALYTICS_ID=G-MEXXXXXXXX                 # Tag de medición web de GA4
-GOOGLE_ADS_ID=AW-1XXXXXXXXX                      # Tag global de Google Ads (remarketing)
-GOOGLE_ADS_CONVERSION_ID=AW-1XXXXXXXXX/AbCdEf... # Acción de conversión: Envío de formulario
-GOOGLE_ADS_WHATSAPP_CONVERSION_ID=AW-1XXXXXXXXX/GhIjKl... # Acción de conversión: Clic en WhatsApp
-CLARITY_ID=wx5hXXXXXX                           # Tag de Microsoft Clarity (heatmaps)
+GOOGLE_ANALYTICS_ID=G-ME5FC58TFL
+GOOGLE_ADS_ID=AW-17968350814
+GOOGLE_ADS_CONVERSION_ID=AW-17968350814/aMtOCJ3ert0cEN6M_fdC
+GOOGLE_ADS_WHATSAPP_CONVERSION_ID=AW-17968350814/n-vPCJear90cEN6M_fdC
+CLARITY_ID=wx5hfvmv5y
+BASE_URL=https://datamaq.com.ar
+APP_DATAMAQ_URL=https://app.datamaq.com.ar
+DEBUG=False
 
 # ==============================================================================
-# 2. BACKEND / MCP & APIS ANALÍTICAS (Desarrollo & Agentes)
+# 2. CONTACTO Y WHATSAPP DINÁMICO
 # ==============================================================================
-# Google Ads API (OAuth2)
-GOOGLE_ADS_DEVELOPER_TOKEN=ETBqXXXXXXXXXXXXX     # Token de desarrollador aprobado
-GOOGLE_ADS_CLIENT_ID=3953XXXXXXXX.apps.googleusercontent.com
-GOOGLE_ADS_CLIENT_SECRET=GOCSXXXXXXXXXXXXXXXXX
-GOOGLE_ADS_REFRESH_TOKEN=1//0gXXXXXXXXXXXXXX     # Obtenido vía scripts/auth_google_ads.py
-GOOGLE_ADS_LOGIN_CUSTOMER_ID=XXXXXXXXXX          # ID de cuenta de Google Ads (10 dígitos sin guiones)
+WHATSAPP_PHONE=541156297160
+WHATSAPP_MESSAGE="Hola! Vi tu sitio datamaq.com.ar y quería consultarte sobre servicios de mantenimiento eléctrico industrial."
 
-# Google Analytics 4 Data API (Service Account)
-GOOGLE_APPLICATION_CREDENTIALS=/ruta/a/key.json  # Clave JSON de Cuenta de Servicio GCP
-GA4_PROPERTY_ID=XXXXXXXXX                        # ID numérico de propiedad GA4 (9 dígitos)
+# ==============================================================================
+# 3. NOTIFICACIONES & ALERTAS (TELEGRAM + EMAIL)
+# ==============================================================================
+TELEGRAM_BOT_TOKEN=your_telegram_bot_token
+TELEGRAM_CHAT_ID=your_telegram_chat_id
+SMTP_HOST=localhost
+SMTP_PORT=587
+SMTP_USERNAME=no-reply@datamaq.com.ar
+SMTP_PASSWORD=your_smtp_password
+NOTIFICATION_EMAIL=agustin@datamaq.com.ar
 
-# Microsoft Clarity API
-CLARITY_API_TOKEN=XXXXXXXXXXXXXXXXXXXXXXXX       # Token de acceso para reportes de UX
+# ==============================================================================
+# 4. BASE DE DATOS MySQL (LEADS & CACHÉ)
+# ==============================================================================
+DATABASE_URL=mysql+aiomysql://datamaq_leads:your_password@127.0.0.1:3306/datamaq_leads
+
+# ==============================================================================
+# 5. WATCHDOG DE OPERACIONES & ALERTAS
+# ==============================================================================
+WATCHDOG_BASE_URL=http://127.0.0.1:8001
+WATCHDOG_CONSECUTIVE_FAILURES_REQUIRED=2
+
+# ==============================================================================
+# 6. CREDENCIALES MCP / GOOGLE ADS API (BASIC ACCESS APROBADO)
+# ==============================================================================
+GOOGLE_ADS_DEVELOPER_TOKEN=your_developer_token
+GOOGLE_ADS_CLIENT_ID=your_oauth_client_id.apps.googleusercontent.com
+GOOGLE_ADS_CLIENT_SECRET=your_oauth_client_secret
+GOOGLE_ADS_REFRESH_TOKEN=your_oauth_refresh_token
+GOOGLE_ADS_LOGIN_CUSTOMER_ID=405-777-8237
+
+# ==============================================================================
+# 7. CREDENCIALES MCP / GOOGLE ANALYTICS 4 DATA API
+# ==============================================================================
+GOOGLE_APPLICATION_CREDENTIALS=/home/datamaq/.config/gcp/datamaq-ga4-key.json
+GA4_PROPERTY_ID=533265197
+
+# ==============================================================================
+# 8. CREDENCIALES MCP / MICROSOFT CLARITY EXPORT API
+# ==============================================================================
+CLARITY_API_TOKEN=your_clarity_export_api_jwt_token
 ```
 
 ---
 
-## 3. Procedimiento de Autenticación OAuth2 para Google Ads
+## 3. Estrategia de Campañas Google Ads (Búsqueda B2B Priorizada)
 
-Para permitir que los subagentes consulten el gasto publicitario y las palabras clave en tiempo real, se requiere generar el `GOOGLE_ADS_REFRESH_TOKEN`.
+* **Presupuesto Total Diario:** **$1.500 ARS/día** (~$45.000 ARS/mes).
+* **Estrategia de Puja:** Maximizar Clics con CPC Máximo Controlado.
+* **Red:** Red de Búsqueda de Google Únicamente (*Display y Socios Desactivados*).
+* **Segmentación Geográfica:** AMBA & GBA Norte (Pilar, Garín, Tigre, Campana, San Martín, Vicente López, San Fernando, Malvinas Argentinas).
+* **Horario de Publicación:** Lunes a Viernes de 07:30 a 17:30 hs.
 
-### 3.1 Requisitos Previos en Google Cloud Console
-1. Ir a [Google Cloud Console $\rightarrow$ Pantalla de consentimiento de OAuth](https://console.cloud.google.com/apis/credentials/consent).
-2. En **Usuarios de prueba**, agregar `agustin.deoz@gmail.com` y `contacto.datamaq@gmail.com`.
-3. Ir a [Credenciales](https://console.cloud.google.com/apis/credentials), hacer clic en el ID de cliente OAuth 2.0 y en **URIs de redireccionamiento autorizados** agregar:
-   - `http://127.0.0.1:8080`
-   - `http://localhost:8080`
-
-### 3.2 Ejecución del Asistente Local
-```bash
-./venv/bin/python3 scripts/auth_google_ads.py
 ```
-1. El script levantará un servidor local temporal en `http://127.0.0.1:8080` y mostrará la URL de autorización.
-2. Abrir el enlace en el navegador y autorizar con `contacto.datamaq@gmail.com` o `agustin.deoz@gmail.com`.
-3. El script capturará el código de respuesta, lo canjeará por el Refresh Token y te imprimirá la línea `GOOGLE_ADS_REFRESH_TOKEN=...` para pegar en el `.env`.
-
-### 3.3 Solicitud de Acceso Básico (Basic Access)
-Para consultar cuentas reales en producción, se presentó la solicitud de **Acceso Básico** ante Google Ads API con el documento oficial de diseño y arquitectura:
-* **Documento Técnico Adjunto:** [`docs/DataMaq_Google_Ads_API_Tool_Documentation.pdf`](DataMaq_Google_Ads_API_Tool_Documentation.pdf).
-* **Generador Automatizado:** [`scripts/generate_google_ads_api_doc.py`](../scripts/generate_google_ads_api_doc.py).
-* **Estado:** Solicitud formalmente enviada y en revisión por el equipo de Google Ads.
-
----
-
-## 4. Integración de Google Analytics 4 (Data API)
-
-1. En GCP, la **Google Analytics Data API** está habilitada en el proyecto `datamaq-505320`.
-2. Se generó la Cuenta de Servicio `ga4-analytics-reader@datamaq-505320.iam.gserviceaccount.com` con su clave JSON resguardada localmente.
-3. En [Google Analytics](https://analytics.google.com/) $\rightarrow$ **Administrar** $\rightarrow$ **Gestión de accesos a la propiedad**, la Service Account cuenta con rol **Lector**.
-4. Configuración activa en `.env`:
-   ```bash
-   GOOGLE_APPLICATION_CREDENTIALS=/home/agustin/.config/gcp/datamaq-ga4-key.json
-   GA4_PROPERTY_ID=533265197
-   ```
-
----
-
-## 5. Suite de Servidores FastMCP (Google Ads, GA4 y Clarity)
-
-DataMaq cuenta con 3 servidores FastMCP dedicados para que los asistentes de IA y subagentes ejecutivos auditen el rendimiento comercial y técnico en tiempo real:
-
-1. **Google Ads MCP ([`scripts/mcp_google_ads_server.py`](../scripts/mcp_google_ads_server.py)):**
-   * `get_google_ads_status`: Estado de credenciales y límite de presupuesto diario.
-   * `get_campaign_performance`: Impresiones, clics, costo ARS, conversiones y CPC.
-   * `get_search_terms_report`: Consultas de búsqueda reales de usuarios para detectar negativas.
-   * `get_daily_budget_pacing`: Auditoría de gasto acumulado hoy vs. límite de **$1.500 ARS/día**.
-   * *Diagnóstico:* Autenticación OAuth2 validada; métricas de búsqueda pendientes de aprobación de *Basic Access* en Google Ads API Center.
-
-2. **Google Analytics 4 MCP ([`scripts/mcp_ga4_server.py`](../scripts/mcp_ga4_server.py)):**
-   * `get_ga4_status`: Estado de conexión con la propiedad de GA4 (`533265197`).
-   * `get_ga4_top_pages`: Páginas más visitadas con soporte de segmentación (`segment='all'`, `'commercial'`, `'academic'`).
-   * `get_ga4_traffic_sources`: Canales de origen (SEO orgánico, Ads, directo, UTMs).
-   * `get_ga4_geo_traffic`: Tráfico desglosado por localidad (Pilar, Garín, Tigre, etc.).
-   * `get_ga4_conversions`: Conteo de eventos `generate_lead` y `whatsapp_click` (disparados nativamente vía `gtag`).
-
-3. **Microsoft Clarity MCP ([`scripts/mcp_clarity_server.py`](../scripts/mcp_clarity_server.py)):**
-   * `get_clarity_project_info`: ID del proyecto (`wx5hfvmv5y`), links a grabaciones y heatmaps.
-   * `get_live_insights`: Usuarios activos y páginas vistas en tiempo real.
-   * `get_dashboard_insights`: Métricas de fricción (*rage clicks*, *dead clicks*, *excessive scrolling*, *quickbacks* y *scroll depth* sobre ventana de 1 a 3 días).
-   * *Gobernanza:* Telemetría gobernada por consentimiento previo (`CookieManager.js`) y redirección 301 de `/monitoreo` hacia `app.datamaq.com.ar`.
-
-### Suite de Pruebas Unitarias de MCPs:
-La suite completa de tests automatizados (`tests/test_mcp_google_ads.py`, `tests/test_mcp_ga4.py`, `tests/test_mcp_clarity.py`) cuenta con **446 tests pasando al 100%** y **0 errores de Pyright** con tipado estricto.
-
-### Configuración Unificada en `mcp_config.json`:
-```json
-{
-  "mcpServers": {
-    "google-ads": {
-      "command": "/home/agustin/proyectos_software/www-datamaq/venv/bin/python3",
-      "args": ["/home/agustin/proyectos_software/www-datamaq/scripts/mcp_google_ads_server.py"]
-    },
-    "google-analytics": {
-      "command": "/home/agustin/proyectos_software/www-datamaq/venv/bin/python3",
-      "args": ["/home/agustin/proyectos_software/www-datamaq/scripts/mcp_ga4_server.py"]
-    },
-    "microsoft-clarity": {
-      "command": "/home/agustin/proyectos_software/www-datamaq/venv/bin/python3",
-      "args": ["/home/agustin/proyectos_software/www-datamaq/scripts/mcp_clarity_server.py"],
-      "env": {
-        "CLARITY_ID": "wx5hfvmv5y"
-      }
-    }
-  }
-}
+Presupuesto Total: $1.500 ARS/día
+├── 🥇 CAMPAÑA 1 (PRIORITARIA - 75%): $1.100 ARS/día → Telemetría & Bajada de Datos OT a PC (Retrofit IoT)
+└── 🥈 CAMPAÑA 2 (SOPORTE - 25%):     $400 ARS/día   → Calidad de Energía & Cero Multas Edenor (cos φ)
 ```
 
 ---
 
-## 6. Blindaje de Seguridad y Content Security Policy (CSP)
+### 🥇 CAMPAÑA 1 (PRIORITARIA): "Telemetría y Adquisición de Datos de Planta — Retrofit IoT"
 
-Para evitar que los navegadores bloqueen el envío de balizas y conversiones de Google Ads y Analytics, el middleware [`src/infrastructure/fastapi/middleware.py`](file:///home/agustin/proyectos_software/www-datamaq/src/infrastructure/fastapi/middleware.py) aplica una lista blanca estricta verificada con pruebas automatizadas ([`tests/test_csp_headers.py`](file:///home/agustin/proyectos_software/www-datamaq/tests/test_csp_headers.py)):
+* **Presupuesto Asignado:** **$1.100 ARS/día** (Límite CPC: **$500 ARS**).
+* **URL de Destino:** `https://datamaq.com.ar/?utm_source=google_ads&utm_medium=cpc&utm_campaign=retrofit-iot#servicios`
+* **Ruta visible:** `datamaq.com.ar/datos/maquinas`
 
-* **`script-src`:** `https://www.googletagmanager.com`, `https://www.google-analytics.com`, `https://www.googleadservices.com`, `https://googleads.g.doubleclick.net`, `https://www.google.com`, `https://www.clarity.ms`.
-* **`img-src`:** `https://www.google-analytics.com`, `https://www.googleadservices.com`, `https://googleads.g.doubleclick.net`, `https://www.google.com`, `https://www.clarity.ms`.
-* **`connect-src`:** `https://www.google-analytics.com`, `https://www.googleadservices.com`, `https://googleads.g.doubleclick.net`, `https://stats.g.doubleclick.net`, `https://www.google.com`, `https://www.clarity.ms`.
+#### Palabras Clave (Búsqueda Exacta y de Frase):
+```text
+[adquisicion de datos de produccion industrial]
+[bajada de datos de maquinas a pc]
+[monitoreo de inyectoras de plastico]
+[telemetria de maquinas industriales]
+[conteo de piezas produccion automatizacion]
+[medicion de tiempos de ciclo fabrica]
+[monitoreo de paradas de planta]
+[sistema andon conteo de produccion]
+[retrofit iot maquinas industriales]
+"adquisicion de datos plc a pc"
+"bajada de datos linea de produccion"
+"monitoreo de maquinas industriales pyme"
+"automatizacion de toma de datos fabrica"
+"conteo de piezas automatico para maquinas"
+"sensores para inyectoras de plastico produccion"
+```
+
+#### Títulos de Anuncio Adaptable (Máx. 30 caracteres):
+1. `Datos de Planta a su PC` (23 car.)
+2. `Telemetría para Inyectoras` (26 car.)
+3. `Conteo de Piezas en Vivo` (24 car.)
+4. `Bajada de Datos de Máquinas` (27 car.)
+5. `Adquisición de Datos OT a IT` (28 car.)
+6. `Monitoreo de Líneas de Planta` (30 car.)
+7. `Registro en Base de Datos` (26 car.)
+8. `Sin Licencias Mensuales` (23 car.)
+9. `Medición Tiempos de Ciclo` (26 car.)
+10. `DataMaq Automatización` (22 car.)
+11. `Zona Norte: Garín y Pilar` (26 car.)
+12. `Integración PLC y Sensores` (27 car.)
+13. `Base de Datos 100% Local` (25 car.)
+14. `Alertas de Parada de Planta` (27 car.)
+15. `Ingeniería Directa en Planta` (28 car.)
+
+#### Descripciones de Anuncio Adaptable (Máx. 90 caracteres):
+1. `Bajada de datos de inyectoras y líneas a PC local. Registro de ciclos y piezas en tiempo real.` (90 car.)
+2. `Conecte sus máquinas sin cambiar de PLC. Base de datos local, segura y sin nube obligatoria.` (89 car.)
+3. `Diagnóstico e instalación en planta en Zona Norte. Hardware robusto y software a medida.` (86 car.)
+4. `Automatice el reporte de producción y paradas de planta. Soporte directo por ingenieros.` (87 car.)
 
 ---
 
-## 7. Pipeline de Atribución y WhatsApp Dinámico
+### 🥈 CAMPAÑA 2 (SOPORTE): "Cero Multas Edenor — Factor de Potencia cos φ"
 
-```mermaid
-flowchart LR
-    A["Anuncio Google Ads\n(con gclid & utm_campaign)"] --> B["Landing Web DataMaq\n(AttributionTracker.js guarda en sessionStorage)"]
-    B --> C1["Formulario Contacto\n(Persistencia MySQL + Telegram)"]
-    B --> C2["Botón WhatsApp\n(WhatsAppDynamicMessage.js personaliza texto)"]
-    C1 --> D["Tag Conversión Google Ads\n(gtag 'event' 'conversion')"]
-    C2 --> D
+* **Presupuesto Asignado:** **$400 ARS/día** (Límite CPC: **$400 ARS**).
+* **URL de Destino:** `https://datamaq.com.ar/?utm_source=google_ads&utm_medium=cpc&utm_campaign=calidad-energia#servicios`
+* **Ruta visible:** `datamaq.com.ar/cero-multas/energia`
+
+#### Palabras Clave:
+```text
+[multa factor de potencia industrial]
+[multa cos fi edenor]
+[recargo factor de potencia edenor t3]
+[banco de capacitores industrial trifasico]
+"eliminar multa factor de potencia fabrica"
+"banco de capacitores pilar parque industrial"
+"banco de capacitores garin fabrica"
+"analizador de redes trifasico medicion industrial"
 ```
 
-1. **Atribución First-Touch:** [`static/js/modules/AttributionTracker.js`](file:///home/agustin/proyectos_software/www-datamaq/static/js/modules/AttributionTracker.js) preserva el origen durante toda la navegación.
-2. **Mensajes Dinámicos:** [`static/js/modules/WhatsAppDynamicMessage.js`](file:///home/agustin/proyectos_software/www-datamaq/static/js/modules/WhatsAppDynamicMessage.js) adapta el mensaje de apertura según la campaña SEM (`calidad-energia`, `retrofit-iot`, `mantenimiento-amba`).
-3. **Notificación Instantánea:** El backend notifica a Telegram en menos de 2 segundos con el detalle de campaña y ubicación del lead.
+---
+
+### 🚫 Palabras Clave Negativas Compartidas:
+```text
+-gratis -curso -tutorial -pdf -arduino -raspberry -tesis -universidad -empleo -sueldo -curriculum -manual
+```
+
+---
+
+## 4. Servidores FastMCP & Watchdog en `datamaq-hub`
+
+El Hub expone 3 servidores FastMCP modulares con caché persistente y fallback automático en memoria:
+
+```
+[ Agentes de IA / CLI / Watchdog ]
+               │
+      ┌────────┴────────┬────────────────┐
+      ▼                 ▼                ▼
+[ FastMCP Ads ]   [ FastMCP GA4 ]   [ FastMCP Clarity ]
+      │                 │                │
+      └────────┬────────┴────────────────┘
+               ▼
+   [ ApiCacheGateway (MySQL / In-Memory TTL) ]
+```
+
+### Herramientas Expuestas:
+1. **Google Ads (`scripts/mcp_google_ads_server.py`):**
+   - `get_google_ads_status()`: Validación de token y permisos de cuenta.
+   - `get_campaign_performance(days=7)`: Impresiones, clics, costo ARS, conversiones y CPC.
+   - `get_search_terms_report(days=7, limit=20)`: Búsquedas reales de usuarios para detectar nuevas negativas.
+   - `get_daily_budget_pacing()`: Auditoría de gasto del día actual vs límite de $1.500 ARS.
+2. **GA4 (`scripts/mcp_ga4_server.py`):**
+   - `get_ga4_status()`: Estado de conexión con la propiedad `533265197`.
+   - `get_ga4_top_pages(days=7, limit=10)`: Vistas de páginas y usuarios activos.
+   - `get_ga4_traffic_sources(days=7, limit=10)`: Fuentes de tráfico (Direct, Organic, Ads, UTMs).
+   - `get_ga4_geo_traffic(days=7, limit=15)`: Ciudades de origen (Garín, Olivos, Pilar, etc.).
+   - `get_ga4_conversions(days=7)`: Eventos clave (`whatsapp_click`, `direct_contact`).
+3. **Microsoft Clarity (`scripts/mcp_clarity_server.py`):**
+   - `get_clarity_project_info()`: Info del proyecto y links directos.
+   - `get_live_insights()`: Usuarios y métricas de fricción en tiempo real.
+   - `get_intent_recording_urls()`: Enlaces web directos con filtros de Custom Tags:
+     - `lead_intent:email_click`
+     - `lead_intent:whatsapp_click`
+     - `lead_intent:form_submit`
+
+---
+
+## 5. Gobernanza de Conversión y Atribución B2B
+
+El caso de **JTEKT Automotive** demostró que los compradores industriales combinan múltiples puntos de contacto: descubrimiento web en Zona Norte, consulta de servicios y contacto formal vía correo institucional (`info@datamaq.com.ar`).
+
+| Tipo de Conversión | Canal de Captura | Destino de Alerta | Registro en DB | Atribución First-Touch |
+|---|---|---|---|---|
+| **Formulario Multi-Paso** | Web (`/contact`) | Telegram + Email + GA4 + Ads | MySQL (`Lead`) | Sí (30 días localStorage) |
+| **Clic en WhatsApp** | Web (`wa.me` / FAB) | Telegram + GA4 + Ads | MySQL (`Lead`) | Sí (30 días localStorage) |
+| **Clic en Email / Teléfono** | Web (`mailto:` / `tel:`) | Telegram + GA4 + Clarity | MySQL (`Lead`) | Sí (30 días localStorage) |
+| **Copia de Email / Tel** | Web (Portapapeles) | Telegram + GA4 + Clarity | MySQL (`Lead`) | Sí (30 días localStorage) |
+| **Envío Directo Outlook** | Cliente Externo | Buzón `info@datamaq.com.ar` | Manual / CRM | Correlación por IP/Geo/Hora |
+
+---
+
+## 6. Comandos de Verificación & Automatización
+
+- **Verificación completa de métricas de MCP:**
+  ```bash
+  PYTHONPATH=. ./venv/bin/python scripts/check_mcp_metrics.py
+  ```
+- **Ejecución del Watchdog diario (Dry-Run / Live Telegram):**
+  ```bash
+  PYTHONPATH=. ./venv/bin/python scripts/analytics_watchdog.py
+  ```
+- **Despliegue y Sincronización de Campañas Google Ads (Dry-Run por defecto):**
+  ```bash
+  PYTHONPATH=. ./venv/bin/python scripts/deploy_google_ads_campaigns.py --dry-run
+  ```
