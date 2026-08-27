@@ -56,6 +56,10 @@ class Settings(BaseSettings):
     mail_imap_use_ssl: bool = True
     mail_imap_timeout_seconds: int = 10
 
+    # === BASE DE DATOS ROUNDCUBE (Contactos y Calendario) ===
+    roundcube_db_url: str = "sqlite:///data/roundcube.db"
+    default_mail_account: str = "openclaw@datamaq.com.ar"
+
     # === TTLs de caché por prefijo de clave (segundos) ===
     # JSON en .env. Vacío = el gateway usa sus defaults aprobados (fallback).
     # Ejemplo: CACHE_TTLS={"google_ads:daily_budget_pacing": 900}

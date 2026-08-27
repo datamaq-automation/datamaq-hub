@@ -1,8 +1,16 @@
-"""Presenter for mapping and formatting error responses."""
-
 from typing import Any
 
 from src.application.dtos.common_dto import ErrorDetailDTO, ErrorResponseDTO
+from src.domain.calendar.exceptions import (
+    CalendarDomainException,
+    CalendarNotFoundError,
+    EventNotFoundError,
+    ScheduleConflictError,
+)
+from src.domain.contacts.exceptions import (
+    ContactNotFoundError,
+    ContactsDomainException,
+)
 from src.domain.horarios_docencia.exceptions import (
     HorariosDocenciaDomainException,
 )
@@ -30,7 +38,9 @@ class ErrorPresenter:
         exc: DomainException
         | LiquidacionDomainException
         | HorariosDocenciaDomainException
-        | MailDomainException,
+        | MailDomainException
+        | ContactsDomainException
+        | CalendarDomainException,
         default_status_code: int = 422,
     ) -> tuple[ErrorResponseDTO, int]:
         status_code = default_status_code
@@ -65,6 +75,24 @@ class ErrorPresenter:
             status_code = 502
         elif isinstance(exc, MailDomainException):
             code_name = "MAIL_DOMAIN_ERROR"
+            status_code = 422
+        elif isinstance(exc, ContactNotFoundError):
+            code_name = "CONTACT_NOT_FOUND"
+            status_code = 404
+        elif isinstance(exc, ContactsDomainException):
+            code_name = "CONTACTS_DOMAIN_ERROR"
+            status_code = 422
+        elif isinstance(exc, EventNotFoundError):
+            code_name = "EVENT_NOT_FOUND"
+            status_code = 404
+        elif isinstance(exc, CalendarNotFoundError):
+            code_name = "CALENDAR_NOT_FOUND"
+            status_code = 404
+        elif isinstance(exc, ScheduleConflictError):
+            code_name = "SCHEDULE_CONFLICT_ERROR"
+            status_code = 409
+        elif isinstance(exc, CalendarDomainException):
+            code_name = "CALENDAR_DOMAIN_ERROR"
             status_code = 422
 
         msg = getattr(exc, "message", str(exc))

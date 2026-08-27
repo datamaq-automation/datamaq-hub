@@ -136,6 +136,36 @@ def get_horarios_docencia_controller() -> HorariosDocenciaController:
     )
 
 
+from src.adapters.controllers.calendar_controller import CalendarController
+from src.adapters.controllers.contacts_controller import ContactsController
+from src.adapters.gateways.sql_calendar_gateway import SQLCalendarGateway
+from src.adapters.gateways.sql_contacts_gateway import SQLContactsGateway
+from src.application.use_cases.check_availability import CheckAvailabilityUseCase
+from src.application.use_cases.create_calendar_event import (
+    CreateCalendarEventUseCase,
+)
+from src.application.use_cases.create_contact import CreateContactUseCase
+from src.application.use_cases.delete_calendar_event import (
+    DeleteCalendarEventUseCase,
+)
+from src.application.use_cases.delete_contact import DeleteContactUseCase
+from src.application.use_cases.get_contact_detail import GetContactDetailUseCase
+from src.application.use_cases.get_event_detail import GetEventDetailUseCase
+from src.application.use_cases.get_upcoming_events import (
+    GetUpcomingEventsUseCase,
+)
+from src.application.use_cases.list_calendar_events import (
+    ListCalendarEventsUseCase,
+)
+from src.application.use_cases.list_contacts import ListContactsUseCase
+from src.application.use_cases.update_calendar_event import (
+    UpdateCalendarEventUseCase,
+)
+from src.application.use_cases.update_contact import UpdateContactUseCase
+from src.domain.calendar.ports import CalendarRepositoryPort
+from src.domain.contacts.ports import ContactsRepositoryPort
+
+
 def get_default_mail_reader_gateway() -> MailReaderPort:
     """Creates a default ImapMailGateway instance."""
     return ImapMailGateway()
@@ -155,4 +185,48 @@ def get_mail_controller(
         list_inbox_use_case=list_inbox_uc,
         get_mail_detail_use_case=get_detail_uc,
         get_unread_summary_use_case=get_unread_uc,
+    )
+
+
+def get_default_contacts_gateway(
+    database_url: str | None = None,
+) -> ContactsRepositoryPort:
+    """Creates a SQLContactsGateway instance."""
+    return SQLContactsGateway(database_url=database_url)
+
+
+def get_contacts_controller(
+    repository: ContactsRepositoryPort | None = None,
+) -> ContactsController:
+    """Builds and returns a ContactsController instance."""
+    repo = repository or get_default_contacts_gateway()
+    return ContactsController(
+        list_contacts_use_case=ListContactsUseCase(repository=repo),
+        get_contact_detail_use_case=GetContactDetailUseCase(repository=repo),
+        create_contact_use_case=CreateContactUseCase(repository=repo),
+        update_contact_use_case=UpdateContactUseCase(repository=repo),
+        delete_contact_use_case=DeleteContactUseCase(repository=repo),
+    )
+
+
+def get_default_calendar_gateway(
+    database_url: str | None = None,
+) -> CalendarRepositoryPort:
+    """Creates a SQLCalendarGateway instance."""
+    return SQLCalendarGateway(database_url=database_url)
+
+
+def get_calendar_controller(
+    repository: CalendarRepositoryPort | None = None,
+) -> CalendarController:
+    """Builds and returns a CalendarController instance."""
+    repo = repository or get_default_calendar_gateway()
+    return CalendarController(
+        list_events_use_case=ListCalendarEventsUseCase(repository=repo),
+        get_upcoming_events_use_case=GetUpcomingEventsUseCase(repository=repo),
+        get_event_detail_use_case=GetEventDetailUseCase(repository=repo),
+        create_event_use_case=CreateCalendarEventUseCase(repository=repo),
+        update_event_use_case=UpdateCalendarEventUseCase(repository=repo),
+        delete_event_use_case=DeleteCalendarEventUseCase(repository=repo),
+        check_availability_use_case=CheckAvailabilityUseCase(repository=repo),
     )

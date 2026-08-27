@@ -28,11 +28,14 @@ El repositorio cuenta con una jerarquía de documentación técnica viva (SSOT) 
 * **[`specs/api_cache.md`](specs/api_cache.md)**: Especificación de la capa de caché persistente (SQLAlchemy + MySQL) y fallback en memoria.
 * **[`specs/analytics_mcp.md`](specs/analytics_mcp.md)**: Especificación de servidores FastMCP (Google Ads, GA4, Clarity) y Watchdog de alertas.
 * **[`specs/mail_reader.md`](specs/mail_reader.md)**: Especificación técnica del motor de lectura de correos electrónicos vía IMAP para OpenClaw.
+* **[`specs/contacts_manager.md`](specs/contacts_manager.md)**: Especificación de libreta de contactos corporativa sincronizada con Roundcube.
+* **[`specs/calendar_manager.md`](specs/calendar_manager.md)**: Especificación de calendario, eventos y disponibilidad horaria.
 
 ### 📚 Documentación Central SSOT ([`docs/`](docs/README.md))
 * **[`docs/recibo_parser_plan.md`](docs/recibo_parser_plan.md)**: Plan y diseño original de Clean Architecture + DDD para recibos.
 * **[`docs/adr/2026-08-25_api_cache_gateway_sqlalchemy.md`](docs/adr/2026-08-25_api_cache_gateway_sqlalchemy.md)**: ADR de persistencia y caché.
 * **[`docs/mail_openclaw_integration.md`](docs/mail_openclaw_integration.md)**: SSOT de integración segura de sólo lectura para OpenClaw sobre buzones IMAP.
+* **[`docs/contacts_calendar_openclaw.md`](docs/contacts_calendar_openclaw.md)**: SSOT de libreta de contactos y calendario de eventos para OpenClaw.
 * **[`docs/analytics_and_ads.md`](docs/analytics_and_ads.md)**: SSOT de gobernanza Google Ads (**Basic Access Aprobado**), GA4, Clarity, Watchdog y Atribución B2B.
 
 ---

@@ -16,7 +16,7 @@
 ```
 src/
 ├── domain/                                      # 1. Capa de Dominio (Organizada por Temática)
-│   └── {tematica}/                              # Subcarpeta temática (ej. recibos/, liquidacion/, mail/)
+│   └── {tematica}/                              # Subcarpeta temática (ej. recibos/, liquidacion/, mail/, contacts/, calendar/)
 │       ├── __init__.py                          # 0 bytes (load-bearing para pytest)
 │       ├── entities.py                          # Entidades del dominio (ReciboSueldo, Agente, EmailMessage, etc.)
 │       ├── value_objects.py                     # Value Objects inmutables (CUIT, DNI, ImporteMonetario, EmailAddress, etc.)
