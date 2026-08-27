@@ -48,6 +48,14 @@ class Settings(BaseSettings):
     telegram_bot_token: str = ""
     telegram_chat_id: str = ""
 
+    # === SERVIDOR DE CORREO IMAP (Lectura para OpenClaw) ===
+    mail_imap_host: str = "127.0.0.1"
+    mail_imap_port: int = 993
+    mail_imap_user: str = ""
+    mail_imap_pass: str = ""
+    mail_imap_use_ssl: bool = True
+    mail_imap_timeout_seconds: int = 10
+
     # === TTLs de caché por prefijo de clave (segundos) ===
     # JSON en .env. Vacío = el gateway usa sus defaults aprobados (fallback).
     # Ejemplo: CACHE_TTLS={"google_ads:daily_budget_pacing": 900}

@@ -16,12 +16,12 @@
 ```
 src/
 ├── domain/                                      # 1. Capa de Dominio (Organizada por Temática)
-│   └── {tematica}/                              # Subcarpeta temática (ej. recibos/, liquidacion/)
+│   └── {tematica}/                              # Subcarpeta temática (ej. recibos/, liquidacion/, mail/)
 │       ├── __init__.py                          # 0 bytes (load-bearing para pytest)
-│       ├── entities.py                          # Entidades del dominio (ReciboSueldo, Agente, etc.)
-│       ├── value_objects.py                     # Value Objects inmutables (CUIT, DNI, ImporteMonetario, Tipos)
-│       ├── services.py                          # Servicios puros de dominio (Totales, Normalizador)
-│       ├── ports.py                             # Interfaces abstractas (ReceiptParserPort, PDFExtractorPort)
+│       ├── entities.py                          # Entidades del dominio (ReciboSueldo, Agente, EmailMessage, etc.)
+│       ├── value_objects.py                     # Value Objects inmutables (CUIT, DNI, ImporteMonetario, EmailAddress, etc.)
+│       ├── services.py                          # Servicios puros de dominio (Totales, Normalizador, MailDecoder)
+│       ├── ports.py                             # Interfaces abstractas (ReceiptParserPort, MailReaderPort)
 │       └── exceptions.py                        # Excepciones de dominio
 │
 ├── application/                                 # 2. Capa de Aplicación (Casos de Uso y DTOs)

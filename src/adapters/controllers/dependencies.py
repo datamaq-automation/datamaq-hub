@@ -6,8 +6,10 @@ from src.adapters.controllers.health_controller import HealthController
 from src.adapters.controllers.horarios_docencia_controller import (
     HorariosDocenciaController,
 )
+from src.adapters.controllers.mail_controller import MailController
 from src.adapters.controllers.receipt_controller import ReceiptController
 from src.adapters.controllers.simulation_controller import SimulationController
+from src.adapters.gateways.imap_mail_gateway import ImapMailGateway
 from src.adapters.gateways.paritaria_json_gateway import ParitariaJsonGateway
 from src.adapters.gateways.pdfplumber_extractor_gateway import (
     PdfPlumberExtractorGateway,
@@ -25,6 +27,10 @@ from src.application.use_cases.consultar_designaciones_vigentes import (
 from src.application.use_cases.consultar_historial_docente import (
     ConsultarHistorialDocenteUseCase,
 )
+from src.application.use_cases.get_mail_detail import GetMailDetailUseCase
+from src.application.use_cases.get_unread_summary import GetUnreadSummaryUseCase
+from src.application.use_cases.list_inbox_messages import ListInboxMessagesUseCase
+from src.application.use_cases.list_mail_folders import ListMailFoldersUseCase
 from src.application.use_cases.parse_receipt import ParseReceiptUseCase
 from src.application.use_cases.project_salary import ProjectSalaryUseCase
 from src.application.use_cases.registrar_designacion import (
@@ -36,6 +42,7 @@ from src.application.use_cases.validar_horarios_docencia import (
 from src.domain.horarios_docencia.ports import DesignacionDocenteRepositoryPort
 from src.domain.liquidacion.ports import ParitariaRepositoryPort
 from src.domain.liquidacion.services import MotorLiquidacionDocenteService
+from src.domain.mail.ports import MailReaderPort
 from src.domain.recibos.ports import PDFExtractorPort, ReceiptParserRegistryPort
 
 
@@ -126,4 +133,26 @@ def get_horarios_docencia_controller() -> HorariosDocenciaController:
         cesar_use_case=cesar_uc,
         consultar_vigentes_use_case=vigentes_uc,
         consultar_historial_use_case=historial_uc,
+    )
+
+
+def get_default_mail_reader_gateway() -> MailReaderPort:
+    """Creates a default ImapMailGateway instance."""
+    return ImapMailGateway()
+
+
+def get_mail_controller(
+    gateway: MailReaderPort | None = None,
+) -> MailController:
+    """Builds and returns a MailController instance."""
+    reader = gateway or get_default_mail_reader_gateway()
+    list_folders_uc = ListMailFoldersUseCase(mail_reader=reader)
+    list_inbox_uc = ListInboxMessagesUseCase(mail_reader=reader)
+    get_detail_uc = GetMailDetailUseCase(mail_reader=reader)
+    get_unread_uc = GetUnreadSummaryUseCase(mail_reader=reader)
+    return MailController(
+        list_folders_use_case=list_folders_uc,
+        list_inbox_use_case=list_inbox_uc,
+        get_mail_detail_use_case=get_detail_uc,
+        get_unread_summary_use_case=get_unread_uc,
     )

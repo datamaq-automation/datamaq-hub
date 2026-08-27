@@ -1,5 +1,7 @@
 """Integration tests for horarios_docencia endpoints."""
 
+import uuid
+
 from starlette.testclient import TestClient
 
 
@@ -66,7 +68,7 @@ def test_validar_horarios_docencia_endpoint(client: TestClient) -> None:
 
 def test_flujo_persistencia_temporal_endpoints(client: TestClient) -> None:
     """Verifica el flujo completo REST: alta de designaciones, consulta por fecha, cese e historial."""
-    cuit = "20-99887766-4"
+    cuit = f"20-{uuid.uuid4().hex[:8]}-4"
 
     # 1. Alta de designación titular
     payload_titular = {

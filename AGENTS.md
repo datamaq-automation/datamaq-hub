@@ -8,7 +8,7 @@ API FastAPI que parsea recibos de sueldo en PDF (DGCyE PBA / Genérico). Clean A
 - Verificación pre-push: `./scripts/pre-push.sh` — `python scripts/verify_architecture.py` → `ruff check .` → `ruff format --check .` → `pyright` → `pytest tests/test_empty_inits.py` → `pytest -n auto -q tests/unit/ tests/test_architecture_boundaries.py`.
 - Suite completa: `./scripts/ci.sh` — AST guard + pytest completo + `__init__.py` + pyright/mypy.
 - Test individual: `pytest tests/unit/test_value_objects.py::test_cuit_validation` (desde la raíz).
-- **Especificaciones y Documentación:** Las especificaciones formales residen en `specs/` (`receipt_parser.md`, `api_cache.md`, `analytics_mcp.md`) y la documentación viva en `docs/` (`docs/README.md`, `docs/recibo_parser_plan.md`, `docs/analytics_and_ads.md`).
+- **Especificaciones y Documentación:** Las especificaciones formales residen en `specs/` (`receipt_parser.md`, `api_cache.md`, `analytics_mcp.md`, `mail_reader.md`) y la documentación viva en `docs/` (`docs/README.md`, `docs/recibo_parser_plan.md`, `docs/analytics_and_ads.md`, `docs/mail_openclaw_integration.md`).
 
 ## Arquitectura y reglas de dependencia
 
@@ -44,5 +44,5 @@ API FastAPI que parsea recibos de sueldo en PDF (DGCyE PBA / Genérico). Clean A
 ## Referencias
  
 - `CONVENTIONS.md` — convenciones de estilo y git (los `__init__.py` deben quedar en 0 bytes).
-- `specs/README.md` — especificaciones técnicas de subsistemas (`receipt_parser.md`, `api_cache.md`, `analytics_mcp.md`).
-- `docs/README.md` — índice maestro de documentación viva SSOT (`docs/recibo_parser_plan.md`, `docs/analytics_and_ads.md`, etc.).
+- `specs/README.md` — especificaciones técnicas de subsistemas (`receipt_parser.md`, `api_cache.md`, `analytics_mcp.md`, `mail_reader.md`).
+- `docs/README.md` — índice maestro de documentación viva SSOT (`docs/recibo_parser_plan.md`, `docs/analytics_and_ads.md`, `docs/mail_openclaw_integration.md`, etc.).

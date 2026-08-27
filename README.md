@@ -27,10 +27,12 @@ El repositorio cuenta con una jerarquía de documentación técnica viva (SSOT) 
 * **[`specs/receipt_parser.md`](specs/receipt_parser.md)**: Especificación formal del motor de parseo y liquidación de haberes (Clean Architecture & DDD).
 * **[`specs/api_cache.md`](specs/api_cache.md)**: Especificación de la capa de caché persistente (SQLAlchemy + MySQL) y fallback en memoria.
 * **[`specs/analytics_mcp.md`](specs/analytics_mcp.md)**: Especificación de servidores FastMCP (Google Ads, GA4, Clarity) y Watchdog de alertas.
+* **[`specs/mail_reader.md`](specs/mail_reader.md)**: Especificación técnica del motor de lectura de correos electrónicos vía IMAP para OpenClaw.
 
 ### 📚 Documentación Central SSOT ([`docs/`](docs/README.md))
 * **[`docs/recibo_parser_plan.md`](docs/recibo_parser_plan.md)**: Plan y diseño original de Clean Architecture + DDD para recibos.
 * **[`docs/adr/2026-08-25_api_cache_gateway_sqlalchemy.md`](docs/adr/2026-08-25_api_cache_gateway_sqlalchemy.md)**: ADR de persistencia y caché.
+* **[`docs/mail_openclaw_integration.md`](docs/mail_openclaw_integration.md)**: SSOT de integración segura de sólo lectura para OpenClaw sobre buzones IMAP.
 * **[`docs/analytics_and_ads.md`](docs/analytics_and_ads.md)**: SSOT de gobernanza Google Ads (**Basic Access Aprobado**), GA4, Clarity, Watchdog y Atribución B2B.
 
 ---
@@ -48,27 +50,34 @@ src/
 │   │   ├── services.py                          # Servicios puros (TotalesCalculator, TextNormalizer)
 │   │   ├── ports.py                             # Interfaces abstractas (ReceiptParserPort, PDFExtractorPort)
 │   │   └── exceptions.py                        # Excepciones de dominio
-│   └── liquidacion/                             # Bounded context: Liquidación / Proyección Salarial
+│   ├── liquidacion/                             # Bounded context: Liquidación / Proyección Salarial
+│   │   ├── __init__.py                          # 0 bytes (load-bearing para pytest)
+│   │   ├── entities.py                          # Entidades de liquidación y proyección
+│   │   ├── value_objects.py                     # Value Objects de liquidación
+│   │   ├── services.py                          # Servicios de cálculo salarial
+│   │   ├── ports.py                             # Interfaces (ParitariaPort, etc.)
+│   │   └── exceptions.py                        # Excepciones de dominio de liquidación
+│   └── mail/                                    # Bounded context: Lectura de Correo (OpenClaw)
 │       ├── __init__.py                          # 0 bytes (load-bearing para pytest)
-│       ├── entities.py                          # Entidades de liquidación y proyección
-│       ├── value_objects.py                     # Value Objects de liquidación
-│       ├── services.py                          # Servicios de cálculo salarial
-│       ├── ports.py                             # Interfaces (ParitariaPort, etc.)
-│       └── exceptions.py                        # Excepciones de dominio de liquidación
+│       ├── entities.py                          # Entidades (EmailMessage, EmailSummary, EmailFolder, etc.)
+│       ├── value_objects.py                     # Value Objects inmutables (EmailAddress, EmailUID, FolderName)
+│       ├── services.py                          # Servicios de decodificación y saneamiento
+│       ├── ports.py                             # Interfaces (MailReaderPort)
+│       └── exceptions.py                        # Excepciones de dominio de correo
 │
 ├── application/                                 # 2. Capa de Aplicación (Casos de Uso y DTOs)
-│   ├── use_cases/                               # Casos de uso (ParseReceiptUseCase, ProjectSalaryUseCase)
-│   ├── dtos/                                    # Data Transfer Objects (ReceiptResponseDTO, SimulationDTO, etc.)
-│   └── mappers/                                 # Mapeadores Entidad <-> DTO (ReceiptMapper, SimulationMapper)
+│   ├── use_cases/                               # Casos de uso (ParseReceiptUseCase, ListInboxMessagesUseCase, etc.)
+│   ├── dtos/                                    # Data Transfer Objects (ReceiptResponseDTO, MailInboxResponseDTO, etc.)
+│   └── mappers/                                 # Mapeadores Entidad <-> DTO (ReceiptMapper, MailMapper, etc.)
 │
 ├── adapters/                                    # 3. Capa de Adaptadores (Interface Adapters)
-│   ├── controllers/                             # Inbound: controladores puros agnósticos de transporte
-│   ├── gateways/                                # Outbound: pdfplumber, JSON paritarias, parsers DGCyE/Genérico
+│   ├── controllers/                             # Inbound: controladores puros agnósticos (ReceiptController, MailController)
+│   ├── gateways/                                # Outbound: imap_mail_gateway, pdfplumber, sql_gateway
 │   └── presenters/                              # Presenters de salida y formato de errores
 │
 ├── infrastructure/                              # 4. Capa de Infraestructura (Por Librería Externa)
 │   ├── fastapi/                                 # Servidor FastAPI, middlewares CORS y routers HTTP
-│   │   └── routes/                              # Routers FastAPI (health, recibos, simulation)
+│   │   └── routes/                              # Routers FastAPI (health, recibos, mail, simulation, analytics)
 │   ├── fastmcp/                                 # Servidores MCP (Clarity, GA4, Google Ads)
 │   └── pydantic/                                # Settings con pydantic-settings
 │
@@ -80,6 +89,10 @@ src/
 ## 🚀 Características Principales y Mitigación de Desvíos
 
 - **Clean Architecture & DDD Temático Plano:** Desacoplamiento total entre lógica de negocio, casos de uso, adaptadores y librerías externas para un mantenimiento evolutivo de mínimo impacto y cero bugs en producción.
+- **Lector de Correos IMAP de Sólo Lectura (OpenClaw):**
+  - Conexión segura IMAP4 SSL/TLS en loopback a Dovecot con modo estricto de sólo lectura (`EXAMINE` / `SELECT readonly=True`).
+  - Extracción de buzones, resúmenes de correos no leídos y detalle con metadatos de adjuntos sin alterar flags `\Seen` en el servidor.
+  - Diseñado para consumo seguro del agente OpenClaw enjaulado en loopback.
 - **Detección Automática de Formato:** Identifica automáticamente el tipo de recibo de sueldo (DGCyE PBA vs Genérico).
 - **Parser Especializado DGCyE (Buenos Aires):**
   - Extracción de cabecera de empleador y datos del agente (Nombre, DNI, CUIL, Mes de pago).
@@ -137,11 +150,21 @@ uvicorn src.main:app --reload --host 0.0.0.0 --port 8000
 
 ## 📡 Ejemplo de Uso de la API
 
-### Endpoint: `POST /api/v1/recibos/parse`
+### 1. Parseo de Recibo de Sueldo: `POST /api/v1/recibos/parse`
 
 ```bash
 curl -X POST "http://localhost:8000/api/v1/recibos/parse" \
   -H "accept: application/json" \
   -H "Content-Type: multipart/form-data" \
   -F "file=@data/36528392-2026-08-13-17_12_03_336.pdf"
+```
+
+### 2. Consulta de Bandeja de Entrada de Correo (OpenClaw): `GET /api/v1/mail/inbox`
+
+```bash
+# Listar los últimos 10 correos no leídos
+curl -sS "http://localhost:8000/api/v1/mail/inbox?limit=10&sin_leer=true"
+
+# Obtener detalle completo de un mensaje por UID
+curl -sS "http://localhost:8000/api/v1/mail/inbox/1052"
 ```

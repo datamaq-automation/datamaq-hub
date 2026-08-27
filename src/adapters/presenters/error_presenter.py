@@ -7,6 +7,13 @@ from src.domain.horarios_docencia.exceptions import (
     HorariosDocenciaDomainException,
 )
 from src.domain.liquidacion.exceptions import LiquidacionDomainException
+from src.domain.mail.exceptions import (
+    EmailNotFoundError,
+    MailAuthenticationError,
+    MailboxNotFoundError,
+    MailConnectionError,
+    MailDomainException,
+)
 from src.domain.recibos.exceptions import (
     DomainException,
     InvalidIdentifierError,
@@ -22,7 +29,8 @@ class ErrorPresenter:
     def format_domain_error(
         exc: DomainException
         | LiquidacionDomainException
-        | HorariosDocenciaDomainException,
+        | HorariosDocenciaDomainException
+        | MailDomainException,
         default_status_code: int = 422,
     ) -> tuple[ErrorResponseDTO, int]:
         status_code = default_status_code
@@ -42,6 +50,21 @@ class ErrorPresenter:
             status_code = 422
         elif isinstance(exc, HorariosDocenciaDomainException):
             code_name = "HORARIOS_DOCENCIA_DOMAIN_ERROR"
+            status_code = 422
+        elif isinstance(exc, EmailNotFoundError):
+            code_name = "EMAIL_NOT_FOUND"
+            status_code = 404
+        elif isinstance(exc, MailboxNotFoundError):
+            code_name = "MAILBOX_NOT_FOUND"
+            status_code = 404
+        elif isinstance(exc, MailAuthenticationError):
+            code_name = "MAIL_AUTHENTICATION_ERROR"
+            status_code = 401
+        elif isinstance(exc, MailConnectionError):
+            code_name = "MAIL_CONNECTION_ERROR"
+            status_code = 502
+        elif isinstance(exc, MailDomainException):
+            code_name = "MAIL_DOMAIN_ERROR"
             status_code = 422
 
         msg = getattr(exc, "message", str(exc))
