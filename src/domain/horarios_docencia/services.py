@@ -64,6 +64,7 @@ class ValidadorHorariosDocenciaService:
                         franja=horario.franja,
                         turno=horario.turno,
                         modulos=cargo.modulos,
+                        ige=cargo.ige,
                     )
                 )
 

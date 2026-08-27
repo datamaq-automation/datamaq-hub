@@ -1,20 +1,29 @@
 """Mapper para transformar entre DTOs y Entidades del subdominio horarios_docencia."""
 
+from datetime import date
+import uuid
+
 from src.application.dtos.horarios_docencia_dto import (
+    CargoDocenteDTO,
     ConflictoDTO,
     DeclaracionHorariaInputDTO,
+    DesignacionDocenteDTO,
+    HorarioBloqueDTO,
     ItemGrillaDiaDTO,
+    RegistrarDesignacionInputDTO,
     ResultadoCompatibilidadDTO,
 )
 from src.domain.horarios_docencia.entities import (
     CargoDocente,
     DeclaracionHorariaDocente,
+    DesignacionDocente,
     HorarioBloque,
     ResultadoCompatibilidad,
 )
 from src.domain.horarios_docencia.value_objects import (
     DiaSemana,
     FranjaHoraria,
+    PeriodoVigencia,
     SituacionRevista,
     Turno,
 )
@@ -31,9 +40,7 @@ class HorariosDocenciaMapper:
         for c_dto in dto.cargos:
             horarios_dominio: list[HorarioBloque] = []
             for h_dto in c_dto.horarios:
-                # Normalizar dia
                 dia_enum = DiaSemana[h_dto.dia.strip().upper()]
-                # Normalizar turno
                 turno_str = h_dto.turno.strip().upper()
                 turno_enum = (
                     Turno[turno_str] if turno_str in Turno.__members__ else Turno.MANANA
@@ -64,6 +71,7 @@ class HorariosDocenciaMapper:
                     distrito=c_dto.distrito.strip(),
                     cargo_asignatura=c_dto.cargo_asignatura.strip(),
                     revista=revista_enum,
+                    ige=c_dto.ige.strip(),
                     modulos=c_dto.modulos,
                     es_cargo_base=c_dto.es_cargo_base,
                     horarios=tuple(horarios_dominio),
@@ -75,6 +83,88 @@ class HorariosDocenciaMapper:
             cuit=dto.cuit.strip(),
             dni=dto.dni.strip(),
             cargos=tuple(cargos_dominio),
+        )
+
+    @staticmethod
+    def to_designacion_domain(dto: RegistrarDesignacionInputDTO) -> DesignacionDocente:
+        """Convierte RegistrarDesignacionInputDTO a la entidad temporal DesignacionDocente."""
+        horarios_dominio: list[HorarioBloque] = []
+        for h_dto in dto.horarios:
+            dia_enum = DiaSemana[h_dto.dia.strip().upper()]
+            turno_str = h_dto.turno.strip().upper()
+            turno_enum = (
+                Turno[turno_str] if turno_str in Turno.__members__ else Turno.MANANA
+            )
+            franja = FranjaHoraria(
+                hora_inicio=h_dto.hora_inicio.strip(),
+                hora_fin=h_dto.hora_fin.strip(),
+            )
+            horarios_dominio.append(
+                HorarioBloque(
+                    dia=dia_enum,
+                    franja=franja,
+                    turno=turno_enum,
+                )
+            )
+
+        revista_str = dto.revista.strip().upper()
+        revista_enum = (
+            SituacionRevista[revista_str]
+            if revista_str in SituacionRevista.__members__
+            else SituacionRevista.TITULAR
+        )
+
+        f_desde = date.fromisoformat(dto.fecha_desde.strip())
+        f_hasta = (
+            date.fromisoformat(dto.fecha_hasta.strip()) if dto.fecha_hasta else None
+        )
+
+        return DesignacionDocente(
+            id_designacion=str(uuid.uuid4()),
+            docente_cuit=dto.docente_cuit.strip(),
+            ige=dto.ige.strip(),
+            establecimiento=dto.establecimiento.strip(),
+            distrito=dto.distrito.strip(),
+            cargo_asignatura=dto.cargo_asignatura.strip(),
+            revista=revista_enum,
+            vigencia=PeriodoVigencia(fecha_desde=f_desde, fecha_hasta=f_hasta),
+            modulos=dto.modulos,
+            es_cargo_base=dto.es_cargo_base,
+            horarios=tuple(horarios_dominio),
+        )
+
+    @staticmethod
+    def designacion_to_dto(domain: DesignacionDocente) -> DesignacionDocenteDTO:
+        """Convierte una entidad DesignacionDocente a DesignacionDocenteDTO."""
+        horarios_dto = [
+            HorarioBloqueDTO(
+                dia=h.dia.value,
+                hora_inicio=h.franja.hora_inicio,
+                hora_fin=h.franja.hora_fin,
+                turno=h.turno.value,
+            )
+            for h in domain.horarios
+        ]
+
+        return DesignacionDocenteDTO(
+            id_designacion=domain.id_designacion,
+            docente_cuit=domain.docente_cuit,
+            ige=domain.ige,
+            establecimiento=domain.establecimiento,
+            distrito=domain.distrito,
+            cargo_asignatura=domain.cargo_asignatura,
+            revista=domain.revista.value,
+            modulos=domain.modulos,
+            es_cargo_base=domain.es_cargo_base,
+            fecha_desde=domain.vigencia.fecha_desde.isoformat(),
+            fecha_hasta=(
+                domain.vigencia.fecha_hasta.isoformat()
+                if domain.vigencia.fecha_hasta
+                else None
+            ),
+            motivo_cese=domain.motivo_cese.value if domain.motivo_cese else None,
+            horarios=horarios_dto,
+            creado_en=domain.creado_en.isoformat(),
         )
 
     @staticmethod
@@ -105,6 +195,7 @@ class HorariosDocenciaMapper:
                     hora_fin=item.franja.hora_fin,
                     turno=item.turno.value,
                     modulos=item.modulos,
+                    ige=item.ige,
                 )
                 for item in items
             ]

@@ -8,6 +8,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
 from src.adapters.gateways.api_cache_gateway import init_db
+from src.adapters.gateways.sql_designacion_docente_gateway import init_horarios_db
 from src.adapters.presenters.error_presenter import ErrorPresenter
 from src.domain.horarios_docencia.exceptions import (
     HorariosDocenciaDomainException,
@@ -34,8 +35,9 @@ def create_app() -> FastAPI:
 
     @asynccontextmanager
     async def lifespan(_: FastAPI) -> AsyncIterator[None]:
-        """Inicializa el schema de caché en MySQL al arrancar el servidor."""
+        """Inicializa los schemas de BD (caché y horarios) al arrancar el servidor."""
         init_db(settings.database_url)
+        init_horarios_db(settings.database_url)
         yield
 
     app = FastAPI(

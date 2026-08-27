@@ -1,10 +1,14 @@
 """Value Objects para el subdominio de horarios y compatibilidad de docencia."""
 
-import re
 from dataclasses import dataclass
+from datetime import date
 from enum import Enum
+import re
 
-from src.domain.horarios_docencia.exceptions import FranjaHorariaInvalidaException
+from src.domain.horarios_docencia.exceptions import (
+    FranjaHorariaInvalidaException,
+    HorarioDocenciaInvalidoException,
+)
 
 _TIME_REGEX = re.compile(r"^([01]\d|2[0-3]):([0-5]\d)$")
 
@@ -52,6 +56,44 @@ class NivelSeveridad(str, Enum):
 
     CRITICO = "CRITICO"
     ADVERTENCIA = "ADVERTENCIA"
+
+
+class MotivoCese(str, Enum):
+    """Motivos formales de cese o fin de vigencia de una designación."""
+
+    FIN_SUPLENCIA = "FIN_SUPLENCIA"
+    RENUNCIA = "RENUNCIA"
+    DESPLAZAMIENTO = "DESPLAZAMIENTO"
+    CIERRE_CURSO = "CIERRE_CURSO"
+    OTRO = "OTRO"
+
+
+@dataclass(frozen=True)
+class PeriodoVigencia:
+    """Intervalo de vigencia temporal de una designación o suplencia docente."""
+
+    fecha_desde: date
+    fecha_hasta: date | None = None
+
+    def __post_init__(self) -> None:
+        if self.fecha_hasta is not None and self.fecha_desde > self.fecha_hasta:
+            raise HorarioDocenciaInvalidoException(
+                f"fecha_desde ({self.fecha_desde}) no puede ser posterior a fecha_hasta ({self.fecha_hasta})"
+            )
+
+    def esta_vigente_en(self, fecha: date) -> bool:
+        """Determina si la designación estaba activa en una fecha específica."""
+        if fecha < self.fecha_desde:
+            return False
+        if self.fecha_hasta is not None and fecha > self.fecha_hasta:
+            return False
+        return True
+
+    def duracion_dias(self) -> int | None:
+        """Retorna la duración en días si la fecha_hasta está definida."""
+        if self.fecha_hasta is None:
+            return None
+        return (self.fecha_hasta - self.fecha_desde).days + 1
 
 
 @dataclass(frozen=True)

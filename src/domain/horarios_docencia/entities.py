@@ -1,11 +1,14 @@
 """Entidades de dominio para el subdominio de horarios y compatibilidad de docencia."""
 
 from dataclasses import dataclass, field
+from datetime import datetime
 
 from src.domain.horarios_docencia.value_objects import (
     DiaSemana,
     FranjaHoraria,
+    MotivoCese,
     NivelSeveridad,
+    PeriodoVigencia,
     SituacionRevista,
     TipoConflicto,
     Turno,
@@ -23,13 +26,14 @@ class HorarioBloque:
 
 @dataclass(frozen=True)
 class CargoDocente:
-    """Cargo, espacio curricular o módulos declarados por el docente."""
+    """Cargo, espacio curricular o módulos declarados por el docente para una auditoría."""
 
     id_cargo: str
     establecimiento: str
     distrito: str
     cargo_asignatura: str
     revista: SituacionRevista
+    ige: str = ""
     modulos: int = 0
     es_cargo_base: bool = False
     horarios: tuple[HorarioBloque, ...] = field(
@@ -38,8 +42,43 @@ class CargoDocente:
 
 
 @dataclass(frozen=True)
+class DesignacionDocente:
+    """Entidad inmutable que representa una designación, titularidad o suplencia persistida en el tiempo."""
+
+    id_designacion: str
+    docente_cuit: str
+    establecimiento: str
+    distrito: str
+    cargo_asignatura: str
+    revista: SituacionRevista
+    vigencia: PeriodoVigencia
+    ige: str = ""
+    modulos: int = 0
+    es_cargo_base: bool = False
+    horarios: tuple[HorarioBloque, ...] = field(
+        default_factory=tuple[HorarioBloque, ...]
+    )
+    motivo_cese: MotivoCese | None = None
+    creado_en: datetime = field(default_factory=datetime.utcnow)
+
+    def to_cargo_docente(self) -> CargoDocente:
+        """Convierte la designación histórica a un CargoDocente para validación."""
+        return CargoDocente(
+            id_cargo=self.id_designacion,
+            establecimiento=self.establecimiento,
+            distrito=self.distrito,
+            cargo_asignatura=self.cargo_asignatura,
+            revista=self.revista,
+            ige=self.ige,
+            modulos=self.modulos,
+            es_cargo_base=self.es_cargo_base,
+            horarios=self.horarios,
+        )
+
+
+@dataclass(frozen=True)
 class DeclaracionHorariaDocente:
-    """Declaración jurada horaria consolidada de un docente."""
+    """Declaración jurada horaria consolidada de un docente para auditoría."""
 
     docente_nombre: str
     cuit: str = ""
@@ -71,6 +110,7 @@ class ItemGrillaDia:
     franja: FranjaHoraria
     turno: Turno
     modulos: int
+    ige: str = ""
 
 
 @dataclass(frozen=True)
