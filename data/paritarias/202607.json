@@ -1,0 +1,16 @@
+{
+  "periodo": "202607",
+  "basico_por_modulo_sm": 42894.625,
+  "basico_por_modulo_pm": 22877.1325,
+  "bonif_0455_sm": 14125.9425,
+  "bonif_0455_pm": 9281.9325,
+  "bonif_0667_sm": 14796.8575,
+  "bonif_0667_pm": 9722.7825,
+  "bonif_2575_sm": 3390.187,
+  "bonif_2575_pm": 2009.00,
+  "alicuota_ips": 0.1600,
+  "alicuota_ioma": 0.0480,
+  "alicuota_suteba_sindicato": 0.0155,
+  "alicuota_suteba_os": 0.0464,
+  "tope_bonificaciones_modulos": 30.0
+}
