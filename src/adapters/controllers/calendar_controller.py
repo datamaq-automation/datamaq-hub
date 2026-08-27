@@ -2,6 +2,10 @@
 
 from datetime import date, datetime
 
+from src.application.dtos.calendar_docencia_dto import (
+    SincronizacionDocenteResponseDTO,
+    SincronizarDocenciaDTO,
+)
 from src.application.dtos.calendar_dto import (
     AvailabilityResponseDTO,
     CalendarEventDTO,
@@ -9,6 +13,9 @@ from src.application.dtos.calendar_dto import (
     UpdateEventDTO,
 )
 from src.application.use_cases.check_availability import CheckAvailabilityUseCase
+from src.application.use_cases.consultar_agenda_docente import (
+    ConsultarAgendaDocenteUseCase,
+)
 from src.application.use_cases.create_calendar_event import (
     CreateCalendarEventUseCase,
 )
@@ -21,6 +28,9 @@ from src.application.use_cases.get_upcoming_events import (
 )
 from src.application.use_cases.list_calendar_events import (
     ListCalendarEventsUseCase,
+)
+from src.application.use_cases.sincronizar_agenda_docente import (
+    SincronizarAgendaDocenteUseCase,
 )
 from src.application.use_cases.update_calendar_event import (
     UpdateCalendarEventUseCase,
@@ -39,6 +49,8 @@ class CalendarController:
         update_event_use_case: UpdateCalendarEventUseCase,
         delete_event_use_case: DeleteCalendarEventUseCase,
         check_availability_use_case: CheckAvailabilityUseCase,
+        sincronizar_docencia_use_case: SincronizarAgendaDocenteUseCase | None = None,
+        consultar_docencia_use_case: ConsultarAgendaDocenteUseCase | None = None,
     ) -> None:
         self._list_events = list_events_use_case
         self._get_upcoming = get_upcoming_events_use_case
@@ -47,6 +59,8 @@ class CalendarController:
         self._update_event = update_event_use_case
         self._delete_event = delete_event_use_case
         self._check_availability = check_availability_use_case
+        self._sincronizar_docencia = sincronizar_docencia_use_case
+        self._consultar_docencia = consultar_docencia_use_case
 
     def list_events(
         self,
@@ -88,4 +102,31 @@ class CalendarController:
             account=account,
             target_date=target_date,
             slot_duration_minutes=slot_duration_minutes,
+        )
+
+    def sincronizar_docencia(
+        self, dto: SincronizarDocenciaDTO, account: str
+    ) -> SincronizacionDocenteResponseDTO:
+        if not self._sincronizar_docencia:
+            raise NotImplementedError(
+                "SincronizarAgendaDocenteUseCase no inyectado en CalendarController."
+            )
+        return self._sincronizar_docencia.execute(dto=dto, account=account)
+
+    def consultar_agenda_docente(
+        self,
+        account: str,
+        fecha_desde: date,
+        fecha_hasta: date,
+        solo_docencia: bool = False,
+    ) -> list[CalendarEventDTO]:
+        if not self._consultar_docencia:
+            raise NotImplementedError(
+                "ConsultarAgendaDocenteUseCase no inyectado en CalendarController."
+            )
+        return self._consultar_docencia.execute(
+            account=account,
+            fecha_desde=fecha_desde,
+            fecha_hasta=fecha_hasta,
+            solo_docencia=solo_docencia,
         )

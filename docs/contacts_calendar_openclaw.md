@@ -65,3 +65,27 @@ curl -sS -X POST http://127.0.0.1:8013/api/v1/calendario/eventos \
     "asistentes": ["agustin@datamaq.com.ar", "cliente@empresa.com"]
   }'
 ```
+
+---
+
+## 4. Agenda Docente Integrada en Calendario (`/api/v1/calendario/docencia`)
+
+Permite a OpenClaw proyectar automáticamente los horarios de clase de las designaciones docentes en el calendario corporativo y consultar la agenda unificada.
+
+### Sincronizar clases docentes en el calendario
+```bash
+curl -sS -X POST http://127.0.0.1:8013/api/v1/calendario/docencia/sincronizar \
+  -H "Content-Type: application/json" \
+  -d '{
+    "cuit": "20365283921",
+    "fecha_desde": "2026-09-01",
+    "fecha_hasta": "2026-09-30",
+    "limpiar_previos": true
+  }'
+```
+
+### Consultar agenda unificada de clases
+```bash
+curl -sS "http://127.0.0.1:8013/api/v1/calendario/docencia/agenda?cuit=20365283921&fecha_desde=2026-09-01&fecha_hasta=2026-09-07"
+```
+

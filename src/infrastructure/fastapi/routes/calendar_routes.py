@@ -7,6 +7,10 @@ from fastapi import APIRouter, Depends, Query
 
 from src.adapters.controllers.calendar_controller import CalendarController
 from src.adapters.controllers.dependencies import get_calendar_controller
+from src.application.dtos.calendar_docencia_dto import (
+    SincronizacionDocenteResponseDTO,
+    SincronizarDocenciaDTO,
+)
 from src.application.dtos.calendar_dto import (
     AvailabilityResponseDTO,
     CalendarEventDTO,
@@ -23,9 +27,15 @@ def get_configured_calendar_controller() -> CalendarController:
     """Dependency resolver creating CalendarController with configured DB."""
     settings = get_settings()
     from src.adapters.gateways.sql_calendar_gateway import SQLCalendarGateway
+    from src.adapters.gateways.sql_designacion_docente_gateway import (
+        SQLDesignacionDocenteGateway,
+    )
 
-    gateway = SQLCalendarGateway(database_url=settings.roundcube_db_url)
-    return get_calendar_controller(repository=gateway)
+    calendar_gw = SQLCalendarGateway(database_url=settings.roundcube_db_url)
+    docencia_gw = SQLDesignacionDocenteGateway(database_url=settings.database_url)
+    return get_calendar_controller(
+        repository=calendar_gw, designacion_repository=docencia_gw
+    )
 
 
 @router.get("/eventos", response_model=APIResponseDTO[list[CalendarEventDTO]])
@@ -179,3 +189,63 @@ async def delete_event(
         success=True,
         data={"eliminado": deleted, "id_evento": event_id},
     )
+
+
+@router.post(
+    "/docencia/sincronizar",
+    response_model=APIResponseDTO[SincronizacionDocenteResponseDTO],
+    summary="Sincronizar Clases Docentes al Calendario",
+    description="Proyecta las clases semanales de las designaciones docentes vigentes como eventos concretos en el calendario corporativo.",
+)
+async def sincronizar_docencia(
+    payload: SincronizarDocenciaDTO,
+    controller: Annotated[
+        CalendarController, Depends(get_configured_calendar_controller)
+    ],
+    account: Annotated[
+        str | None,
+        Query(description="Cuenta de correo asociada (opcional)"),
+    ] = None,
+) -> APIResponseDTO[SincronizacionDocenteResponseDTO]:
+    """Projects and syncs teaching positions into calendar events."""
+    settings = get_settings()
+    effective_account = payload.account or account or settings.default_mail_account
+    result = controller.sincronizar_docencia(dto=payload, account=effective_account)
+    return APIResponseDTO[SincronizacionDocenteResponseDTO](success=True, data=result)
+
+
+@router.get(
+    "/docencia/agenda",
+    response_model=APIResponseDTO[list[CalendarEventDTO]],
+    summary="Consultar Agenda Unificada Docente",
+    description="Obtiene la agenda consolidada de clases escolares y compromisos en un intervalo de fechas.",
+)
+async def consultar_agenda_docente(
+    controller: Annotated[
+        CalendarController, Depends(get_configured_calendar_controller)
+    ],
+    fecha_desde: Annotated[
+        date, Query(description="Fecha inicial de consulta (YYYY-MM-DD)")
+    ],
+    fecha_hasta: Annotated[
+        date, Query(description="Fecha final de consulta (YYYY-MM-DD)")
+    ],
+    solo_docencia: Annotated[
+        bool,
+        Query(description="Filtrar exclusivamente eventos de clases escolares"),
+    ] = False,
+    account: Annotated[
+        str | None,
+        Query(description="Cuenta de correo asociada (opcional)"),
+    ] = None,
+) -> APIResponseDTO[list[CalendarEventDTO]]:
+    """Retrieves unified teaching schedule."""
+    settings = get_settings()
+    effective_account = account or settings.default_mail_account
+    result = controller.consultar_agenda_docente(
+        account=effective_account,
+        fecha_desde=fecha_desde,
+        fecha_hasta=fecha_hasta,
+        solo_docencia=solo_docencia,
+    )
+    return APIResponseDTO[list[CalendarEventDTO]](success=True, data=result)

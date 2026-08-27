@@ -209,6 +209,14 @@ def get_contacts_controller(
     )
 
 
+from src.application.use_cases.consultar_agenda_docente import (
+    ConsultarAgendaDocenteUseCase,
+)
+from src.application.use_cases.sincronizar_agenda_docente import (
+    SincronizarAgendaDocenteUseCase,
+)
+
+
 def get_default_calendar_gateway(
     database_url: str | None = None,
 ) -> CalendarRepositoryPort:
@@ -218,9 +226,11 @@ def get_default_calendar_gateway(
 
 def get_calendar_controller(
     repository: CalendarRepositoryPort | None = None,
+    designacion_repository: DesignacionDocenteRepositoryPort | None = None,
 ) -> CalendarController:
     """Builds and returns a CalendarController instance."""
     repo = repository or get_default_calendar_gateway()
+    doc_repo = designacion_repository or get_designacion_docente_repository_gateway()
     return CalendarController(
         list_events_use_case=ListCalendarEventsUseCase(repository=repo),
         get_upcoming_events_use_case=GetUpcomingEventsUseCase(repository=repo),
@@ -229,4 +239,8 @@ def get_calendar_controller(
         update_event_use_case=UpdateCalendarEventUseCase(repository=repo),
         delete_event_use_case=DeleteCalendarEventUseCase(repository=repo),
         check_availability_use_case=CheckAvailabilityUseCase(repository=repo),
+        sincronizar_docencia_use_case=SincronizarAgendaDocenteUseCase(
+            designacion_repo=doc_repo, calendar_repo=repo
+        ),
+        consultar_docencia_use_case=ConsultarAgendaDocenteUseCase(calendar_repo=repo),
     )

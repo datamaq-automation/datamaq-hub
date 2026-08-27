@@ -64,10 +64,21 @@ class CalendarRepositoryPort(Protocol):
 5. `UpdateCalendarEventUseCase`: Modificación de horario, título, descripción o ubicación de un evento.
 6. `DeleteCalendarEventUseCase`: Eliminación física o cancelación de un evento.
 7. `CheckAvailabilityUseCase`: Cálculo de franjas horarias libres y ocupadas para una fecha dada.
+8. `SincronizarAgendaDocenteUseCase`: Proyección e inserción de clases de designaciones docentes vigentes como eventos de calendario categorizados como `"Docencia"`.
+9. `ConsultarAgendaDocenteUseCase`: Consulta unificada de agenda escolar y citas corporativas.
 
 ---
 
-## 5. Endpoints HTTP
+## 5. Integración con Horarios de Docencia (`DocenciaEventProjectorService`)
+- Mapea las designaciones vigentes (`DesignacionDocente`) y sus bloques semanales (`HorarioBloque`) a instancias de `CalendarEvent` en un rango temporal `[fecha_desde, fecha_hasta]`.
+- Mapeo de días:
+  - `LUNES` -> 0, `MARTES` -> 1, `MIERCOLES` -> 2, `JUEVES` -> 3, `VIERNES` -> 4, `SABADO` -> 5.
+- Categoría asignada: `"Docencia"`.
+- Permite limpieza previa (`limpiar_previos=True`) para evitar solapamientos al actualizar horarios de cursada.
+
+---
+
+## 6. Endpoints HTTP
 - `GET /api/v1/calendario/eventos`: Listar eventos por rango de fechas (`?fecha_desde=&fecha_hasta=&account=&limit=`).
 - `GET /api/v1/calendario/proximos`: Próximos eventos (`?dias=7&limit=10&account=`).
 - `GET /api/v1/calendario/disponibilidad`: Franjas horarias libres (`?fecha=&duracion_minutos=30&account=`).
@@ -75,3 +86,5 @@ class CalendarRepositoryPort(Protocol):
 - `POST /api/v1/calendario/eventos`: Crear evento (`CreateEventDTO`).
 - `PUT /api/v1/calendario/eventos/{event_id}`: Actualizar evento (`UpdateEventDTO`).
 - `DELETE /api/v1/calendario/eventos/{event_id}`: Eliminar evento (`?account=`).
+- `POST /api/v1/calendario/docencia/sincronizar`: Sincronizar clases docentes en el calendario (`SincronizarDocenciaDTO`).
+- `GET /api/v1/calendario/docencia/agenda`: Agenda unificada docente (`?cuit=&fecha_desde=&fecha_hasta=`).
