@@ -33,9 +33,7 @@ class HorariosDocenciaController:
         consultar_vigentes_use_case: (
             ConsultarDesignacionesVigentesUseCase | None
         ) = None,
-        consultar_historial_use_case: (
-            ConsultarHistorialDocenteUseCase | None
-        ) = None,
+        consultar_historial_use_case: (ConsultarHistorialDocenteUseCase | None) = None,
     ) -> None:
         self._validar_use_case = (
             validar_use_case
@@ -60,7 +58,9 @@ class HorariosDocenciaController:
     ) -> DesignacionDocenteDTO:
         """Persiste una nueva designación o suplencia con vigencia temporal."""
         if self._registrar_use_case is None:
-            raise RuntimeError("RegistrarDesignacionUseCase no inyectado en el controlador")
+            raise RuntimeError(
+                "RegistrarDesignacionUseCase no inyectado en el controlador"
+            )
         return self._registrar_use_case.execute(input_dto)
 
     def cesar_designacion(

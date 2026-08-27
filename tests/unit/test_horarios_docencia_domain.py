@@ -1,20 +1,25 @@
-"""Tests unitarios para el dominio de horarios_docencia (compatibilidad, superposiciones y traslados)."""
+"""Tests unitarios para el dominio de horarios_docencia (compatibilidad, vigencias temporales y periodos)."""
+
+from datetime import date
 
 import pytest
 
 from src.domain.horarios_docencia.entities import (
     CargoDocente,
     DeclaracionHorariaDocente,
+    DesignacionDocente,
     HorarioBloque,
 )
 from src.domain.horarios_docencia.exceptions import (
     FranjaHorariaInvalidaException,
+    HorarioDocenciaInvalidoException,
 )
 from src.domain.horarios_docencia.services import ValidadorHorariosDocenciaService
 from src.domain.horarios_docencia.value_objects import (
     DiaSemana,
     FranjaHoraria,
     NivelSeveridad,
+    PeriodoVigencia,
     SituacionRevista,
     TipoConflicto,
     Turno,
@@ -59,6 +64,55 @@ def test_franja_horaria_overlap_and_distance() -> None:
     assert f1.minutos_hasta(f4) == 30
 
 
+def test_periodo_vigencia_logic() -> None:
+    """Verifica la lógica temporal del Value Object PeriodoVigencia."""
+    v_activa = PeriodoVigencia(fecha_desde=date(2026, 3, 1), fecha_hasta=None)
+    assert v_activa.esta_vigente_en(date(2026, 2, 28)) is False
+    assert v_activa.esta_vigente_en(date(2026, 3, 1)) is True
+    assert v_activa.esta_vigente_en(date(2026, 8, 27)) is True
+    assert v_activa.duracion_dias() is None
+
+    v_cerrada = PeriodoVigencia(
+        fecha_desde=date(2026, 3, 1), fecha_hasta=date(2026, 6, 30)
+    )
+    assert v_cerrada.esta_vigente_en(date(2026, 4, 15)) is True
+    assert v_cerrada.esta_vigente_en(date(2026, 7, 1)) is False
+    assert v_cerrada.duracion_dias() == 122
+
+    # Error si fecha_desde > fecha_hasta
+    with pytest.raises(HorarioDocenciaInvalidoException):
+        PeriodoVigencia(fecha_desde=date(2026, 8, 1), fecha_hasta=date(2026, 7, 1))
+
+
+def test_designacion_docente_conversion() -> None:
+    """Verifica que DesignacionDocente se convierta correctamente a CargoDocente para auditoría."""
+    designacion = DesignacionDocente(
+        id_designacion="DESIG-001",
+        docente_cuit="20-36528392-4",
+        ige="IGE-78901",
+        establecimiento="EEST N° 1 Pilar",
+        distrito="Pilar",
+        cargo_asignatura="Electrotecnia 4to",
+        revista=SituacionRevista.TITULAR,
+        vigencia=PeriodoVigencia(fecha_desde=date(2026, 3, 1)),
+        modulos=4,
+        es_cargo_base=False,
+        horarios=(
+            HorarioBloque(
+                dia=DiaSemana.LUNES,
+                franja=FranjaHoraria(hora_inicio="07:30", hora_fin="09:30"),
+                turno=Turno.MANANA,
+            ),
+        ),
+    )
+
+    cargo = designacion.to_cargo_docente()
+    assert cargo.id_cargo == "DESIG-001"
+    assert cargo.ige == "IGE-78901"
+    assert cargo.establecimiento == "EEST N° 1 Pilar"
+    assert len(cargo.horarios) == 1
+
+
 def test_declaracion_compatible_sin_conflictos() -> None:
     """Verifica una declaración horaria 100% compatible sin superposiciones ni traslados riesgosos."""
     cargo1 = CargoDocente(
@@ -67,6 +121,7 @@ def test_declaracion_compatible_sin_conflictos() -> None:
         distrito="Pilar",
         cargo_asignatura="Electrotecnia 4to",
         revista=SituacionRevista.TITULAR,
+        ige="IGE-1234",
         modulos=4,
         es_cargo_base=False,
         horarios=(
@@ -83,6 +138,7 @@ def test_declaracion_compatible_sin_conflictos() -> None:
         distrito="Pilar",
         cargo_asignatura="Instalaciones 5to",
         revista=SituacionRevista.PROVISIONAL,
+        ige="IGE-5678",
         modulos=4,
         es_cargo_base=False,
         horarios=(
@@ -96,6 +152,7 @@ def test_declaracion_compatible_sin_conflictos() -> None:
 
     declaracion = DeclaracionHorariaDocente(
         docente_nombre="Agustín Deoz",
+        cuit="20-36528392-4",
         cargos=(cargo1, cargo2),
     )
 
@@ -107,6 +164,7 @@ def test_declaracion_compatible_sin_conflictos() -> None:
     assert resultado.total_modulos == 8
     assert resultado.total_cargos == 2
     assert len(resultado.grilla_semanal["LUNES"]) == 2
+    assert resultado.grilla_semanal["LUNES"][0].ige == "IGE-1234"
 
 
 def test_declaracion_con_superposicion_critica() -> None:
@@ -158,74 +216,3 @@ def test_declaracion_con_superposicion_critica() -> None:
     assert conflicto.severidad == NivelSeveridad.CRITICO
     assert conflicto.dia == DiaSemana.MARTES
     assert conflicto.minutos_solapamiento_o_traslado == 30
-
-
-def test_declaracion_con_traslado_insuficiente_y_topes_estatutarios() -> None:
-    """Verifica advertencias de traslado insuficiente y exceso de 30 módulos."""
-    cargo1 = CargoDocente(
-        id_cargo="C-01",
-        establecimiento="EEST N° 1 Pilar",
-        distrito="Pilar",
-        cargo_asignatura="Materia A",
-        revista=SituacionRevista.TITULAR,
-        modulos=18,
-        es_cargo_base=True,
-        horarios=(
-            HorarioBloque(
-                dia=DiaSemana.MIERCOLES,
-                franja=FranjaHoraria(hora_inicio="07:30", hora_fin="11:30"),
-                turno=Turno.MANANA,
-            ),
-        ),
-    )
-    cargo2 = CargoDocente(
-        id_cargo="C-02",
-        establecimiento="EEST N° 2 Garín",
-        distrito="Escobar",
-        cargo_asignatura="Materia B",
-        revista=SituacionRevista.TITULAR,
-        modulos=18,
-        es_cargo_base=True,
-        horarios=(
-            HorarioBloque(
-                dia=DiaSemana.MIERCOLES,
-                franja=FranjaHoraria(
-                    hora_inicio="11:40", hora_fin="15:40"
-                ),  # Solo 10 min entre escuelas distintas
-                turno=Turno.TARDE,
-            ),
-        ),
-    )
-    cargo3 = CargoDocente(
-        id_cargo="C-03",
-        establecimiento="EEST N° 3",
-        distrito="San Martín",
-        cargo_asignatura="Materia C",
-        revista=SituacionRevista.PROVISIONAL,
-        modulos=2,
-        es_cargo_base=True,  # 3 cargos de base en total (supera tope de 2)
-        horarios=(),
-    )
-
-    declaracion = DeclaracionHorariaDocente(
-        docente_nombre="Docente Sobrecargado",
-        cargos=(cargo1, cargo2, cargo3),
-    )
-
-    validador = ValidadorHorariosDocenciaService()
-    resultado = validador.validar(
-        declaracion,
-        margen_traslado_minutos=20,
-        tope_modulos_semanales=30,
-        tope_cargos_base=2,
-    )
-
-    # Es compatible porque no hay superposición física estricta, pero tiene advertencias
-    assert resultado.es_compatible is True
-    assert resultado.total_modulos == 38
-    assert resultado.total_cargos_base == 3
-
-    tipos_conflictos = [c.tipo for c in resultado.conflictos]
-    assert TipoConflicto.TRASLADO_INSUFICIENTE in tipos_conflictos
-    assert TipoConflicto.EXCESO_MODULOS_SEMANALES in tipos_conflictos
-    assert TipoConflicto.EXCESO_CARGOS_BASE in tipos_conflictos

@@ -1,10 +1,9 @@
 """Mapper para transformar entre DTOs y Entidades del subdominio horarios_docencia."""
 
-from datetime import date
 import uuid
+from datetime import date
 
 from src.application.dtos.horarios_docencia_dto import (
-    CargoDocenteDTO,
     ConflictoDTO,
     DeclaracionHorariaInputDTO,
     DesignacionDocenteDTO,

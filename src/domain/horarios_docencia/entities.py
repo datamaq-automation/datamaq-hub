@@ -1,7 +1,7 @@
 """Entidades de dominio para el subdominio de horarios y compatibilidad de docencia."""
 
 from dataclasses import dataclass, field
-from datetime import datetime
+from datetime import datetime, timezone
 
 from src.domain.horarios_docencia.value_objects import (
     DiaSemana,
@@ -13,6 +13,10 @@ from src.domain.horarios_docencia.value_objects import (
     TipoConflicto,
     Turno,
 )
+
+
+def _now_utc() -> datetime:
+    return datetime.now(timezone.utc)
 
 
 @dataclass(frozen=True)
@@ -59,7 +63,7 @@ class DesignacionDocente:
         default_factory=tuple[HorarioBloque, ...]
     )
     motivo_cese: MotivoCese | None = None
-    creado_en: datetime = field(default_factory=datetime.utcnow)
+    creado_en: datetime = field(default_factory=_now_utc)
 
     def to_cargo_docente(self) -> CargoDocente:
         """Convierte la designación histórica a un CargoDocente para validación."""

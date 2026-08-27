@@ -1,10 +1,9 @@
 """Gateway relacional SQLAlchemy para persistencia inmutable / temporal de designaciones docentes."""
 
-from datetime import date, datetime
 import logging
 import os
-from typing import Any
 import uuid
+from datetime import date, datetime, timezone
 
 from sqlalchemy import (
     Boolean,
@@ -66,7 +65,7 @@ class DesignacionDocenteModel(Base):
     fecha_hasta: Mapped[date | None] = mapped_column(Date, index=True, nullable=True)
     motivo_cese: Mapped[str | None] = mapped_column(String(50), nullable=True)
     creado_en: Mapped[datetime] = mapped_column(
-        DateTime, default=datetime.utcnow, nullable=False
+        DateTime, default=lambda: datetime.now(timezone.utc), nullable=False
     )
 
     horarios: Mapped[list["HorarioBloqueModel"]] = relationship(
@@ -106,7 +105,7 @@ def init_horarios_db(database_url: str) -> None:
     try:
         engine = create_engine(database_url, pool_pre_ping=True)
         Base.metadata.create_all(engine)
-    except Exception as e:
+    except (SQLAlchemyError, OSError, ValueError, RuntimeError) as e:
         logger.warning(f"No se pudo inicializar schema de horarios_docencia: {e}")
 
 
@@ -131,8 +130,12 @@ class SQLDesignacionDocenteGateway(DesignacionDocenteRepositoryPort):
             horarios.append(
                 HorarioBloque(
                     dia=DiaSemana[h.dia],
-                    franja=FranjaHoraria(hora_inicio=h.hora_inicio, hora_fin=h.hora_fin),
-                    turno=Turno[h.turno] if h.turno in Turno.__members__ else Turno.MANANA,
+                    franja=FranjaHoraria(
+                        hora_inicio=h.hora_inicio, hora_fin=h.hora_fin
+                    ),
+                    turno=Turno[h.turno]
+                    if h.turno in Turno.__members__
+                    else Turno.MANANA,
                 )
             )
 
@@ -176,7 +179,9 @@ class SQLDesignacionDocenteGateway(DesignacionDocenteRepositoryPort):
                 es_cargo_base=designacion.es_cargo_base,
                 fecha_desde=designacion.vigencia.fecha_desde,
                 fecha_hasta=designacion.vigencia.fecha_hasta,
-                motivo_cese=designacion.motivo_cese.value if designacion.motivo_cese else None,
+                motivo_cese=designacion.motivo_cese.value
+                if designacion.motivo_cese
+                else None,
                 creado_en=designacion.creado_en,
             )
 

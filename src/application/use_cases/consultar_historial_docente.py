@@ -13,5 +13,7 @@ class ConsultarHistorialDocenteUseCase:
 
     def execute(self, docente_cuit: str) -> list[DesignacionDocenteDTO]:
         """Retorna la lista ordenada cronológicamente de designaciones históricas."""
-        historial = self._repository.obtener_historial(docente_cuit=docente_cuit.strip())
+        historial = self._repository.obtener_historial(
+            docente_cuit=docente_cuit.strip()
+        )
         return [HorariosDocenciaMapper.designacion_to_dto(d) for d in historial]

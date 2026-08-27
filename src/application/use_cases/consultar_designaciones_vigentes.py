@@ -1,6 +1,6 @@
 """Caso de uso para consultar y auditar la compatibilidad de designaciones vigentes en una fecha."""
 
-from datetime import date
+from datetime import date, datetime, timezone
 
 from src.application.dtos.horarios_docencia_dto import ResultadoCompatibilidadDTO
 from src.application.mappers.horarios_docencia_mapper import HorariosDocenciaMapper
@@ -29,7 +29,7 @@ class ConsultarDesignacionesVigentesUseCase:
         margen_traslado_minutos: int = 20,
     ) -> ResultadoCompatibilidadDTO:
         """Audita las designaciones activas en la fecha solicitada."""
-        fecha_eval = fecha if fecha is not None else date.today()
+        fecha_eval = fecha if fecha is not None else datetime.now(timezone.utc).date()
         vigentes = self._repository.obtener_vigentes_en_fecha(
             docente_cuit=docente_cuit.strip(),
             fecha=fecha_eval,

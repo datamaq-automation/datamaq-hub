@@ -1,9 +1,9 @@
 """Value Objects para el subdominio de horarios y compatibilidad de docencia."""
 
+import re
 from dataclasses import dataclass
 from datetime import date
 from enum import Enum
-import re
 
 from src.domain.horarios_docencia.exceptions import (
     FranjaHorariaInvalidaException,
@@ -85,9 +85,7 @@ class PeriodoVigencia:
         """Determina si la designación estaba activa en una fecha específica."""
         if fecha < self.fecha_desde:
             return False
-        if self.fecha_hasta is not None and fecha > self.fecha_hasta:
-            return False
-        return True
+        return not (self.fecha_hasta is not None and fecha > self.fecha_hasta)
 
     def duracion_dias(self) -> int | None:
         """Retorna la duración en días si la fecha_hasta está definida."""
