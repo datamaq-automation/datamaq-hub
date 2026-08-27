@@ -3,6 +3,9 @@
 from typing import Any
 
 from src.application.dtos.common_dto import ErrorDetailDTO, ErrorResponseDTO
+from src.domain.horarios_docencia.exceptions import (
+    HorariosDocenciaDomainException,
+)
 from src.domain.liquidacion.exceptions import LiquidacionDomainException
 from src.domain.recibos.exceptions import (
     DomainException,
@@ -17,7 +20,9 @@ class ErrorPresenter:
 
     @staticmethod
     def format_domain_error(
-        exc: DomainException | LiquidacionDomainException,
+        exc: DomainException
+        | LiquidacionDomainException
+        | HorariosDocenciaDomainException,
         default_status_code: int = 422,
     ) -> tuple[ErrorResponseDTO, int]:
         status_code = default_status_code
@@ -35,13 +40,19 @@ class ErrorPresenter:
         elif isinstance(exc, LiquidacionDomainException):
             code_name = "LIQUIDACION_DOMAIN_ERROR"
             status_code = 422
+        elif isinstance(exc, HorariosDocenciaDomainException):
+            code_name = "HORARIOS_DOCENCIA_DOMAIN_ERROR"
+            status_code = 422
+
+        msg = getattr(exc, "message", str(exc))
+        details = getattr(exc, "details", None)
 
         payload = ErrorResponseDTO(
             success=False,
             error=ErrorDetailDTO(
                 code=code_name,
-                message=exc.message,
-                details=exc.details,
+                message=msg,
+                details=details,
             ),
         )
         return payload, status_code

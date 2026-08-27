@@ -3,6 +3,9 @@
 from functools import lru_cache
 
 from src.adapters.controllers.health_controller import HealthController
+from src.adapters.controllers.horarios_docencia_controller import (
+    HorariosDocenciaController,
+)
 from src.adapters.controllers.receipt_controller import ReceiptController
 from src.adapters.controllers.simulation_controller import SimulationController
 from src.adapters.gateways.paritaria_json_gateway import ParitariaJsonGateway
@@ -14,6 +17,9 @@ from src.adapters.gateways.receipt_parsers.parser_registry_gateway import (
 )
 from src.application.use_cases.parse_receipt import ParseReceiptUseCase
 from src.application.use_cases.project_salary import ProjectSalaryUseCase
+from src.application.use_cases.validar_horarios_docencia import (
+    ValidarHorariosDocenciaUseCase,
+)
 from src.domain.liquidacion.ports import ParitariaRepositoryPort
 from src.domain.liquidacion.services import MotorLiquidacionDocenteService
 from src.domain.recibos.ports import PDFExtractorPort, ReceiptParserRegistryPort
@@ -63,3 +69,12 @@ def get_receipt_controller() -> ReceiptController:
 def get_simulation_controller() -> SimulationController:
     use_case = get_project_salary_use_case()
     return SimulationController(project_use_case=use_case)
+
+
+def get_validar_horarios_use_case() -> ValidarHorariosDocenciaUseCase:
+    return ValidarHorariosDocenciaUseCase()
+
+
+def get_horarios_docencia_controller() -> HorariosDocenciaController:
+    use_case = get_validar_horarios_use_case()
+    return HorariosDocenciaController(validar_use_case=use_case)

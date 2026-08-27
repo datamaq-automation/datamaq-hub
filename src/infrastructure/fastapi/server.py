@@ -9,12 +9,18 @@ from fastapi.responses import JSONResponse
 
 from src.adapters.gateways.api_cache_gateway import init_db
 from src.adapters.presenters.error_presenter import ErrorPresenter
+from src.domain.horarios_docencia.exceptions import (
+    HorariosDocenciaDomainException,
+)
 from src.domain.liquidacion.exceptions import LiquidacionDomainException
 from src.domain.recibos.exceptions import DomainException
 from src.infrastructure.fastapi.routes.analytics_routes import (
     router as analytics_router,
 )
 from src.infrastructure.fastapi.routes.health_routes import router as health_router
+from src.infrastructure.fastapi.routes.horarios_docencia_routes import (
+    router as horarios_docencia_router,
+)
 from src.infrastructure.fastapi.routes.receipt_routes import router as receipt_router
 from src.infrastructure.fastapi.routes.simulation_routes import (
     router as simulation_router,
@@ -66,11 +72,19 @@ def create_app() -> FastAPI:
         payload, status_code = ErrorPresenter.format_domain_error(exc)
         return JSONResponse(status_code=status_code, content=payload.model_dump())
 
+    @app.exception_handler(HorariosDocenciaDomainException)
+    async def horarios_docencia_exception_handler(
+        _: Request, exc: HorariosDocenciaDomainException
+    ) -> JSONResponse:
+        payload, status_code = ErrorPresenter.format_domain_error(exc)
+        return JSONResponse(status_code=status_code, content=payload.model_dump())
+
     # Mount API routers under prefix /api/v1
     app.include_router(health_router, prefix="/api/v1")
     app.include_router(receipt_router, prefix="/api/v1")
     app.include_router(simulation_router, prefix="/api/v1")
     app.include_router(analytics_router, prefix="/api/v1")
+    app.include_router(horarios_docencia_router, prefix="/api/v1")
 
     # Root redirect/info endpoint
     @app.get("/", include_in_schema=False)
