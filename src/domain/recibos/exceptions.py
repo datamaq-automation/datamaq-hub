@@ -22,3 +22,7 @@ class InvalidPDFError(ReceiptParsingError):
 
 class InvalidIdentifierError(DomainException):
     """Raised when a CUIT, CUIL, or DNI fails domain validation rules."""
+
+
+class ReciboNotFoundError(DomainException):
+    """Raised when a salary receipt is not found in repository."""

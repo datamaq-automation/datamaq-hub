@@ -104,6 +104,61 @@ class TotalesConsolidados:
     total_liquido: float = 0.0
 
 
+from enum import Enum
+
+
+class EstadoLineaConciliacion(str, Enum):
+    """Estado de conciliación de una línea de recibo frente a designaciones."""
+
+    CONCILIADO_EXACTO = "CONCILIADO_EXACTO"
+    CONCILIADO_RETROACTIVO = "CONCILIADO_RETROACTIVO"
+    DISCREPANCIA = "DISCREPANCIA"
+    HUERFANA_RECIBO = "HUERFANA_RECIBO"
+    HUERFANA_DESIGNACION = "HUERFANA_DESIGNACION"
+
+
+@dataclass
+class LineaConciliada:
+    """Detalle del cruce entre una línea liquidada en recibo y una designación escolar."""
+
+    secuencia: str
+    escuela_codigo: str
+    periodo_liquidado: str
+    liquido_pesos: float
+    estado: EstadoLineaConciliacion
+    es_retroactivo: bool
+    observacion: str
+    id_designacion: str | None = None
+    revista_recibo: str = ""
+    revista_designacion: str | None = None
+    modulos_recibo: float = 0.0
+    modulos_designacion: float | None = None
+
+
+@dataclass
+class ResultadoConciliacion:
+    """Resultado integral de la conciliación de un recibo mensual frente a designaciones históricas."""
+
+    id_recibo: str
+    mes_pago: str
+    docente_cuit: str
+    total_lineas_recibo: int
+    total_designaciones_evaluadas: int
+    lineas_conciliadas: list[LineaConciliada] = field(
+        default_factory=list[LineaConciliada]
+    )
+    lineas_huerfanas_recibo: list[LineaConciliada] = field(
+        default_factory=list[LineaConciliada]
+    )
+    designaciones_no_cobradas: list[LineaConciliada] = field(
+        default_factory=list[LineaConciliada]
+    )
+    total_liquidado_recibo: float = 0.0
+    total_liquidado_conciliado: float = 0.0
+    total_liquidado_huerfano: float = 0.0
+    es_conciliacion_completa: bool = True
+
+
 @dataclass
 class ReciboSueldo:
     """Aggregate Root representing a parsed and validated salary receipt."""
@@ -111,6 +166,7 @@ class ReciboSueldo:
     tipo_recibo: TipoRecibo
     empleador: Empleador
     agente: Agente
+    id_recibo: str = ""
     resumen_liquidos: list[ResumenLiquidoItem] = field(
         default_factory=list[ResumenLiquidoItem]
     )

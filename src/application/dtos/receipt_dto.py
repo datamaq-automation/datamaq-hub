@@ -121,6 +121,9 @@ class ReceiptResponseDTO(BaseModel):
     tipo_recibo: TipoRecibo
     empleador: EmpleadorDTO
     agente: AgenteDTO
+    id_recibo: str | None = Field(
+        default=None, description="Identificador único del recibo persistido"
+    )
     resumen_liquidos: list[ResumenLiquidoItemDTO] = Field(
         default_factory=list[ResumenLiquidoItemDTO]
     )

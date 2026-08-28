@@ -20,17 +20,23 @@ from src.adapters.gateways.receipt_parsers.parser_registry_gateway import (
 from src.adapters.gateways.sql_designacion_docente_gateway import (
     SQLDesignacionDocenteGateway,
 )
+from src.adapters.gateways.sql_recibo_gateway import SQLReciboGateway
 from src.application.use_cases.actualizar_designacion import (
     ActualizarDesignacionUseCase,
 )
 from src.application.use_cases.cesar_designacion import CesarDesignacionUseCase
+from src.application.use_cases.conciliar_recibo import ConciliarReciboUseCase
 from src.application.use_cases.consultar_designaciones_vigentes import (
     ConsultarDesignacionesVigentesUseCase,
 )
 from src.application.use_cases.consultar_historial_docente import (
     ConsultarHistorialDocenteUseCase,
 )
+from src.application.use_cases.crear_designaciones_desde_recibo import (
+    CrearDesignacionesDesdeReciboUseCase,
+)
 from src.application.use_cases.eliminar_designacion import EliminarDesignacionUseCase
+from src.application.use_cases.eliminar_recibo import EliminarReciboUseCase
 from src.application.use_cases.get_mail_detail import GetMailDetailUseCase
 from src.application.use_cases.get_unread_summary import GetUnreadSummaryUseCase
 from src.application.use_cases.list_inbox_messages import ListInboxMessagesUseCase
@@ -38,6 +44,8 @@ from src.application.use_cases.list_mail_folders import ListMailFoldersUseCase
 from src.application.use_cases.listar_designaciones import (
     ListarDesignacionesUseCase,
 )
+from src.application.use_cases.listar_recibos import ListarRecibosUseCase
+from src.application.use_cases.obtener_recibo import ObtenerReciboUseCase
 from src.application.use_cases.parse_receipt import ParseReceiptUseCase
 from src.application.use_cases.project_salary import ProjectSalaryUseCase
 from src.application.use_cases.registrar_designacion import (
@@ -50,7 +58,11 @@ from src.domain.horarios_docencia.ports import DesignacionDocenteRepositoryPort
 from src.domain.liquidacion.ports import ParitariaRepositoryPort
 from src.domain.liquidacion.services import MotorLiquidacionDocenteService
 from src.domain.mail.ports import MailReaderPort
-from src.domain.recibos.ports import PDFExtractorPort, ReceiptParserRegistryPort
+from src.domain.recibos.ports import (
+    PDFExtractorPort,
+    ReceiptParserRegistryPort,
+    ReciboRepositoryPort,
+)
 
 
 @lru_cache
@@ -63,10 +75,46 @@ def get_receipt_parser_registry_gateway() -> ReceiptParserRegistryPort:
     return ReceiptParserRegistryGateway()
 
 
+@lru_cache
+def get_recibo_repository_gateway() -> ReciboRepositoryPort:
+    return SQLReciboGateway()
+
+
 def get_parse_receipt_use_case() -> ParseReceiptUseCase:
     extractor = get_pdf_extractor_gateway()
     parser_registry = get_receipt_parser_registry_gateway()
-    return ParseReceiptUseCase(extractor=extractor, parser_registry=parser_registry)
+    repo = get_recibo_repository_gateway()
+    return ParseReceiptUseCase(
+        extractor=extractor, parser_registry=parser_registry, repository=repo
+    )
+
+
+def get_obtener_recibo_use_case() -> ObtenerReciboUseCase:
+    return ObtenerReciboUseCase(repository=get_recibo_repository_gateway())
+
+
+def get_listar_recibos_use_case() -> ListarRecibosUseCase:
+    return ListarRecibosUseCase(repository=get_recibo_repository_gateway())
+
+
+def get_eliminar_recibo_use_case() -> EliminarReciboUseCase:
+    return EliminarReciboUseCase(repository=get_recibo_repository_gateway())
+
+
+def get_conciliar_recibo_use_case() -> ConciliarReciboUseCase:
+    return ConciliarReciboUseCase(
+        recibo_repository=get_recibo_repository_gateway(),
+        designacion_repository=get_designacion_docente_repository_gateway(),
+    )
+
+
+def get_crear_designaciones_desde_recibo_use_case() -> (
+    CrearDesignacionesDesdeReciboUseCase
+):
+    return CrearDesignacionesDesdeReciboUseCase(
+        recibo_repository=get_recibo_repository_gateway(),
+        designacion_repository=get_designacion_docente_repository_gateway(),
+    )
 
 
 @lru_cache
@@ -95,8 +143,14 @@ def get_health_controller() -> HealthController:
 
 
 def get_receipt_controller() -> ReceiptController:
-    use_case = get_parse_receipt_use_case()
-    return ReceiptController(parse_use_case=use_case)
+    return ReceiptController(
+        parse_use_case=get_parse_receipt_use_case(),
+        obtener_use_case=get_obtener_recibo_use_case(),
+        listar_use_case=get_listar_recibos_use_case(),
+        eliminar_use_case=get_eliminar_recibo_use_case(),
+        conciliar_use_case=get_conciliar_recibo_use_case(),
+        crear_desde_recibo_use_case=get_crear_designaciones_desde_recibo_use_case(),
+    )
 
 
 def get_simulation_controller() -> SimulationController:

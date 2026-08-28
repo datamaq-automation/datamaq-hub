@@ -143,6 +143,9 @@ def init_horarios_db(database_url: str) -> None:
         logger.warning(f"No se pudo inicializar schema de horarios_docencia: {e}")
 
 
+from sqlalchemy.pool import StaticPool
+
+
 class SQLDesignacionDocenteGateway(DesignacionDocenteRepositoryPort):
     """Implementación del repositorio temporal de designaciones docentes usando SQLAlchemy."""
 
@@ -150,7 +153,14 @@ class SQLDesignacionDocenteGateway(DesignacionDocenteRepositoryPort):
         self.database_url = database_url or os.environ.get(
             "DATABASE_URL", "sqlite:///data/leads.db"
         )
-        self._engine: Engine = create_engine(self.database_url, pool_pre_ping=True)
+        if ":memory:" in self.database_url:
+            self._engine: Engine = create_engine(
+                self.database_url,
+                connect_args={"check_same_thread": False},
+                poolclass=StaticPool,
+            )
+        else:
+            self._engine: Engine = create_engine(self.database_url, pool_pre_ping=True)
         Base.metadata.create_all(self._engine)
         self._check_and_migrate_columns(self._engine)
         self._session_factory = sessionmaker(bind=self._engine)
@@ -248,9 +258,13 @@ class SQLDesignacionDocenteGateway(DesignacionDocenteRepositoryPort):
                 es_cargo_base=designacion.es_cargo_base,
                 fecha_desde=designacion.vigencia.fecha_desde,
                 fecha_hasta=designacion.vigencia.fecha_hasta,
-                motivo_cese=designacion.motivo_cese.value
-                if designacion.motivo_cese
-                else None,
+                motivo_cese=(
+                    designacion.motivo_cese.value
+                    if isinstance(designacion.motivo_cese, MotivoCese)
+                    else str(designacion.motivo_cese)
+                    if designacion.motivo_cese is not None
+                    else None
+                ),
                 observaciones=designacion.observaciones,
                 cupof=designacion.cupof,
                 secuencia=designacion.secuencia,

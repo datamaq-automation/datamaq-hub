@@ -20,6 +20,7 @@ class ReceiptMapper:
     @staticmethod
     def to_dto(entity: ReciboSueldo) -> ReceiptResponseDTO:
         return ReceiptResponseDTO(
+            id_recibo=entity.id_recibo if entity.id_recibo else None,
             tipo_recibo=entity.tipo_recibo,
             empleador=EmpleadorDTO(
                 organismo_o_empresa=entity.empleador.organismo_o_empresa,

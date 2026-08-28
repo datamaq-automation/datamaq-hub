@@ -32,6 +32,7 @@ from src.domain.recibos.exceptions import (
     InvalidIdentifierError,
     InvalidPDFError,
     ReceiptParsingError,
+    ReciboNotFoundError,
 )
 
 
@@ -58,6 +59,9 @@ class ErrorPresenter:
         elif isinstance(exc, ReceiptParsingError):
             code_name = "RECEIPT_PARSING_ERROR"
             status_code = 422
+        elif isinstance(exc, ReciboNotFoundError):
+            code_name = "RECIBO_NOT_FOUND"
+            status_code = 404
         elif isinstance(exc, InvalidIdentifierError):
             code_name = "INVALID_IDENTIFIER_ERROR"
             status_code = 422

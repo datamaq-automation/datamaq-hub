@@ -53,3 +53,25 @@ class ReceiptParserRegistryPort(ABC):
 
     @abstractmethod
     def get_parser(self, extracted_pdf: ExtractedPDF) -> ReceiptParserPort: ...
+
+
+class ReciboRepositoryPort(ABC):
+    """Abstract port for persisting and querying salary receipts."""
+
+    @abstractmethod
+    def guardar(self, recibo: ReciboSueldo) -> ReciboSueldo: ...
+
+    @abstractmethod
+    def obtener_por_id(self, id_recibo: str) -> ReciboSueldo | None: ...
+
+    @abstractmethod
+    def listar(
+        self,
+        cuit: str | None = None,
+        mes_pago: str | None = None,
+        limit: int = 50,
+        offset: int = 0,
+    ) -> list[ReciboSueldo]: ...
+
+    @abstractmethod
+    def eliminar(self, id_recibo: str) -> bool: ...
