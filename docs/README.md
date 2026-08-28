@@ -34,6 +34,7 @@ docs/
 | **[`mail_openclaw_integration.md`](mail_openclaw_integration.md)** | Integración segura de sólo lectura sobre buzones IMAP para el agente OpenClaw. | **SSOT Activo** |
 | **[`contacts_calendar_openclaw.md`](contacts_calendar_openclaw.md)** | Libreta de contactos y eventos para OpenClaw. | **SSOT Activo** |
 | **[`analytics_and_ads.md`](analytics_and_ads.md)** | Guía integral de cuentas Google, Google Ads (**Basic Access Aprobado**), GA4, Clarity, Watchdog y gobernanza de atribución B2B. | **SSOT Activo** |
+| **[`oportunidades_de_mejora.md`](oportunidades_de_mejora.md)** | Hoja de ruta estratégica y oportunidades de alto impacto en automatización, leads y FastMCP. | **Vigente** |
 
 ---
 

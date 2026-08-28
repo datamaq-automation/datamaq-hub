@@ -1,12 +1,16 @@
 #!/usr/bin/env python3
 """Script de automatización para validación, simulación y despliegue de campañas B2B en Google Ads API.
 
-Soporta modo simulación segura (--dry-run por defecto) y aplicación en vivo (--apply) de forma idempotente.
+Soporta especificación declarativa en YAML/JSON, modo simulación segura (--dry-run por defecto)
+y aplicación en vivo (--apply) de forma 100% idempotente.
 """
 
 import argparse
 import sys
+from pathlib import Path
 from typing import Any
+
+import yaml
 
 from src.adapters.gateways.google_ads_gateway import (
     GoogleAdsException,
@@ -14,185 +18,82 @@ from src.adapters.gateways.google_ads_gateway import (
 )
 from src.infrastructure.pydantic.config import get_settings
 
-CAMPAIGNS_SPEC: list[dict[str, Any]] = [
-    {
-        "name": "Telemetria y Adquisicion de Datos — Retrofit IoT",
-        "budget_ars": 1100.0,
-        "cpc_bid_ceiling_ars": 500.0,
-        "channel_type": "SEARCH",
-        "target_url": "https://datamaq.com.ar/?utm_source=google_ads&utm_medium=cpc&utm_campaign=retrofit-iot#servicios",
-        "path1": "datos",
-        "path2": "maquinas",
-        "ad_group_name": "Adquisicion de Datos OT a IT",
-        "keywords": [
-            {
-                "text": "adquisicion de datos de produccion industrial",
-                "match_type": "EXACT",
-            },
-            {"text": "bajada de datos de maquinas a pc", "match_type": "EXACT"},
-            {"text": "monitoreo de inyectoras de plastico", "match_type": "EXACT"},
-            {"text": "telemetria de maquinas industriales", "match_type": "EXACT"},
-            {
-                "text": "conteo de piezas produccion automatizacion",
-                "match_type": "EXACT",
-            },
-            {"text": "medicion de tiempos de ciclo fabrica", "match_type": "EXACT"},
-            {"text": "monitoreo de paradas de planta", "match_type": "EXACT"},
-            {"text": "sistema andon conteo de produccion", "match_type": "EXACT"},
-            {"text": "retrofit iot maquinas industriales", "match_type": "EXACT"},
-            {"text": "adquisicion de datos plc a pc", "match_type": "PHRASE"},
-            {"text": "bajada de datos linea de produccion", "match_type": "PHRASE"},
-            {"text": "monitoreo de maquinas industriales pyme", "match_type": "PHRASE"},
-            {"text": "automatizacion de toma de datos fabrica", "match_type": "PHRASE"},
-            {
-                "text": "conteo de piezas automatico para maquinas",
-                "match_type": "PHRASE",
-            },
-            {
-                "text": "sensores para inyectoras de plastico produccion",
-                "match_type": "PHRASE",
-            },
-        ],
-        "headlines": [
-            "Datos de Planta a su PC",
-            "Telemetría para Inyectoras",
-            "Conteo de Piezas en Vivo",
-            "Bajada de Datos de Máquinas",
-            "Adquisición de Datos OT a IT",
-            "Monitoreo Líneas de Planta",
-            "Registro en Base de Datos",
-            "Sin Licencias Mensuales",
-            "Medición Tiempos de Ciclo",
-            "DataMaq Automatización",
-            "Zona Norte: Garín y Pilar",
-            "Integración PLC y Sensores",
-            "Base de Datos 100% Local",
-            "Alertas Parada de Planta",
-            "Ingeniería en Planta",
-        ],
-        "descriptions": [
-            "Bajada de datos de inyectoras a PC local. Registro de ciclos y piezas en tiempo real.",
-            "Conecte sus máquinas sin cambiar de PLC. Base de datos local y sin nube obligatoria.",
-            "Diagnóstico e instalación en Zona Norte. Hardware robusto y software a medida.",
-            "Automatice el reporte de producción y paradas de planta. Soporte por ingenieros.",
-        ],
-        "negative_keywords": [
-            "gratis",
-            "curso",
-            "tutorial",
-            "pdf",
-            "arduino",
-            "raspberry",
-            "tesis",
-            "universidad",
-            "empleo",
-            "sueldo",
-            "curriculum",
-            "manual",
-        ],
-    },
-    {
-        "name": "Calidad de Energia — Cero Multas Edenor cos fi",
-        "budget_ars": 400.0,
-        "cpc_bid_ceiling_ars": 400.0,
-        "channel_type": "SEARCH",
-        "target_url": "https://datamaq.com.ar/?utm_source=google_ads&utm_medium=cpc&utm_campaign=calidad-energia#servicios",
-        "path1": "cero-multas",
-        "path2": "energia",
-        "ad_group_name": "Factor de Potencia y Banco Capacitores",
-        "keywords": [
-            {"text": "multa factor de potencia industrial", "match_type": "EXACT"},
-            {"text": "multa cos fi edenor", "match_type": "EXACT"},
-            {"text": "recargo factor de potencia edenor t3", "match_type": "EXACT"},
-            {
-                "text": "banco de capacitores industrial trifasico",
-                "match_type": "EXACT",
-            },
-            {
-                "text": "eliminar multa factor de potencia fabrica",
-                "match_type": "PHRASE",
-            },
-            {
-                "text": "banco de capacitores pilar parque industrial",
-                "match_type": "PHRASE",
-            },
-            {"text": "banco de capacitores garin fabrica", "match_type": "PHRASE"},
-            {
-                "text": "analizador de redes trifasico medicion industrial",
-                "match_type": "PHRASE",
-            },
-        ],
-        "headlines": [
-            "Cero Multas de Edenor",
-            "Elimine Penalidad cos fi",
-            "Factor de Potencia en 48hs",
-            "Diagnóstico 100% Deducible",
-            "Banco de Capacitores",
-            "Evite Recargos en Factura",
-            "Ingeniería Eléctrica Pyme",
-            "Atención Directa en Planta",
-            "Medición con Powermeter",
-            "Descuento Banco Provincia",
-            "Financiación en Cuotas",
-            "DataMaq Eficiencia",
-            "Zona Norte: Pilar y Garín",
-            "Asesoramiento Especializado",
-            "Telemetría Sin Costo Fijo",
-        ],
-        "descriptions": [
-            "Elimine multas por factor de potencia en Edenor. Diagnóstico deducible 100%.",
-            "Diagnóstico en planta en Zona Norte. Medición con analizador y solución en 48hs.",
-            "Evite penalidades millonarias. Financiación en cuotas y descuento Banco Provincia.",
-            "Instalación llave en mano de hardware Powermeter y telemetría de por vida.",
-        ],
-        "negative_keywords": [
-            "gratis",
-            "curso",
-            "tutorial",
-            "pdf",
-            "arduino",
-            "raspberry",
-            "tesis",
-            "universidad",
-            "empleo",
-            "sueldo",
-            "curriculum",
-            "manual",
-        ],
-    },
-]
+DEFAULT_CONFIG_PATH = Path("data/google_ads/campaigns.yaml")
 
 
-def print_simulation_plan(customer_id: str) -> None:
+def load_campaigns_spec(
+    config_path: str | Path | None = None,
+) -> list[dict[str, Any]]:
+    """Carga y valida la especificación declarativa de campañas desde un archivo YAML o JSON."""
+    target_path = Path(config_path) if config_path else DEFAULT_CONFIG_PATH
+
+    if not target_path.exists():
+        raise FileNotFoundError(
+            f"No se encontró el archivo de especificación de campañas en: {target_path.resolve()}"
+        )
+
+    with open(target_path, encoding="utf-8") as f:
+        data = yaml.safe_load(f)
+
+    if isinstance(data, dict) and "campaigns" in data:
+        return data["campaigns"]  # type: ignore
+    elif isinstance(data, list):
+        return data  # type: ignore
+
+    raise ValueError(
+        f"Formato inválido en {target_path}. Se esperaba un diccionario con clave 'campaigns' o una lista."
+    )
+
+
+def print_simulation_plan(
+    campaigns_spec: list[dict[str, Any]], customer_id: str
+) -> None:
     """Imprime el plan detallado de despliegue en modo simulación."""
-    total_budget = sum(c["budget_ars"] for c in CAMPAIGNS_SPEC)
+    total_budget = sum(c.get("budget_ars", 0.0) for c in campaigns_spec)
     print("=" * 70)
     print("🛠️  PLAN DE DESPLIEGUE GOOGLE ADS API (MODO SIMULACIÓN / DRY-RUN)")
     print(f"🏢 Cuenta de Cliente: {customer_id}")
     print(f"💰 Presupuesto Diario Total Planificado: ${total_budget:,.2f} ARS/día")
+    print(f"📁 Total de Campañas en Configuración: {len(campaigns_spec)}")
     print("=" * 70)
 
-    for idx, camp in enumerate(CAMPAIGNS_SPEC, 1):
-        print(f"\n[{idx}/2] Campaña: {camp['name']}")
-        print(f"     • Presupuesto Asignado: ${camp['budget_ars']:,.2f} ARS/día")
-        print(f"     • Red: {camp['channel_type']} (Búsqueda de Google Pura)")
-        print(f"     • Límite CPC Máximo: ${camp['cpc_bid_ceiling_ars']:,.2f} ARS")
-        print(f"     • URL Final: {camp['target_url']}")
-        print(f"     • Grupo de Anuncios: {camp['ad_group_name']}")
-        print(f"     • Palabras Clave ({len(camp['keywords'])}):")
-        for kw in camp["keywords"]:
+    for idx, camp in enumerate(campaigns_spec, 1):
+        print(f"\n[{idx}/{len(campaigns_spec)}] Campaña: {camp['name']}")
+        print(
+            f"     • Presupuesto Asignado: ${camp.get('budget_ars', 0.0):,.2f} ARS/día"
+        )
+        print(
+            f"     • Red: {camp.get('channel_type', 'SEARCH')} (Búsqueda de Google Pura)"
+        )
+        print(
+            f"     • Límite CPC Máximo: ${camp.get('cpc_bid_ceiling_ars', 0.0):,.2f} ARS"
+        )
+        print(f"     • URL Final: {camp.get('target_url', '')}")
+        print(
+            f"     • Segmentación Geográfica: {camp.get('geo_locations', ['20009', '20010'])}"
+        )
+        print(f"     • Grupo de Anuncios: {camp.get('ad_group_name', '')}")
+        keywords = camp.get("keywords", [])
+        print(f"     • Palabras Clave ({len(keywords)}):")
+        for kw in keywords:
             match_str = (
-                f"[{kw['text']}]" if kw["match_type"] == "EXACT" else f'"{kw["text"]}"'
+                f"[{kw['text']}]"
+                if kw.get("match_type") == "EXACT"
+                else f'"{kw["text"]}"'
             )
-            print(f"       - {match_str} ({kw['match_type']})")
-        print(f"     • Palabras Negativas ({len(camp['negative_keywords'])}):")
-        print(f"       - {', '.join(camp['negative_keywords'])}")
-        print(f"     • Títulos Adaptables ({len(camp['headlines'])}):")
-        for h in camp["headlines"][:5]:
+            print(f"       - {match_str} ({kw.get('match_type', 'PHRASE')})")
+        negatives = camp.get("negative_keywords", [])
+        print(f"     • Palabras Negativas ({len(negatives)}):")
+        print(f"       - {', '.join(negatives)}")
+        headlines = camp.get("headlines", [])
+        print(f"     • Títulos Adaptables ({len(headlines)}):")
+        for h in headlines[:5]:
             print(f"       - {h}")
-        print(f"       ... (+{len(camp['headlines']) - 5} títulos adicionales)")
-        print(f"     • Descripciones Adaptables ({len(camp['descriptions'])}):")
-        for d in camp["descriptions"]:
+        if len(headlines) > 5:
+            print(f"       ... (+{len(headlines) - 5} títulos adicionales)")
+        descriptions = camp.get("descriptions", [])
+        print(f"     • Descripciones Adaptables ({len(descriptions)}):")
+        for d in descriptions:
             print(f"       - {d}")
         print("-" * 70)
 
@@ -221,28 +122,33 @@ def get_existing_ad_groups_map(client: Any, customer_id: str) -> dict[str, str]:
         for r in rows:
             mapping[r.ad_group.name] = r.ad_group.resource_name
     except (GoogleAdsException, ValueError, RuntimeError, OSError) as exc:
-        print(f"ℹ️ Error consultando ad groups existentes: {exc}")
+        print(f"ℹ️ Error consultando grupos de anuncios existentes: {exc}")
     return mapping
 
 
-def deploy_campaigns_live(client: Any, customer_id: str) -> None:
-    """Ejecuta las mutaciones en la API de Google Ads para crear presupuestos, campañas, grupos, keywords y anuncios."""
-    print("🚀 [Live Deploy] Iniciando creación y despliegue en Google Ads API...")
-
+def deploy_campaigns(
+    campaigns_spec: list[dict[str, Any]], client: Any, customer_id: str
+) -> None:
+    """Aplica de forma idempotente la creación/actualización de campañas, presupuestos, keywords y anuncios."""
     campaign_budget_service = client.get_service("CampaignBudgetService")
     campaign_service = client.get_service("CampaignService")
+    campaign_criterion_service = client.get_service("CampaignCriterionService")
     ad_group_service = client.get_service("AdGroupService")
     ad_group_criterion_service = client.get_service("AdGroupCriterionService")
     ad_group_ad_service = client.get_service("AdGroupAdService")
-    campaign_criterion_service = client.get_service("CampaignCriterionService")
+    ga_service = client.get_service("GoogleAdsService")
 
     existing_campaigns = get_existing_campaigns_map(client, customer_id)
     existing_ad_groups = get_existing_ad_groups_map(client, customer_id)
 
-    for idx, spec in enumerate(CAMPAIGNS_SPEC, 1):
+    print(
+        f"\n🚀 [Live Deploy] Iniciando despliegue de {len(campaigns_spec)} campañas en Google Ads API...\n"
+    )
+
+    for idx, spec in enumerate(campaigns_spec, 1):
         camp_name = spec["name"]
         print(
-            f"\n[{idx}/2] Procesando: {camp_name} (${spec['budget_ars']:,.2f} ARS/día)..."
+            f"[{idx}/{len(campaigns_spec)}] Procesando: {camp_name} (${spec.get('budget_ars', 0.0):,.2f} ARS/día)..."
         )
 
         # 1. Resolver o Crear Campaña
@@ -254,7 +160,7 @@ def deploy_campaigns_live(client: Any, customer_id: str) -> None:
             budget_operation = client.get_type("CampaignBudgetOperation")
             budget = budget_operation.create
             budget.name = f"Presupuesto {camp_name[:40]}"
-            budget.amount_micros = int(spec["budget_ars"] * 1_000_000)
+            budget.amount_micros = int(spec.get("budget_ars", 1000.0) * 1_000_000)
             budget.delivery_method = client.enums.BudgetDeliveryMethodEnum.STANDARD
             budget.explicitly_shared = False
 
@@ -282,7 +188,7 @@ def deploy_campaigns_live(client: Any, customer_id: str) -> None:
 
             # Estrategia de Puja: Maximizar Clics con Límite de CPC
             campaign.target_spend.cpc_bid_ceiling_micros = int(
-                spec["cpc_bid_ceiling_ars"] * 1_000_000
+                spec.get("cpc_bid_ceiling_ars", 500.0) * 1_000_000
             )
 
             # Declaración regulatoria de anuncios políticos UE
@@ -299,9 +205,10 @@ def deploy_campaigns_live(client: Any, customer_id: str) -> None:
             campaign_resource = campaign_response.results[0].resource_name
             print(f"   ✅ Campaña Search creada: {campaign_resource}")
 
-        # 2. Segmentación Geográfica (Buenos Aires Provincia + CABA)
+        # 2. Segmentación Geográfica
+        geo_locations = spec.get("geo_locations", ["20009", "20010"])
         geo_operations = []
-        for loc_id in ["20009", "20010"]:
+        for loc_id in geo_locations:
             geo_op = client.get_type("CampaignCriterionOperation")
             geo_crit = geo_op.create
             geo_crit.campaign = campaign_resource
@@ -313,14 +220,24 @@ def deploy_campaigns_live(client: Any, customer_id: str) -> None:
                 customer_id=customer_id, operations=geo_operations
             )
             print(
-                "   ✅ Segmentación geográfica aplicada (Buenos Aires / CABA / Zona Norte)."
+                f"   ✅ Segmentación geográfica aplicada ({len(geo_locations)} ubicaciones)."
             )
         except (GoogleAdsException, ValueError, RuntimeError, OSError) as exc:
             print(f"   ℹ️ Ubicación procesada o existente: {exc}")
 
         # 3. Palabras Clave Negativas de Campaña
+        existing_negatives: set[str] = set()
+        try:
+            neg_query = f"SELECT campaign_criterion.keyword.text FROM campaign_criterion WHERE campaign.resource_name = '{campaign_resource}' AND campaign_criterion.negative = TRUE"
+            for r in ga_service.search(customer_id=customer_id, query=neg_query):
+                existing_negatives.add(r.campaign_criterion.keyword.text.lower())
+        except (GoogleAdsException, ValueError, RuntimeError, OSError) as exc:
+            print(f"   ℹ️ Consulta de negativas existentes omitida: {exc}")
+
         negative_ops = []
-        for neg in spec["negative_keywords"]:
+        for neg in spec.get("negative_keywords", []):
+            if neg.lower() in existing_negatives:
+                continue
             neg_op = client.get_type("CampaignCriterionOperation")
             neg_crit = neg_op.create
             neg_crit.campaign = campaign_resource
@@ -329,15 +246,25 @@ def deploy_campaigns_live(client: Any, customer_id: str) -> None:
             neg_crit.keyword.match_type = client.enums.KeywordMatchTypeEnum.BROAD
             negative_ops.append(neg_op)
 
-        try:
-            campaign_criterion_service.mutate_campaign_criteria(
-                customer_id=customer_id, operations=negative_ops
-            )
+        if negative_ops:
+            try:
+                campaign_criterion_service.mutate_campaign_criteria(
+                    customer_id=customer_id, operations=negative_ops
+                )
+                print(
+                    f"   ✅ {len(negative_ops)} nuevas palabras clave negativas aplicadas."
+                )
+            except (
+                GoogleAdsException,
+                ValueError,
+                RuntimeError,
+                OSError,
+            ) as exc:
+                print(f"   ℹ️ Negativas procesadas o existentes: {exc}")
+        else:
             print(
-                f"   ✅ {len(spec['negative_keywords'])} palabras clave negativas aplicadas."
+                "   ℹ️ Todas las palabras clave negativas ya se encontraban aplicadas."
             )
-        except (GoogleAdsException, ValueError, RuntimeError, OSError) as exc:
-            print(f"   ℹ️ Negativas procesadas o existentes: {exc}")
 
         # 4. Resolver o Crear Grupo de Anuncios
         ad_group_name = spec["ad_group_name"]
@@ -351,7 +278,9 @@ def deploy_campaigns_live(client: Any, customer_id: str) -> None:
             ad_group.campaign = campaign_resource
             ad_group.status = client.enums.AdGroupStatusEnum.ENABLED
             ad_group.type_ = client.enums.AdGroupTypeEnum.SEARCH_STANDARD
-            ad_group.cpc_bid_micros = int(spec["cpc_bid_ceiling_ars"] * 1_000_000)
+            ad_group.cpc_bid_micros = int(
+                spec.get("cpc_bid_ceiling_ars", 400.0) * 1_000_000
+            )
 
             ad_group_response = ad_group_service.mutate_ad_groups(
                 customer_id=customer_id, operations=[ad_group_operation]
@@ -360,28 +289,54 @@ def deploy_campaigns_live(client: Any, customer_id: str) -> None:
             print(f"   ✅ Grupo de Anuncios creado: {ad_group_resource}")
 
         # 5. Crear Palabras Clave Positivas (EXACT & PHRASE)
+        existing_keywords: set[tuple[str, str]] = set()
+        try:
+            kw_query = f"SELECT ad_group_criterion.keyword.text, ad_group_criterion.keyword.match_type FROM ad_group_criterion WHERE ad_group.resource_name = '{ad_group_resource}'"
+            for r in ga_service.search(customer_id=customer_id, query=kw_query):
+                existing_keywords.add(
+                    (
+                        r.ad_group_criterion.keyword.text.lower(),
+                        r.ad_group_criterion.keyword.match_type.name,
+                    )
+                )
+        except (GoogleAdsException, ValueError, RuntimeError, OSError) as exc:
+            print(f"   ℹ️ Consulta de keywords existentes omitida: {exc}")
+
         kw_operations = []
-        for kw in spec["keywords"]:
+        for kw in spec.get("keywords", []):
+            if (
+                kw["text"].lower(),
+                kw.get("match_type", "PHRASE"),
+            ) in existing_keywords:
+                continue
             kw_op = client.get_type("AdGroupCriterionOperation")
             kw_crit = kw_op.create
             kw_crit.ad_group = ad_group_resource
             kw_crit.status = client.enums.AdGroupCriterionStatusEnum.ENABLED
             kw_crit.keyword.text = kw["text"]
-            if kw["match_type"] == "EXACT":
+            if kw.get("match_type") == "EXACT":
                 kw_crit.keyword.match_type = client.enums.KeywordMatchTypeEnum.EXACT
             else:
                 kw_crit.keyword.match_type = client.enums.KeywordMatchTypeEnum.PHRASE
             kw_operations.append(kw_op)
 
-        try:
-            ad_group_criterion_service.mutate_ad_group_criteria(
-                customer_id=customer_id, operations=kw_operations
-            )
-            print(
-                f"   ✅ {len(spec['keywords'])} palabras clave industriales asociadas."
-            )
-        except (GoogleAdsException, ValueError, RuntimeError, OSError) as kw_err:
-            print(f"   ℹ️ Palabras clave ya existentes o procesadas: {kw_err}")
+        if kw_operations:
+            try:
+                ad_group_criterion_service.mutate_ad_group_criteria(
+                    customer_id=customer_id, operations=kw_operations
+                )
+                print(
+                    f"   ✅ {len(kw_operations)} nuevas palabras clave industriales asociadas."
+                )
+            except (
+                GoogleAdsException,
+                ValueError,
+                RuntimeError,
+                OSError,
+            ) as kw_err:
+                print(f"   ℹ️ Palabras clave ya existentes o procesadas: {kw_err}")
+        else:
+            print("   ℹ️ Todas las palabras clave ya se encontraban asociadas.")
 
         # 6. Crear Anuncio Adaptable de Búsqueda (Responsive Search Ad - RSA)
         ad_op = client.get_type("AdGroupAdOperation")
@@ -390,19 +345,19 @@ def deploy_campaigns_live(client: Any, customer_id: str) -> None:
         ad_group_ad.status = client.enums.AdGroupAdStatusEnum.ENABLED
 
         rsa = ad_group_ad.ad.responsive_search_ad
-        for h_text in spec["headlines"]:
+        for h_text in spec.get("headlines", []):
             headline = client.get_type("AdTextAsset")
             headline.text = h_text
             rsa.headlines.append(headline)
 
-        for d_text in spec["descriptions"]:
+        for d_text in spec.get("descriptions", []):
             description = client.get_type("AdTextAsset")
             description.text = d_text
             rsa.descriptions.append(description)
 
         rsa.path1 = spec.get("path1", "")
         rsa.path2 = spec.get("path2", "")
-        ad_group_ad.ad.final_urls.append(spec["target_url"])
+        ad_group_ad.ad.final_urls.append(spec.get("target_url", ""))
 
         try:
             ad_group_ad_service.mutate_ad_group_ads(
@@ -419,7 +374,13 @@ def deploy_campaigns_live(client: Any, customer_id: str) -> None:
 
 def main() -> None:
     parser = argparse.ArgumentParser(
-        description="Despliegue y Sincronización de Campañas Google Ads API"
+        description="Despliegue y Sincronización Declarativa de Campañas Google Ads API"
+    )
+    parser.add_argument(
+        "--config",
+        type=str,
+        default=str(DEFAULT_CONFIG_PATH),
+        help=f"Ruta al archivo YAML/JSON de especificación de campañas (default: {DEFAULT_CONFIG_PATH})",
     )
     parser.add_argument(
         "--apply",
@@ -437,8 +398,10 @@ def main() -> None:
     settings = get_settings()
     customer_id = settings.google_ads_login_customer_id.strip().replace("-", "")
 
+    campaigns_spec = load_campaigns_spec(args.config)
+
     if not args.apply:
-        print_simulation_plan(customer_id)
+        print_simulation_plan(campaigns_spec, customer_id)
         print(
             "\n💡 Para ejecutar el despliegue real en la cuenta, ejecuta con el flag: --apply"
         )
@@ -453,15 +416,14 @@ def main() -> None:
 
     if not client:
         print(
-            "❌ Error: No se pudo inicializar el cliente de Google Ads API. Verifica las credenciales en .env."
+            "❌ Error: Credenciales de Google Ads API incompletas en variables de entorno."
+        )
+        print(
+            "Verificar: GOOGLE_ADS_DEVELOPER_TOKEN, GOOGLE_ADS_CLIENT_ID, GOOGLE_ADS_CLIENT_SECRET, GOOGLE_ADS_REFRESH_TOKEN."
         )
         sys.exit(1)
 
-    try:
-        deploy_campaigns_live(client, customer_id)
-    except (GoogleAdsException, ValueError, RuntimeError, OSError) as exc:
-        print(f"\n❌ Error durante el despliegue en Google Ads API: {exc}")
-        sys.exit(1)
+    deploy_campaigns(campaigns_spec, client, customer_id)
 
 
 if __name__ == "__main__":
