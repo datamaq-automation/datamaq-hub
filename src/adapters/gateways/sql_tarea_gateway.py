@@ -163,7 +163,7 @@ class SQLTareaGateway(TareaRepositoryPort):
                     )
 
                 stmt = stmt.order_by(
-                    TareaModel.fecha_limite.asc().nulls_last(),
+                    TareaModel.fecha_limite.asc(),
                     TareaModel.fecha_creacion.desc(),
                 )
                 if filtros.offset is not None:
@@ -172,7 +172,7 @@ class SQLTareaGateway(TareaRepositoryPort):
                     stmt = stmt.limit(filtros.limite)
             else:
                 stmt = stmt.order_by(
-                    TareaModel.fecha_limite.asc().nulls_last(),
+                    TareaModel.fecha_limite.asc(),
                     TareaModel.fecha_creacion.desc(),
                 )
 
