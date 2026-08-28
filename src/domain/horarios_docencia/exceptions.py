@@ -11,3 +11,11 @@ class FranjaHorariaInvalidaException(HorariosDocenciaDomainException):
 
 class HorarioDocenciaInvalidoException(HorariosDocenciaDomainException):
     """Lanzada cuando los datos de un cargo u horario son inválidos."""
+
+
+class IncompatibilidadHorariaCriticaException(HorariosDocenciaDomainException):
+    """Lanzada cuando se intenta registrar un cargo con superposición horaria crítica sin forzar."""
+
+    def __init__(self, mensaje: str, conflictos: tuple[object, ...] = ()) -> None:
+        super().__init__(mensaje)
+        self.conflictos = conflictos

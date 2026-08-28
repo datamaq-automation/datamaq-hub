@@ -170,3 +170,75 @@ def test_controller_flujo_temporal_persistencia() -> None:
     # 6. Historial completo (2 registros)
     historial = controller.consultar_historial("20-36528392-4")
     assert len(historial) == 2
+
+
+def test_registrar_designacion_bloqueo_por_incompatibilidad_critica() -> None:
+    """Verifica que no se permite registrar un cargo superpuesto si forzar=False, pero sí con forzar=True."""
+    import pytest
+
+    from src.domain.horarios_docencia.exceptions import (
+        IncompatibilidadHorariaCriticaException,
+    )
+
+    repo = SQLDesignacionDocenteGateway(database_url="sqlite:///:memory:")
+    registrar_uc = RegistrarDesignacionUseCase(repository=repo)
+    controller = HorariosDocenciaController(registrar_use_case=registrar_uc)
+
+    # 1. Registrar cargo base
+    dto_1 = RegistrarDesignacionInputDTO(
+        docente_cuit="20-36528392-4",
+        ige="IGE-01",
+        establecimiento="EEST N° 1 Pilar",
+        cargo_asignatura="Matemática",
+        fecha_desde="2026-03-01",
+        horarios=[
+            HorarioBloqueDTO(
+                dia="LUNES",
+                hora_inicio="08:00",
+                hora_fin="10:00",
+            )
+        ],
+    )
+    res_1 = controller.registrar_designacion(dto_1)
+    assert res_1.es_compatible is True
+
+    # 2. Intentar registrar cargo superpuesto con forzar=False -> debe lanzar excepción
+    dto_superpuesto = RegistrarDesignacionInputDTO(
+        docente_cuit="20-36528392-4",
+        ige="IGE-02",
+        establecimiento="ISFT N° 199 Tigre",
+        cargo_asignatura="Física",
+        fecha_desde="2026-03-01",
+        forzar=False,
+        horarios=[
+            HorarioBloqueDTO(
+                dia="LUNES",
+                hora_inicio="09:00",
+                hora_fin="11:00",
+            )
+        ],
+    )
+    with pytest.raises(IncompatibilidadHorariaCriticaException) as exc_info:
+        controller.registrar_designacion(dto_superpuesto)
+    assert "superposición horaria crítica" in str(exc_info.value)
+
+    # 3. Registrar cargo superpuesto con forzar=True -> debe permitirlo con aviso
+    dto_forzado = RegistrarDesignacionInputDTO(
+        docente_cuit="20-36528392-4",
+        ige="IGE-02",
+        establecimiento="ISFT N° 199 Tigre",
+        cargo_asignatura="Física",
+        fecha_desde="2026-03-01",
+        forzar=True,
+        horarios=[
+            HorarioBloqueDTO(
+                dia="LUNES",
+                hora_inicio="09:00",
+                hora_fin="11:00",
+            )
+        ],
+    )
+    res_forzado = controller.registrar_designacion(dto_forzado)
+    assert res_forzado.es_compatible is False
+    assert len(res_forzado.advertencias) >= 1
+    assert res_forzado.designacion.id_designacion != ""

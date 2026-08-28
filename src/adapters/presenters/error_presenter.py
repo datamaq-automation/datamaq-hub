@@ -13,6 +13,7 @@ from src.domain.contacts.exceptions import (
 )
 from src.domain.horarios_docencia.exceptions import (
     HorariosDocenciaDomainException,
+    IncompatibilidadHorariaCriticaException,
 )
 from src.domain.leads.exceptions import (
     LeadException,
@@ -63,6 +64,9 @@ class ErrorPresenter:
         elif isinstance(exc, LiquidacionDomainException):
             code_name = "LIQUIDACION_DOMAIN_ERROR"
             status_code = 422
+        elif isinstance(exc, IncompatibilidadHorariaCriticaException):
+            code_name = "INCOMPATIBILIDAD_HORARIA_CRITICA"
+            status_code = 409
         elif isinstance(exc, HorariosDocenciaDomainException):
             code_name = "HORARIOS_DOCENCIA_DOMAIN_ERROR"
             status_code = 422

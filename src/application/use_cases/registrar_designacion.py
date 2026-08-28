@@ -6,6 +6,9 @@ from src.application.dtos.horarios_docencia_dto import (
 )
 from src.application.mappers.horarios_docencia_mapper import HorariosDocenciaMapper
 from src.domain.horarios_docencia.entities import DeclaracionHorariaDocente
+from src.domain.horarios_docencia.exceptions import (
+    IncompatibilidadHorariaCriticaException,
+)
 from src.domain.horarios_docencia.ports import DesignacionDocenteRepositoryPort
 from src.domain.horarios_docencia.services import ValidadorHorariosDocenciaService
 
@@ -47,7 +50,27 @@ class RegistrarDesignacionUseCase:
         resultado = self._validador.validar(declaracion=declaracion)
         resultado_dto = HorariosDocenciaMapper.to_dto(resultado)
 
-        # 2. Guardar designación
+        # 2. Bloquear persistencia si hay incompatibilidad crítica y no se envió forzar=True
+        if not resultado.es_compatible and not input_dto.forzar:
+            conflictos_criticos = [
+                c.descripcion
+                for c in resultado.conflictos
+                if c.severidad.value == "CRITICO"
+            ]
+            detalle = (
+                "; ".join(conflictos_criticos)
+                if conflictos_criticos
+                else "Superposición horaria crítica detectada"
+            )
+            raise IncompatibilidadHorariaCriticaException(
+                mensaje=(
+                    f"No se puede registrar la designación por superposición horaria crítica: {detalle}. "
+                    "Para forzar el guardado de todas formas envíe 'forzar: true'."
+                ),
+                conflictos=tuple(resultado.conflictos),
+            )
+
+        # 3. Guardar designación
         guardada = self._repository.guardar(designacion_domain)
         designacion_dto = HorariosDocenciaMapper.designacion_to_dto(guardada)
 

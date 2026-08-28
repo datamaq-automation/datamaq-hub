@@ -20,6 +20,9 @@
    - **Advertencia (`es_compatible = True, tiene_advertencias = True`):** Tiempos de traslado reducidos (< 20 min entre escuelas distintas), exceso de módulos o desvío de duración de módulos. Los excesos globales no imputan cargos específicos (`cargos_involucrados = ()`).
 4. **Vigencias Temporales y Designaciones Abiertas:**
    - `fecha_hasta = None` indica designación activa/abierta. Las proyecciones a calendario se acotan al intervalo solicitado y emiten aviso de renovación o sincronización periódica.
+5. **Política de Bloqueo por Incompatibilidad Crítica:**
+   - En `POST /horarios-docencia/designaciones`, si se detecta superposición horaria exacta y `forzar = False` (default), el alta se rechaza con `HTTP 409 Conflict` (`INCOMPATIBILIDAD_HORARIA_CRITICA`).
+   - Con `forzar = True`, se admite la persistencia y se reportan los conflictos.
 
 ---
 
@@ -30,7 +33,7 @@
 | `POST` | `/api/v1/horarios-docencia/validar` | Auditoría ad-hoc de compatibilidad de declaración jurada |
 | `GET` | `/api/v1/horarios-docencia/designaciones` | Listar designaciones con filtros (`cuit`, `vigentes_al`, `establecimiento`, `distrito`, `limit`, `offset`) |
 | `GET` | `/api/v1/horarios-docencia/designaciones/{id}` | Obtener ficha completa de una designación |
-| `POST` | `/api/v1/horarios-docencia/designaciones` | Registrar nueva designación con auditoría de compatibilidad inmediata |
+| `POST` | `/api/v1/horarios-docencia/designaciones` | Registrar nueva designación (rechaza con 409 si hay solapamiento salvo `forzar: true`) |
 | `PUT` | `/api/v1/horarios-docencia/designaciones/{id}` | Actualización completa de designación |
 | `PATCH` | `/api/v1/horarios-docencia/designaciones/{id}` | Modificación parcial de designación |
 | `DELETE` | `/api/v1/horarios-docencia/designaciones/{id}` | Eliminación física permanente de designación |

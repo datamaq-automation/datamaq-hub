@@ -174,3 +174,62 @@ def test_flujo_persistencia_temporal_endpoints(client: TestClient) -> None:
     resp_del = client.delete(f"/api/v1/horarios-docencia/designaciones/{id_sup}")
     assert resp_del.status_code == 200
     assert resp_del.json()["data"]["eliminado"] is True
+
+
+def test_rechazo_designacion_superpuesta_sin_forzar_endpoint(
+    client: TestClient,
+) -> None:
+    """Verifica que POST /designaciones responde HTTP 409 si hay superposición horaria crítica sin forzar=True."""
+    cuit = f"20-{uuid.uuid4().hex[:8]}-4"
+
+    # 1. Crear primer cargo
+    payload_1 = {
+        "docente_cuit": cuit,
+        "ige": "IGE-A",
+        "establecimiento": "EEST 1 Pilar",
+        "cargo_asignatura": "Química",
+        "fecha_desde": "2026-03-01",
+        "horarios": [
+            {
+                "dia": "LUNES",
+                "hora_inicio": "14:00",
+                "hora_fin": "16:00",
+                "turno": "TARDE",
+            }
+        ],
+    }
+    r1 = client.post("/api/v1/horarios-docencia/designaciones", json=payload_1)
+    assert r1.status_code == 200
+
+    # 2. Intentar crear segundo cargo en el mismo horario sin forzar -> 409 Conflict
+    payload_superpuesto = {
+        "docente_cuit": cuit,
+        "ige": "IGE-B",
+        "establecimiento": "ISFT 199 Tigre",
+        "cargo_asignatura": "Biología",
+        "fecha_desde": "2026-03-01",
+        "forzar": False,
+        "horarios": [
+            {
+                "dia": "LUNES",
+                "hora_inicio": "15:00",
+                "hora_fin": "17:00",
+                "turno": "TARDE",
+            }
+        ],
+    }
+    r2 = client.post(
+        "/api/v1/horarios-docencia/designaciones", json=payload_superpuesto
+    )
+    assert r2.status_code == 409
+    err = r2.json()
+    assert err["success"] is False
+    assert err["error"]["code"] == "INCOMPATIBILIDAD_HORARIA_CRITICA"
+
+    # 3. Reintentar con forzar=True -> 200 OK
+    payload_superpuesto["forzar"] = True
+    r3 = client.post(
+        "/api/v1/horarios-docencia/designaciones", json=payload_superpuesto
+    )
+    assert r3.status_code == 200
+    assert r3.json()["data"]["es_compatible"] is False
