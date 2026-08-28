@@ -15,6 +15,7 @@ from src.domain.contacts.exceptions import ContactsDomainException
 from src.domain.horarios_docencia.exceptions import (
     HorariosDocenciaDomainException,
 )
+from src.domain.leads.exceptions import LeadException
 from src.domain.liquidacion.exceptions import LiquidacionDomainException
 from src.domain.mail.exceptions import MailDomainException
 from src.domain.recibos.exceptions import DomainException
@@ -30,6 +31,9 @@ from src.infrastructure.fastapi.routes.contacts_routes import (
 from src.infrastructure.fastapi.routes.health_routes import router as health_router
 from src.infrastructure.fastapi.routes.horarios_docencia_routes import (
     router as horarios_docencia_router,
+)
+from src.infrastructure.fastapi.routes.leads_routes import (
+    router as leads_router,
 )
 from src.infrastructure.fastapi.routes.mail_routes import router as mail_router
 from src.infrastructure.fastapi.routes.receipt_routes import router as receipt_router
@@ -112,6 +116,11 @@ def create_app() -> FastAPI:
         payload, status_code = ErrorPresenter.format_domain_error(exc)
         return JSONResponse(status_code=status_code, content=payload.model_dump())
 
+    @app.exception_handler(LeadException)
+    async def lead_exception_handler(_: Request, exc: LeadException) -> JSONResponse:
+        payload, status_code = ErrorPresenter.format_domain_error(exc)
+        return JSONResponse(status_code=status_code, content=payload.model_dump())
+
     # Mount API routers under prefix /api/v1
     app.include_router(health_router, prefix="/api/v1")
     app.include_router(receipt_router, prefix="/api/v1")
@@ -121,6 +130,7 @@ def create_app() -> FastAPI:
     app.include_router(mail_router, prefix="/api/v1")
     app.include_router(contacts_router, prefix="/api/v1")
     app.include_router(calendar_router, prefix="/api/v1")
+    app.include_router(leads_router)
 
     # Root redirect/info endpoint
     @app.get("/", include_in_schema=False)

@@ -2,7 +2,7 @@
 
 from typing import Annotated, Any
 
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, Depends, Query, Response
 
 from src.adapters.controllers.contacts_controller import ContactsController
 from src.adapters.controllers.dependencies import get_contacts_controller
@@ -50,6 +50,31 @@ async def list_contacts(
         account=effective_account, query=q, limit=limit, offset=offset
     )
     return APIResponseDTO[ContactListResponseDTO](success=True, data=result)
+
+
+@router.get("/export/vcard", summary="Exportar contactos en formato vCard (.vcf)")
+async def export_vcard(
+    controller: Annotated[
+        ContactsController, Depends(get_configured_contacts_controller)
+    ],
+    account: Annotated[
+        str | None,
+        Query(description="Cuenta de correo asociada (opcional)"),
+    ] = None,
+) -> Response:
+    """Exports all address book contacts as a standard vCard 3.0 file for WhatsApp Business or mobile sync."""
+    settings = get_settings()
+    effective_account = (
+        account
+        if account is not None
+        else getattr(settings, "default_mail_account", "")
+    )
+    vcard_data = controller.export_vcard(account=effective_account)
+    return Response(
+        content=vcard_data,
+        media_type="text/vcard; charset=utf-8",
+        headers={"Content-Disposition": "attachment; filename=contactos_datamaq.vcf"},
+    )
 
 
 @router.get("/{contact_id}", response_model=APIResponseDTO[ContactDTO])

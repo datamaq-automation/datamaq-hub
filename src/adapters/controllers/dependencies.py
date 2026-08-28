@@ -138,8 +138,12 @@ def get_horarios_docencia_controller() -> HorariosDocenciaController:
 
 from src.adapters.controllers.calendar_controller import CalendarController
 from src.adapters.controllers.contacts_controller import ContactsController
+from src.adapters.controllers.leads_controller import LeadsController
 from src.adapters.gateways.sql_calendar_gateway import SQLCalendarGateway
 from src.adapters.gateways.sql_contacts_gateway import SQLContactsGateway
+from src.adapters.gateways.telegram_lead_notifier_gateway import (
+    TelegramLeadNotifierGateway,
+)
 from src.application.use_cases.check_availability import CheckAvailabilityUseCase
 from src.application.use_cases.create_calendar_event import (
     CreateCalendarEventUseCase,
@@ -149,11 +153,15 @@ from src.application.use_cases.delete_calendar_event import (
     DeleteCalendarEventUseCase,
 )
 from src.application.use_cases.delete_contact import DeleteContactUseCase
+from src.application.use_cases.exportar_contactos_vcard import (
+    ExportarContactosVCardUseCase,
+)
 from src.application.use_cases.get_contact_detail import GetContactDetailUseCase
 from src.application.use_cases.get_event_detail import GetEventDetailUseCase
 from src.application.use_cases.get_upcoming_events import (
     GetUpcomingEventsUseCase,
 )
+from src.application.use_cases.ingestar_lead import IngestarLeadUseCase
 from src.application.use_cases.list_calendar_events import (
     ListCalendarEventsUseCase,
 )
@@ -164,6 +172,7 @@ from src.application.use_cases.update_calendar_event import (
 from src.application.use_cases.update_contact import UpdateContactUseCase
 from src.domain.calendar.ports import CalendarRepositoryPort
 from src.domain.contacts.ports import ContactsRepositoryPort
+from src.domain.leads.ports import LeadNotifierPort
 
 
 def get_default_mail_reader_gateway() -> MailReaderPort:
@@ -206,7 +215,30 @@ def get_contacts_controller(
         create_contact_use_case=CreateContactUseCase(repository=repo),
         update_contact_use_case=UpdateContactUseCase(repository=repo),
         delete_contact_use_case=DeleteContactUseCase(repository=repo),
+        export_vcard_use_case=ExportarContactosVCardUseCase(contacts_repo=repo),
     )
+
+
+def get_default_lead_notifier_gateway(
+    bot_token: str | None = None, chat_id: str | None = None
+) -> LeadNotifierPort:
+    """Creates a default TelegramLeadNotifierGateway instance."""
+    return TelegramLeadNotifierGateway(bot_token=bot_token, chat_id=chat_id)
+
+
+def get_leads_controller(
+    contacts_repo: ContactsRepositoryPort | None = None,
+    calendar_repo: CalendarRepositoryPort | None = None,
+    notifier: LeadNotifierPort | None = None,
+) -> LeadsController:
+    """Builds and returns a LeadsController instance."""
+    c_repo = contacts_repo or get_default_contacts_gateway()
+    cal_repo = calendar_repo or get_default_calendar_gateway()
+    notif = notifier or get_default_lead_notifier_gateway()
+    use_case = IngestarLeadUseCase(
+        contacts_repo=c_repo, calendar_repo=cal_repo, notifier=notif
+    )
+    return LeadsController(ingestar_lead_uc=use_case)
 
 
 from src.application.use_cases.consultar_agenda_docente import (

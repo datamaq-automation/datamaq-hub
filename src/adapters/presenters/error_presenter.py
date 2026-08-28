@@ -14,6 +14,10 @@ from src.domain.contacts.exceptions import (
 from src.domain.horarios_docencia.exceptions import (
     HorariosDocenciaDomainException,
 )
+from src.domain.leads.exceptions import (
+    LeadException,
+    LeadValidationException,
+)
 from src.domain.liquidacion.exceptions import LiquidacionDomainException
 from src.domain.mail.exceptions import (
     EmailNotFoundError,
@@ -40,7 +44,8 @@ class ErrorPresenter:
         | HorariosDocenciaDomainException
         | MailDomainException
         | ContactsDomainException
-        | CalendarDomainException,
+        | CalendarDomainException
+        | LeadException,
         default_status_code: int = 422,
     ) -> tuple[ErrorResponseDTO, int]:
         status_code = default_status_code
@@ -93,6 +98,12 @@ class ErrorPresenter:
             status_code = 409
         elif isinstance(exc, CalendarDomainException):
             code_name = "CALENDAR_DOMAIN_ERROR"
+            status_code = 422
+        elif isinstance(exc, LeadValidationException):
+            code_name = "LEAD_VALIDATION_ERROR"
+            status_code = 422
+        elif isinstance(exc, LeadException):
+            code_name = "LEAD_DOMAIN_ERROR"
             status_code = 422
 
         msg = getattr(exc, "message", str(exc))
