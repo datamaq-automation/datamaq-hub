@@ -1,6 +1,6 @@
 """FastAPI routing para horarios de docencia, compatibilidad y persistencia temporal."""
 
-from typing import Annotated
+from typing import Annotated, Any
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 
@@ -10,10 +10,12 @@ from src.adapters.controllers.horarios_docencia_controller import (
 )
 from src.application.dtos.common_dto import APIResponseDTO
 from src.application.dtos.horarios_docencia_dto import (
+    ActualizarDesignacionInputDTO,
     CesarDesignacionInputDTO,
     DeclaracionHorariaInputDTO,
     DesignacionDocenteDTO,
     RegistrarDesignacionInputDTO,
+    RegistrarDesignacionResponseDTO,
     ResultadoCompatibilidadDTO,
 )
 
@@ -46,13 +48,78 @@ async def validar_declaracion_horaria(
     )
 
 
+@router.get(
+    "/designaciones",
+    response_model=APIResponseDTO[list[DesignacionDocenteDTO]],
+    summary="Listar Designaciones Docentes con Filtros y Paginación",
+    description="Permite listar y auditar todas las designaciones cargadas, filtrando opcionalmente por CUIT, fecha de vigencia, establecimiento o distrito.",
+)
+async def listar_designaciones(
+    controller: Annotated[
+        HorariosDocenciaController, Depends(get_horarios_docencia_controller)
+    ],
+    cuit: str | None = Query(default=None, description="Filtrar por CUIT del docente"),
+    vigentes_al: str | None = Query(
+        default=None,
+        description="Filtrar designaciones activas en una fecha (YYYY-MM-DD)",
+    ),
+    establecimiento: str | None = Query(
+        default=None, description="Filtrar por nombre o fragmento de escuela"
+    ),
+    distrito: str | None = Query(
+        default=None, description="Filtrar por distrito escolar"
+    ),
+    limit: int = Query(default=100, ge=1, le=500, description="Límite de registros"),
+    offset: int = Query(default=0, ge=0, description="Desplazamiento para paginación"),
+) -> APIResponseDTO[list[DesignacionDocenteDTO]]:
+    """Retorna la lista de designaciones según filtros."""
+    resultados = controller.listar_designaciones(
+        cuit=cuit,
+        vigentes_al_str=vigentes_al,
+        establecimiento=establecimiento,
+        distrito=distrito,
+        limit=limit,
+        offset=offset,
+    )
+    return APIResponseDTO[list[DesignacionDocenteDTO]](
+        success=True,
+        data=resultados,
+    )
+
+
+@router.get(
+    "/designaciones/{id_designacion}",
+    response_model=APIResponseDTO[DesignacionDocenteDTO],
+    summary="Obtener Ficha Detallada de una Designación",
+    description="Recupera la ficha completa de una designación docente por su ID único.",
+)
+async def obtener_designacion(
+    id_designacion: str,
+    controller: Annotated[
+        HorariosDocenciaController, Depends(get_horarios_docencia_controller)
+    ],
+) -> APIResponseDTO[DesignacionDocenteDTO]:
+    """Obtiene una designación por ID."""
+    desig = controller.obtener_designacion_por_id(id_designacion)
+    if not desig:
+        raise HTTPException(
+            status_code=404,
+            detail=f"Designación con ID '{id_designacion}' no encontrada.",
+        )
+    return APIResponseDTO[DesignacionDocenteDTO](
+        success=True,
+        data=desig,
+    )
+
+
 @router.post(
     "/designaciones",
-    response_model=APIResponseDTO[DesignacionDocenteDTO],
+    response_model=APIResponseDTO[RegistrarDesignacionResponseDTO],
     summary="Registrar Designación o Suplencia Docente con Vigencia Temporal",
     description=(
         "Persiste una nueva designación, titularidad o suplencia de forma inmutable con su código IGE, "
-        "rango de fechas (fecha_desde / fecha_hasta) y distribución horaria semanal."
+        "rango de fechas (fecha_desde / fecha_hasta), campos administrativos DGCyE y distribución horaria semanal. "
+        "Audita en tiempo real posibles superposiciones con otros cargos vigentes del docente."
     ),
 )
 async def registrar_designacion(
@@ -60,12 +127,69 @@ async def registrar_designacion(
     controller: Annotated[
         HorariosDocenciaController, Depends(get_horarios_docencia_controller)
     ],
-) -> APIResponseDTO[DesignacionDocenteDTO]:
-    """Registra y almacena la designación en base de datos."""
+) -> APIResponseDTO[RegistrarDesignacionResponseDTO]:
+    """Registra y almacena la designación en base de datos retornando auditoría de compatibilidad."""
     guardada = controller.registrar_designacion(input_dto)
-    return APIResponseDTO[DesignacionDocenteDTO](
+    return APIResponseDTO[RegistrarDesignacionResponseDTO](
         success=True,
         data=guardada,
+    )
+
+
+@router.put(
+    "/designaciones/{id_designacion}",
+    response_model=APIResponseDTO[DesignacionDocenteDTO],
+    summary="Actualizar Integralmente una Designación",
+    description="Permite corregir cualquier dato de la designación (fechas, materias, escuelas, horarios, observaciones).",
+)
+@router.patch(
+    "/designaciones/{id_designacion}",
+    response_model=APIResponseDTO[DesignacionDocenteDTO],
+    summary="Modificar Parcialmente una Designación",
+    description="Permite modificar campos específicos de la designación existente.",
+)
+async def actualizar_designacion(
+    id_designacion: str,
+    input_dto: ActualizarDesignacionInputDTO,
+    controller: Annotated[
+        HorariosDocenciaController, Depends(get_horarios_docencia_controller)
+    ],
+) -> APIResponseDTO[DesignacionDocenteDTO]:
+    """Actualiza una designación por ID."""
+    actualizada = controller.actualizar_designacion(id_designacion, input_dto)
+    if not actualizada:
+        raise HTTPException(
+            status_code=404,
+            detail=f"Designación con ID '{id_designacion}' no encontrada para actualizar.",
+        )
+    return APIResponseDTO[DesignacionDocenteDTO](
+        success=True,
+        data=actualizada,
+    )
+
+
+@router.delete(
+    "/designaciones/{id_designacion}",
+    response_model=APIResponseDTO[dict[str, Any]],
+    summary="Eliminar Físicamente una Designación",
+    description="Elimina de forma permanente una designación cargada por error (distinto al cese administrativo).",
+)
+async def eliminar_designacion(
+    id_designacion: str,
+    controller: Annotated[
+        HorariosDocenciaController, Depends(get_horarios_docencia_controller)
+    ],
+) -> APIResponseDTO[dict[str, Any]]:
+    """Elimina físicamente una designación."""
+    eliminada = controller.eliminar_designacion(id_designacion)
+    if not eliminada:
+        raise HTTPException(
+            status_code=404,
+            detail=f"Designación con ID '{id_designacion}' no encontrada para eliminar.",
+        )
+    return APIResponseDTO[dict[str, Any]](
+        success=True,
+        data={"eliminado": True, "id_designacion": id_designacion},
     )
 
 
@@ -74,7 +198,7 @@ async def registrar_designacion(
     response_model=APIResponseDTO[DesignacionDocenteDTO],
     summary="Finalizar Vigencia de una Designación (Cese / Fin de Suplencia)",
     description=(
-        "Registra la fecha de cese y el motivo (FIN_SUPLENCIA, RENUNCIA, etc.) de una designación "
+        "Registra la fecha de cese y el motivo (FIN_SUPLENCIA, REINCORPORACION_TITULAR, FIN_LICENCIA, RENUNCIA, etc.) de una designación "
         "existente sin borrarla de la base de datos."
     ),
 )

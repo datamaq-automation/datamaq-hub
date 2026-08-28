@@ -53,7 +53,9 @@ def test_parse_invalid_extension(client: TestClient):
         files={"file": ("test.txt", fake_txt, "text/plain")},
     )
     assert response.status_code == 400
-    assert "must be a PDF document" in response.json()["detail"]
+    payload = response.json()
+    assert payload["success"] is False
+    assert "must be a PDF document" in payload["error"]["message"]
 
 
 def test_parse_empty_pdf(client: TestClient):
@@ -63,7 +65,9 @@ def test_parse_empty_pdf(client: TestClient):
         files={"file": ("empty.pdf", empty_file, "application/pdf")},
     )
     assert response.status_code == 400
-    assert "empty" in response.json()["detail"]
+    payload = response.json()
+    assert payload["success"] is False
+    assert "empty" in payload["error"]["message"]
 
 
 def test_parse_corrupt_pdf(client: TestClient):

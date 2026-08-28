@@ -43,6 +43,10 @@ class CargoDocente:
     horarios: tuple[HorarioBloque, ...] = field(
         default_factory=tuple[HorarioBloque, ...]
     )
+    cupof: str = ""
+    secuencia: int | None = None
+    observaciones: str = ""
+    escuela_numero: str = ""
 
 
 @dataclass(frozen=True)
@@ -63,6 +67,13 @@ class DesignacionDocente:
         default_factory=tuple[HorarioBloque, ...]
     )
     motivo_cese: MotivoCese | None = None
+    observaciones: str = ""
+    cupof: str = ""
+    secuencia: int | None = None
+    codigo_acto: str = ""
+    escuela_numero: str = ""
+    reemplaza_a: str = ""
+    articulo_licencia: str = ""
     creado_en: datetime = field(default_factory=_now_utc)
 
     def to_cargo_docente(self) -> CargoDocente:
@@ -77,6 +88,10 @@ class DesignacionDocente:
             modulos=self.modulos,
             es_cargo_base=self.es_cargo_base,
             horarios=self.horarios,
+            cupof=self.cupof,
+            secuencia=self.secuencia,
+            observaciones=self.observaciones,
+            escuela_numero=self.escuela_numero,
         )
 
 
@@ -127,6 +142,9 @@ class ResultadoCompatibilidad:
     total_modulos: int
     total_minutos_semanales: int
     cantidad_conflictos: int
+    cantidad_incompatibilidades: int = 0
+    cantidad_advertencias: int = 0
+    tiene_advertencias: bool = False
     conflictos: tuple[ConflictoHorario, ...] = field(
         default_factory=tuple[ConflictoHorario, ...]
     )

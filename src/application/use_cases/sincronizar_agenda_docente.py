@@ -29,14 +29,17 @@ class SincronizarAgendaDocenteUseCase:
     def execute(
         self, dto: SincronizarDocenciaDTO, account: str
     ) -> SincronizacionDocenteResponseDTO:
+        from src.domain.horarios_docencia.value_objects import normalizar_cuit
+
+        clean_cuit = normalizar_cuit(dto.cuit)
         effective_account = dto.account or account
         calendar = self.calendar_repo.get_or_create_default_calendar(
             account=effective_account
         )
 
-        # 1. Fetch teaching positions for this CUIT
+        # 1. Fetch teaching positions for this normalized CUIT
         historial: tuple[DesignacionDocente, ...] = (
-            self.designacion_repo.obtener_historial(docente_cuit=dto.cuit)
+            self.designacion_repo.obtener_historial(docente_cuit=clean_cuit)
         )
         active_desigs = [
             d
@@ -44,6 +47,8 @@ class SincronizarAgendaDocenteUseCase:
             if not (d.vigencia.fecha_hasta and d.vigencia.fecha_hasta < dto.fecha_desde)
             and d.vigencia.fecha_desde <= dto.fecha_hasta
         ]
+
+        open_desigs = [d.id_designacion for d in active_desigs if d.vigencia.es_abierta]
 
         # 2. Clean previous docencia events if requested
         if dto.limpiar_previos:
@@ -53,7 +58,7 @@ class SincronizarAgendaDocenteUseCase:
                 account=effective_account,
                 start_date=dt_from,
                 end_date=dt_to,
-                limit=500,
+                limit=1000,
             )
             for ev in existing_events:
                 if "docencia" in ev.categorias.lower() or ev.uid.startswith("doc-"):
@@ -76,13 +81,25 @@ class SincronizarAgendaDocenteUseCase:
             created = self.calendar_repo.create_event(
                 event=ev, account=effective_account
             )
-            saved_dtos.append(CalendarMapper.to_event_dto(created))
+            if dto.incluir_eventos:
+                saved_dtos.append(CalendarMapper.to_event_dto(created))
+
+        aviso = ""
+        if open_desigs:
+            aviso = (
+                f"Se proyectaron clases hasta {dto.fecha_hasta.isoformat()} para {len(open_desigs)} designación(es) "
+                f"abiertas. Para fechas posteriores a dicho intervalo se requerirá una nueva sincronización."
+            )
 
         return SincronizacionDocenteResponseDTO(
-            cuit=dto.cuit,
+            cuit=clean_cuit,
             cuenta=effective_account,
             fecha_desde=dto.fecha_desde,
             fecha_hasta=dto.fecha_hasta,
-            total_eventos_creados=len(saved_dtos),
+            total_eventos_creados=len(projected),
+            total_designaciones_procesadas=len(active_desigs),
+            rango_sincronizado=f"{dto.fecha_desde.isoformat()} a {dto.fecha_hasta.isoformat()}",
+            designaciones_abiertas_sincronizadas=open_desigs,
+            aviso=aviso,
             eventos=saved_dtos,
         )

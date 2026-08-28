@@ -122,7 +122,7 @@ def test_declaracion_compatible_sin_conflictos() -> None:
         cargo_asignatura="Electrotecnia 4to",
         revista=SituacionRevista.TITULAR,
         ige="IGE-1234",
-        modulos=4,
+        modulos=2,
         es_cargo_base=False,
         horarios=(
             HorarioBloque(
@@ -139,7 +139,7 @@ def test_declaracion_compatible_sin_conflictos() -> None:
         cargo_asignatura="Instalaciones 5to",
         revista=SituacionRevista.PROVISIONAL,
         ige="IGE-5678",
-        modulos=4,
+        modulos=2,
         es_cargo_base=False,
         horarios=(
             HorarioBloque(
@@ -161,7 +161,10 @@ def test_declaracion_compatible_sin_conflictos() -> None:
 
     assert resultado.es_compatible is True
     assert resultado.cantidad_conflictos == 0
-    assert resultado.total_modulos == 8
+    assert resultado.cantidad_incompatibilidades == 0
+    assert resultado.cantidad_advertencias == 0
+    assert resultado.tiene_advertencias is False
+    assert resultado.total_modulos == 4
     assert resultado.total_cargos == 2
     assert len(resultado.grilla_semanal["LUNES"]) == 2
     assert resultado.grilla_semanal["LUNES"][0].ige == "IGE-1234"
@@ -175,7 +178,7 @@ def test_declaracion_con_superposicion_critica() -> None:
         distrito="Pilar",
         cargo_asignatura="Electrotecnia 4to",
         revista=SituacionRevista.TITULAR,
-        modulos=4,
+        modulos=2,
         horarios=(
             HorarioBloque(
                 dia=DiaSemana.MARTES,
@@ -190,7 +193,7 @@ def test_declaracion_con_superposicion_critica() -> None:
         distrito="Tigre",
         cargo_asignatura="Automatización",
         revista=SituacionRevista.PROVISIONAL,
-        modulos=4,
+        modulos=2,
         horarios=(
             HorarioBloque(
                 dia=DiaSemana.MARTES,

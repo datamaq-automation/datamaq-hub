@@ -119,6 +119,7 @@ class CalendarController:
         fecha_desde: date,
         fecha_hasta: date,
         solo_docencia: bool = False,
+        limit: int = 1000,
     ) -> list[CalendarEventDTO]:
         if not self._consultar_docencia:
             raise NotImplementedError(
@@ -129,4 +130,5 @@ class CalendarController:
             fecha_desde=fecha_desde,
             fecha_hasta=fecha_hasta,
             solo_docencia=solo_docencia,
+            limit=limit,
         )

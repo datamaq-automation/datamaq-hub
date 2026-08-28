@@ -49,6 +49,7 @@ class TipoConflicto(str, Enum):
     TRASLADO_INSUFICIENTE = "TRASLADO_INSUFICIENTE"
     EXCESO_MODULOS_SEMANALES = "EXCESO_MODULOS_SEMANALES"
     EXCESO_CARGOS_BASE = "EXCESO_CARGOS_BASE"
+    DESVIO_DURACION_MODULO = "DESVIO_DURACION_MODULO"
 
 
 class NivelSeveridad(str, Enum):
@@ -61,11 +62,21 @@ class NivelSeveridad(str, Enum):
 class MotivoCese(str, Enum):
     """Motivos formales de cese o fin de vigencia de una designación."""
 
+    REINCORPORACION_TITULAR = "REINCORPORACION_TITULAR"
+    FIN_LICENCIA = "FIN_LICENCIA"
+    TITULARIZACION = "TITULARIZACION"
     FIN_SUPLENCIA = "FIN_SUPLENCIA"
     RENUNCIA = "RENUNCIA"
     DESPLAZAMIENTO = "DESPLAZAMIENTO"
     CIERRE_CURSO = "CIERRE_CURSO"
     OTRO = "OTRO"
+
+
+def normalizar_cuit(cuit: str | None) -> str:
+    """Limpia y normaliza un CUIT/CUIL a 11 dígitos numéricos sin guiones ni espacios."""
+    if not cuit:
+        return ""
+    return re.sub(r"\D", "", cuit.strip())
 
 
 @dataclass(frozen=True)
@@ -80,6 +91,28 @@ class PeriodoVigencia:
             raise HorarioDocenciaInvalidoException(
                 f"fecha_desde ({self.fecha_desde}) no puede ser posterior a fecha_hasta ({self.fecha_hasta})"
             )
+
+    @property
+    def es_abierta(self) -> bool:
+        """True si la designación no posee fecha de finalización fijada."""
+        return self.fecha_hasta is None
+
+    @staticmethod
+    def fecha_fin_ciclo_lectivo(anio: int) -> date:
+        """Calcula el límite estatutario de ciclo lectivo (28/29 de febrero del año posterior)."""
+        es_bisiesto = (anio + 1) % 4 == 0 and (
+            (anio + 1) % 100 != 0 or (anio + 1) % 400 == 0
+        )
+        dia = 29 if es_bisiesto else 28
+        return date(anio + 1, 2, dia)
+
+    def fecha_hasta_efectiva(self, limitar_a_ciclo: bool = False) -> date | None:
+        """Retorna la fecha hasta explícita o el límite estatutario del ciclo lectivo."""
+        if self.fecha_hasta is not None:
+            return self.fecha_hasta
+        if limitar_a_ciclo:
+            return self.fecha_fin_ciclo_lectivo(self.fecha_desde.year)
+        return None
 
     def esta_vigente_en(self, fecha: date) -> bool:
         """Determina si la designación estaba activa en una fecha específica."""
@@ -146,3 +179,15 @@ class FranjaHoraria:
     def minutos_hasta(self, posterior: "FranjaHoraria") -> int:
         """Calcula los minutos de margen entre el fin de esta franja y el inicio de la posterior."""
         return posterior.inicio_minutos() - self.fin_minutos()
+
+
+def inferir_turno(franja: FranjaHoraria) -> Turno:
+    """Infiere el turno escolar a partir del horario de inicio de la franja horaria."""
+    inicio_min = franja.inicio_minutos()
+    if 420 <= inicio_min < 780:
+        return Turno.MANANA
+    if 780 <= inicio_min < 1080:
+        return Turno.TARDE
+    if 1080 <= inicio_min < 1320:
+        return Turno.VESPERTINO
+    return Turno.NOCHE

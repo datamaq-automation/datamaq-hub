@@ -51,3 +51,23 @@ class DesignacionDocenteRepositoryPort(Protocol):
     ) -> DesignacionDocente | None:
         """Sella la fecha de fin y el motivo de cese de una designación sin borrarla ni alterar su histórico."""
         ...
+
+    def listar(
+        self,
+        docente_cuit: str | None = None,
+        vigentes_al: date | None = None,
+        establecimiento: str | None = None,
+        distrito: str | None = None,
+        limit: int = 100,
+        offset: int = 0,
+    ) -> tuple[DesignacionDocente, ...]:
+        """Lista designaciones docentes con filtros opcionales y paginación."""
+        ...
+
+    def actualizar(self, designacion: DesignacionDocente) -> DesignacionDocente | None:
+        """Actualiza una designación existente por su ID."""
+        ...
+
+    def eliminar(self, id_designacion: str) -> bool:
+        """Elimina físicamente una designación por su ID (ej. registro accidental)."""
+        ...

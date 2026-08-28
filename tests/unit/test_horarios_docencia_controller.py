@@ -46,7 +46,7 @@ def test_controller_validar_declaracion() -> None:
                 cargo_asignatura="Electrotecnia 4to",
                 revista="TITULAR",
                 ige="IGE-101",
-                modulos=4,
+                modulos=2,
                 es_cargo_base=False,
                 horarios=[
                     HorarioBloqueDTO(
@@ -64,7 +64,7 @@ def test_controller_validar_declaracion() -> None:
                 cargo_asignatura="Automatización",
                 revista="PROVISIONAL",
                 ige="IGE-102",
-                modulos=4,
+                modulos=2,
                 es_cargo_base=False,
                 horarios=[
                     HorarioBloqueDTO(
@@ -81,7 +81,7 @@ def test_controller_validar_declaracion() -> None:
     resultado = controller.validar_declaracion(input_dto)
     assert resultado.es_compatible is False
     assert resultado.total_cargos == 2
-    assert resultado.total_modulos == 8
+    assert resultado.total_modulos == 4
     assert len(resultado.conflictos) == 1
     assert resultado.conflictos[0].tipo == "SUPERPOSICION_HORARIA"
     assert resultado.conflictos[0].severidad == "CRITICO"
@@ -112,7 +112,7 @@ def test_controller_flujo_temporal_persistencia() -> None:
         distrito="Pilar",
         cargo_asignatura="Electrotecnia",
         revista="TITULAR",
-        modulos=4,
+        modulos=2,
         fecha_desde="2026-03-01",
         horarios=[
             HorarioBloqueDTO(
@@ -124,8 +124,8 @@ def test_controller_flujo_temporal_persistencia() -> None:
         ],
     )
     res_tit = controller.registrar_designacion(dto_titular)
-    assert res_tit.id_designacion != ""
-    assert res_tit.ige == "IGE-T1"
+    assert res_tit.designacion.id_designacion != ""
+    assert res_tit.designacion.ige == "IGE-T1"
 
     # 2. Registrar suplencia
     dto_suplente = RegistrarDesignacionInputDTO(
@@ -135,7 +135,7 @@ def test_controller_flujo_temporal_persistencia() -> None:
         distrito="Tigre",
         cargo_asignatura="Automatización",
         revista="SUPLENTE",
-        modulos=4,
+        modulos=2,
         fecha_desde="2026-04-01",
         fecha_hasta="2026-06-30",
         horarios=[
@@ -148,7 +148,7 @@ def test_controller_flujo_temporal_persistencia() -> None:
         ],
     )
     res_sup = controller.registrar_designacion(dto_suplente)
-    assert res_sup.revista == "SUPLENTE"
+    assert res_sup.designacion.revista == "SUPLENTE"
 
     # 3. Consultar vigentes en Mayo (2 cargos)
     rep_mayo = controller.consultar_vigentes_en_fecha("20-36528392-4", "2026-05-15")
@@ -161,7 +161,7 @@ def test_controller_flujo_temporal_persistencia() -> None:
 
     # 5. Cesar el titular
     cesado = controller.cesar_designacion(
-        res_tit.id_designacion,
+        res_tit.designacion.id_designacion,
         CesarDesignacionInputDTO(fecha_hasta="2026-08-31", motivo_cese="RENUNCIA"),
     )
     assert cesado is not None

@@ -20,7 +20,7 @@ def test_validar_horarios_docencia_endpoint(client: TestClient) -> None:
                 "cargo_asignatura": "Electrotecnia 4to",
                 "revista": "TITULAR",
                 "ige": "IGE-12345",
-                "modulos": 4,
+                "modulos": 2,
                 "es_cargo_base": False,
                 "horarios": [
                     {
@@ -38,7 +38,7 @@ def test_validar_horarios_docencia_endpoint(client: TestClient) -> None:
                 "cargo_asignatura": "Instalaciones 5to",
                 "revista": "PROVISIONAL",
                 "ige": "IGE-67890",
-                "modulos": 4,
+                "modulos": 2,
                 "es_cargo_base": False,
                 "horarios": [
                     {
@@ -59,7 +59,7 @@ def test_validar_horarios_docencia_endpoint(client: TestClient) -> None:
     assert data["success"] is True
     assert data["data"]["es_compatible"] is True
     assert data["data"]["total_cargos"] == 2
-    assert data["data"]["total_modulos"] == 8
+    assert data["data"]["total_modulos"] == 4
     assert data["data"]["cantidad_conflictos"] == 0
     assert "LUNES" in data["data"]["grilla_semanal"]
     assert len(data["data"]["grilla_semanal"]["LUNES"]) == 2
@@ -78,8 +78,10 @@ def test_flujo_persistencia_temporal_endpoints(client: TestClient) -> None:
         "distrito": "Pilar",
         "cargo_asignatura": "Electrotecnia",
         "revista": "TITULAR",
-        "modulos": 4,
+        "modulos": 2,
         "fecha_desde": "2026-03-01",
+        "observaciones": "Designación inicial",
+        "cupof": "CUP-01",
         "horarios": [
             {
                 "dia": "LUNES",
@@ -93,7 +95,7 @@ def test_flujo_persistencia_temporal_endpoints(client: TestClient) -> None:
         "/api/v1/horarios-docencia/designaciones", json=payload_titular
     )
     assert resp_tit.status_code == 200
-    data_tit = resp_tit.json()["data"]
+    data_tit = resp_tit.json()["data"]["designacion"]
     id_tit = data_tit["id_designacion"]
     assert data_tit["ige"] == "IGE-TIT-01"
 
@@ -105,7 +107,7 @@ def test_flujo_persistencia_temporal_endpoints(client: TestClient) -> None:
         "distrito": "Tigre",
         "cargo_asignatura": "Automatización",
         "revista": "SUPLENTE",
-        "modulos": 4,
+        "modulos": 2,
         "fecha_desde": "2026-04-01",
         "fecha_hasta": "2026-06-30",
         "horarios": [
@@ -121,22 +123,41 @@ def test_flujo_persistencia_temporal_endpoints(client: TestClient) -> None:
         "/api/v1/horarios-docencia/designaciones", json=payload_suplente
     )
     assert resp_sup.status_code == 200
+    id_sup = resp_sup.json()["data"]["designacion"]["id_designacion"]
 
-    # 3. Consultar vigentes en Mayo (2 cargos)
+    # 3. GET /designaciones (Listar con filtros)
+    resp_list = client.get(f"/api/v1/horarios-docencia/designaciones?cuit={cuit}")
+    assert resp_list.status_code == 200
+    assert len(resp_list.json()["data"]) == 2
+
+    # 4. GET /designaciones/{id} (Ficha detallada)
+    resp_get = client.get(f"/api/v1/horarios-docencia/designaciones/{id_tit}")
+    assert resp_get.status_code == 200
+    assert resp_get.json()["data"]["id_designacion"] == id_tit
+
+    # 5. PUT /designaciones/{id} (Actualización)
+    resp_put = client.put(
+        f"/api/v1/horarios-docencia/designaciones/{id_tit}",
+        json={"observaciones": "Modificado vía PUT"},
+    )
+    assert resp_put.status_code == 200
+    assert resp_put.json()["data"]["observaciones"] == "Modificado vía PUT"
+
+    # 6. Consultar vigentes en Mayo (2 cargos)
     resp_mayo = client.get(
         f"/api/v1/horarios-docencia/docentes/{cuit}/vigentes?fecha=2026-05-15"
     )
     assert resp_mayo.status_code == 200
     assert resp_mayo.json()["data"]["total_cargos"] == 2
 
-    # 4. Consultar vigentes en Julio (1 cargo)
+    # 7. Consultar vigentes en Julio (1 cargo)
     resp_julio = client.get(
         f"/api/v1/horarios-docencia/docentes/{cuit}/vigentes?fecha=2026-07-15"
     )
     assert resp_julio.status_code == 200
     assert resp_julio.json()["data"]["total_cargos"] == 1
 
-    # 5. Cesar el titular
+    # 8. Cesar el titular
     resp_cesar = client.post(
         f"/api/v1/horarios-docencia/designaciones/{id_tit}/cesar",
         json={"fecha_hasta": "2026-08-31", "motivo_cese": "RENUNCIA"},
@@ -144,7 +165,12 @@ def test_flujo_persistencia_temporal_endpoints(client: TestClient) -> None:
     assert resp_cesar.status_code == 200
     assert resp_cesar.json()["data"]["motivo_cese"] == "RENUNCIA"
 
-    # 6. Consultar historial completo
+    # 9. Consultar historial completo
     resp_hist = client.get(f"/api/v1/horarios-docencia/docentes/{cuit}/historial")
     assert resp_hist.status_code == 200
     assert len(resp_hist.json()["data"]) == 2
+
+    # 10. DELETE /designaciones/{id} (Borrado físico de suplencia)
+    resp_del = client.delete(f"/api/v1/horarios-docencia/designaciones/{id_sup}")
+    assert resp_del.status_code == 200
+    assert resp_del.json()["data"]["eliminado"] is True

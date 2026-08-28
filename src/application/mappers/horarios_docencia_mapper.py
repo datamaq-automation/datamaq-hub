@@ -25,6 +25,8 @@ from src.domain.horarios_docencia.value_objects import (
     PeriodoVigencia,
     SituacionRevista,
     Turno,
+    inferir_turno,
+    normalizar_cuit,
 )
 
 
@@ -40,14 +42,15 @@ class HorariosDocenciaMapper:
             horarios_dominio: list[HorarioBloque] = []
             for h_dto in c_dto.horarios:
                 dia_enum = DiaSemana[h_dto.dia.strip().upper()]
-                turno_str = h_dto.turno.strip().upper()
-                turno_enum = (
-                    Turno[turno_str] if turno_str in Turno.__members__ else Turno.MANANA
-                )
                 franja = FranjaHoraria(
                     hora_inicio=h_dto.hora_inicio.strip(),
                     hora_fin=h_dto.hora_fin.strip(),
                 )
+                if h_dto.turno and h_dto.turno.strip().upper() in Turno.__members__:
+                    turno_enum = Turno[h_dto.turno.strip().upper()]
+                else:
+                    turno_enum = inferir_turno(franja)
+
                 horarios_dominio.append(
                     HorarioBloque(
                         dia=dia_enum,
@@ -73,13 +76,17 @@ class HorariosDocenciaMapper:
                     ige=c_dto.ige.strip(),
                     modulos=c_dto.modulos,
                     es_cargo_base=c_dto.es_cargo_base,
+                    cupof=c_dto.cupof.strip(),
+                    secuencia=c_dto.secuencia,
+                    observaciones=c_dto.observaciones.strip(),
+                    escuela_numero=c_dto.escuela_numero.strip(),
                     horarios=tuple(horarios_dominio),
                 )
             )
 
         return DeclaracionHorariaDocente(
             docente_nombre=dto.docente_nombre.strip(),
-            cuit=dto.cuit.strip(),
+            cuit=normalizar_cuit(dto.cuit),
             dni=dto.dni.strip(),
             cargos=tuple(cargos_dominio),
         )
@@ -90,14 +97,15 @@ class HorariosDocenciaMapper:
         horarios_dominio: list[HorarioBloque] = []
         for h_dto in dto.horarios:
             dia_enum = DiaSemana[h_dto.dia.strip().upper()]
-            turno_str = h_dto.turno.strip().upper()
-            turno_enum = (
-                Turno[turno_str] if turno_str in Turno.__members__ else Turno.MANANA
-            )
             franja = FranjaHoraria(
                 hora_inicio=h_dto.hora_inicio.strip(),
                 hora_fin=h_dto.hora_fin.strip(),
             )
+            if h_dto.turno and h_dto.turno.strip().upper() in Turno.__members__:
+                turno_enum = Turno[h_dto.turno.strip().upper()]
+            else:
+                turno_enum = inferir_turno(franja)
+
             horarios_dominio.append(
                 HorarioBloque(
                     dia=dia_enum,
@@ -120,7 +128,7 @@ class HorariosDocenciaMapper:
 
         return DesignacionDocente(
             id_designacion=str(uuid.uuid4()),
-            docente_cuit=dto.docente_cuit.strip(),
+            docente_cuit=normalizar_cuit(dto.docente_cuit),
             ige=dto.ige.strip(),
             establecimiento=dto.establecimiento.strip(),
             distrito=dto.distrito.strip(),
@@ -129,6 +137,13 @@ class HorariosDocenciaMapper:
             vigencia=PeriodoVigencia(fecha_desde=f_desde, fecha_hasta=f_hasta),
             modulos=dto.modulos,
             es_cargo_base=dto.es_cargo_base,
+            observaciones=dto.observaciones.strip(),
+            cupof=dto.cupof.strip(),
+            secuencia=dto.secuencia,
+            codigo_acto=dto.codigo_acto.strip(),
+            escuela_numero=dto.escuela_numero.strip(),
+            reemplaza_a=dto.reemplaza_a.strip(),
+            articulo_licencia=dto.articulo_licencia.strip(),
             horarios=tuple(horarios_dominio),
         )
 
@@ -162,6 +177,13 @@ class HorariosDocenciaMapper:
                 else None
             ),
             motivo_cese=domain.motivo_cese.value if domain.motivo_cese else None,
+            observaciones=domain.observaciones,
+            cupof=domain.cupof,
+            secuencia=domain.secuencia,
+            codigo_acto=domain.codigo_acto,
+            escuela_numero=domain.escuela_numero,
+            reemplaza_a=domain.reemplaza_a,
+            articulo_licencia=domain.articulo_licencia,
             horarios=horarios_dto,
             creado_en=domain.creado_en.isoformat(),
         )
@@ -206,6 +228,9 @@ class HorariosDocenciaMapper:
             total_modulos=domain.total_modulos,
             total_minutos_semanales=domain.total_minutos_semanales,
             cantidad_conflictos=domain.cantidad_conflictos,
+            cantidad_incompatibilidades=domain.cantidad_incompatibilidades,
+            cantidad_advertencias=domain.cantidad_advertencias,
+            tiene_advertencias=domain.tiene_advertencias,
             conflictos=conflictos_dto,
             grilla_semanal=grilla_dto,
         )

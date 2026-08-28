@@ -13,9 +13,9 @@ class HorarioBloqueDTO(BaseModel):
     )
     hora_inicio: str = Field(description="Hora de inicio en formato HH:MM (ej. 07:30)")
     hora_fin: str = Field(description="Hora de fin en formato HH:MM (ej. 09:30)")
-    turno: str = Field(
-        default="MANANA",
-        description="Turno escolar: MANANA, TARDE, VESPERTINO, NOCHE, INTERNO",
+    turno: str | None = Field(
+        default=None,
+        description="Turno escolar: MANANA, TARDE, VESPERTINO, NOCHE, INTERNO (se infiere si no se especifica)",
     )
 
 
@@ -50,6 +50,12 @@ class CargoDocenteDTO(BaseModel):
         default=False,
         description="True si es cargo de base de jornada simple o completa",
     )
+    cupof: str = Field(
+        default="", description="Código Único de Planta Orgánica Funcional"
+    )
+    secuencia: int | None = Field(default=None, description="Número de secuencia")
+    observaciones: str = Field(default="", description="Observaciones o notas")
+    escuela_numero: str = Field(default="", description="Número de escuela")
     horarios: list[HorarioBloqueDTO] = Field(
         default_factory=list[HorarioBloqueDTO],
         description="Lista de franjas horarias semanales en las que se dicta este cargo",
@@ -111,9 +117,74 @@ class RegistrarDesignacionInputDTO(BaseModel):
         default=None,
         description="Fecha de fin conocida en formato YYYY-MM-DD (opcional para suplencias cerradas)",
     )
+    observaciones: str = Field(
+        default="", description="Notas administrativas, licencias, renovación, etc."
+    )
+    cupof: str = Field(
+        default="", description="Código Único de Planta Orgánica Funcional"
+    )
+    secuencia: int | None = Field(
+        default=None, description="Número de secuencia del cargo"
+    )
+    codigo_acto: str = Field(
+        default="", description="Código de acto público (ej. '0116MT0001')"
+    )
+    escuela_numero: str = Field(default="", description="Número de escuela")
+    reemplaza_a: str = Field(
+        default="", description="Docente titular/suplente reemplazado"
+    )
+    articulo_licencia: str = Field(
+        default="", description="Artículo estatutario de licencia"
+    )
+    forzar: bool = Field(
+        default=False,
+        description="True para registrar la designación aun si se detectan superposiciones horarias",
+    )
     horarios: list[HorarioBloqueDTO] = Field(
         default_factory=list[HorarioBloqueDTO],
         description="Horarios semanales de la designación",
+    )
+
+
+class ActualizarDesignacionInputDTO(BaseModel):
+    """DTO de entrada para modificar o corregir una designación existente."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    docente_cuit: str | None = Field(default=None, description="CUIT del docente")
+    ige: str | None = Field(default=None, description="Identificador IGE")
+    establecimiento: str | None = Field(
+        default=None, description="Nombre del establecimiento"
+    )
+    distrito: str | None = Field(default=None, description="Distrito escolar")
+    cargo_asignatura: str | None = Field(
+        default=None, description="Nombre del cargo/materia"
+    )
+    revista: str | None = Field(
+        default=None, description="TITULAR, PROVISIONAL, SUPLENTE"
+    )
+    modulos: int | None = Field(default=None, ge=0, description="Módulos semanales")
+    es_cargo_base: bool | None = Field(default=None, description="Es cargo de base")
+    fecha_desde: str | None = Field(
+        default=None, description="Fecha de inicio (YYYY-MM-DD)"
+    )
+    fecha_hasta: str | None = Field(
+        default=None, description="Fecha de fin (YYYY-MM-DD)"
+    )
+    motivo_cese: str | None = Field(
+        default=None, description="Motivo de cese si corresponde"
+    )
+    observaciones: str | None = Field(default=None, description="Observaciones")
+    cupof: str | None = Field(default=None, description="Código CUPOF")
+    secuencia: int | None = Field(default=None, description="Número de secuencia")
+    codigo_acto: str | None = Field(default=None, description="Código de acto público")
+    escuela_numero: str | None = Field(default=None, description="Número de escuela")
+    reemplaza_a: str | None = Field(default=None, description="Docente reemplazado")
+    articulo_licencia: str | None = Field(
+        default=None, description="Artículo de licencia"
+    )
+    horarios: list[HorarioBloqueDTO] | None = Field(
+        default=None, description="Horarios semanales actualizados"
     )
 
 
@@ -127,7 +198,7 @@ class CesarDesignacionInputDTO(BaseModel):
     )
     motivo_cese: str = Field(
         default="FIN_SUPLENCIA",
-        description="Motivo del cese: FIN_SUPLENCIA, RENUNCIA, DESPLAZAMIENTO, CIERRE_CURSO, OTRO",
+        description="Motivo del cese: FIN_SUPLENCIA, REINCORPORACION_TITULAR, FIN_LICENCIA, RENUNCIA, etc.",
     )
 
 
@@ -148,6 +219,13 @@ class DesignacionDocenteDTO(BaseModel):
     fecha_desde: str
     fecha_hasta: str | None
     motivo_cese: str | None
+    observaciones: str = ""
+    cupof: str = ""
+    secuencia: int | None = None
+    codigo_acto: str = ""
+    escuela_numero: str = ""
+    reemplaza_a: str = ""
+    articulo_licencia: str = ""
     horarios: list[HorarioBloqueDTO] = Field(default_factory=list[HorarioBloqueDTO])
     creado_en: str
 
@@ -202,6 +280,17 @@ class ResultadoCompatibilidadDTO(BaseModel):
     cantidad_conflictos: int = Field(
         description="Cantidad total de conflictos y advertencias"
     )
+    cantidad_incompatibilidades: int = Field(
+        default=0,
+        description="Cantidad de incompatibilidades críticas (superposiciones)",
+    )
+    cantidad_advertencias: int = Field(
+        default=0, description="Cantidad de advertencias no bloqueantes"
+    )
+    tiene_advertencias: bool = Field(
+        default=False,
+        description="True si posee advertencias estatutarias o de traslado",
+    )
     conflictos: list[ConflictoDTO] = Field(
         default_factory=list[ConflictoDTO],
         description="Listado de superposiciones y advertencias detectadas",
@@ -209,4 +298,18 @@ class ResultadoCompatibilidadDTO(BaseModel):
     grilla_semanal: dict[str, list[ItemGrillaDiaDTO]] = Field(
         default_factory=dict[str, list[ItemGrillaDiaDTO]],
         description="Grilla horaria organizada por día de la semana",
+    )
+
+
+class RegistrarDesignacionResponseDTO(BaseModel):
+    """DTO de respuesta al registrar una designación, incluyendo auditoría de compatibilidad inmediata."""
+
+    designacion: DesignacionDocenteDTO
+    es_compatible: bool = Field(
+        default=True,
+        description="True si no generó superposiciones horarias críticas con otros cargos vigentes",
+    )
+    advertencias: list[ConflictoDTO] = Field(
+        default_factory=list[ConflictoDTO],
+        description="Conflictos o advertencias detectadas con cargos preexistentes",
     )

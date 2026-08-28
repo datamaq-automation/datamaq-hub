@@ -4,8 +4,10 @@ from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI, Request
+from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
+from starlette.exceptions import HTTPException as StarletteHTTPException
 
 from src.adapters.gateways.api_cache_gateway import init_db
 from src.adapters.gateways.sql_designacion_docente_gateway import init_horarios_db
@@ -119,6 +121,52 @@ def create_app() -> FastAPI:
     @app.exception_handler(LeadException)
     async def lead_exception_handler(_: Request, exc: LeadException) -> JSONResponse:
         payload, status_code = ErrorPresenter.format_domain_error(exc)
+        return JSONResponse(status_code=status_code, content=payload.model_dump())
+
+    # Unified framework exception handlers (Standardizing all error shapes to {"success": false, "error": {...}})
+    @app.exception_handler(RequestValidationError)
+    async def validation_exception_handler(
+        _: Request, exc: RequestValidationError
+    ) -> JSONResponse:
+        errors = exc.errors()
+        first_msg = (
+            errors[0]["msg"] if errors else "Error de validación en la solicitud"
+        )
+        payload, status_code = ErrorPresenter.format_generic_error(
+            message=first_msg,
+            code="VALIDATION_ERROR",
+            status_code=422,
+            details={"errors": errors},
+        )
+        return JSONResponse(status_code=status_code, content=payload.model_dump())
+
+    @app.exception_handler(StarletteHTTPException)
+    async def http_exception_handler(
+        _: Request, exc: StarletteHTTPException
+    ) -> JSONResponse:
+        code_map = {
+            404: "NOT_FOUND",
+            405: "METHOD_NOT_ALLOWED",
+            400: "BAD_REQUEST",
+            401: "UNAUTHORIZED",
+            403: "FORBIDDEN",
+        }
+        code_name = code_map.get(exc.status_code, "HTTP_ERROR")
+        msg = exc.detail if isinstance(exc.detail, str) else str(exc.detail)
+        payload, status_code = ErrorPresenter.format_generic_error(
+            message=msg,
+            code=code_name,
+            status_code=exc.status_code,
+        )
+        return JSONResponse(status_code=status_code, content=payload.model_dump())
+
+    @app.exception_handler(Exception)
+    async def unhandled_exception_handler(_: Request, exc: Exception) -> JSONResponse:
+        payload, status_code = ErrorPresenter.format_generic_error(
+            message=f"Error interno del servidor: {exc}",
+            code="INTERNAL_SERVER_ERROR",
+            status_code=500,
+        )
         return JSONResponse(status_code=status_code, content=payload.model_dump())
 
     # Mount API routers under prefix /api/v1

@@ -19,6 +19,7 @@ class ConsultarAgendaDocenteUseCase:
         fecha_desde: date,
         fecha_hasta: date,
         solo_docencia: bool = False,
+        limit: int = 1000,
     ) -> list[CalendarEventDTO]:
         dt_from = datetime.combine(fecha_desde, time(0, 0))
         dt_to = datetime.combine(fecha_hasta, time(23, 59, 59))
@@ -27,7 +28,7 @@ class ConsultarAgendaDocenteUseCase:
             account=account,
             start_date=dt_from,
             end_date=dt_to,
-            limit=200,
+            limit=limit,
         )
 
         if solo_docencia:

@@ -234,9 +234,19 @@ async def consultar_agenda_docente(
         bool,
         Query(description="Filtrar exclusivamente eventos de clases escolares"),
     ] = False,
+    limit: Annotated[
+        int,
+        Query(
+            ge=1,
+            le=2000,
+            description="Cantidad máxima de eventos a recuperar (por defecto 1000)",
+        ),
+    ] = 1000,
     account: Annotated[
         str | None,
-        Query(description="Cuenta de correo asociada (opcional)"),
+        Query(
+            description="Cuenta de correo asociada (opcional, por defecto openclaw@datamaq.com.ar)"
+        ),
     ] = None,
 ) -> APIResponseDTO[list[CalendarEventDTO]]:
     """Retrieves unified teaching schedule."""
@@ -247,5 +257,6 @@ async def consultar_agenda_docente(
         fecha_desde=fecha_desde,
         fecha_hasta=fecha_hasta,
         solo_docencia=solo_docencia,
+        limit=limit,
     )
     return APIResponseDTO[list[CalendarEventDTO]](success=True, data=result)

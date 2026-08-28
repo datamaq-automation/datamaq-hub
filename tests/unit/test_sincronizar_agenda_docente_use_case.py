@@ -103,6 +103,7 @@ def test_sincronizar_agenda_docente_use_case():
         fecha_desde=date(2026, 9, 1),
         fecha_hasta=date(2026, 9, 7),
         limpiar_previos=True,
+        incluir_eventos=True,
     )
 
     account = "openclaw@datamaq.com.ar"

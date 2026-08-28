@@ -7,6 +7,7 @@ from src.application.mappers.horarios_docencia_mapper import HorariosDocenciaMap
 from src.domain.horarios_docencia.entities import DeclaracionHorariaDocente
 from src.domain.horarios_docencia.ports import DesignacionDocenteRepositoryPort
 from src.domain.horarios_docencia.services import ValidadorHorariosDocenciaService
+from src.domain.horarios_docencia.value_objects import normalizar_cuit
 
 
 class ConsultarDesignacionesVigentesUseCase:
@@ -29,16 +30,17 @@ class ConsultarDesignacionesVigentesUseCase:
         margen_traslado_minutos: int = 20,
     ) -> ResultadoCompatibilidadDTO:
         """Audita las designaciones activas en la fecha solicitada."""
+        clean_cuit = normalizar_cuit(docente_cuit)
         fecha_eval = fecha if fecha is not None else datetime.now(timezone.utc).date()
         vigentes = self._repository.obtener_vigentes_en_fecha(
-            docente_cuit=docente_cuit.strip(),
+            docente_cuit=clean_cuit,
             fecha=fecha_eval,
         )
 
         cargos = tuple(d.to_cargo_docente() for d in vigentes)
         declaracion = DeclaracionHorariaDocente(
-            docente_nombre=f"Docente CUIT {docente_cuit}",
-            cuit=docente_cuit,
+            docente_nombre=f"Docente CUIT {clean_cuit}",
+            cuit=clean_cuit,
             cargos=cargos,
         )
 

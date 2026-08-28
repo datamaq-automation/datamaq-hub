@@ -20,6 +20,9 @@ from src.adapters.gateways.receipt_parsers.parser_registry_gateway import (
 from src.adapters.gateways.sql_designacion_docente_gateway import (
     SQLDesignacionDocenteGateway,
 )
+from src.application.use_cases.actualizar_designacion import (
+    ActualizarDesignacionUseCase,
+)
 from src.application.use_cases.cesar_designacion import CesarDesignacionUseCase
 from src.application.use_cases.consultar_designaciones_vigentes import (
     ConsultarDesignacionesVigentesUseCase,
@@ -27,10 +30,14 @@ from src.application.use_cases.consultar_designaciones_vigentes import (
 from src.application.use_cases.consultar_historial_docente import (
     ConsultarHistorialDocenteUseCase,
 )
+from src.application.use_cases.eliminar_designacion import EliminarDesignacionUseCase
 from src.application.use_cases.get_mail_detail import GetMailDetailUseCase
 from src.application.use_cases.get_unread_summary import GetUnreadSummaryUseCase
 from src.application.use_cases.list_inbox_messages import ListInboxMessagesUseCase
 from src.application.use_cases.list_mail_folders import ListMailFoldersUseCase
+from src.application.use_cases.listar_designaciones import (
+    ListarDesignacionesUseCase,
+)
 from src.application.use_cases.parse_receipt import ParseReceiptUseCase
 from src.application.use_cases.project_salary import ProjectSalaryUseCase
 from src.application.use_cases.registrar_designacion import (
@@ -52,13 +59,13 @@ def get_pdf_extractor_gateway() -> PDFExtractorPort:
 
 
 @lru_cache
-def get_parser_registry_gateway() -> ReceiptParserRegistryPort:
+def get_receipt_parser_registry_gateway() -> ReceiptParserRegistryPort:
     return ReceiptParserRegistryGateway()
 
 
 def get_parse_receipt_use_case() -> ParseReceiptUseCase:
     extractor = get_pdf_extractor_gateway()
-    parser_registry = get_parser_registry_gateway()
+    parser_registry = get_receipt_parser_registry_gateway()
     return ParseReceiptUseCase(extractor=extractor, parser_registry=parser_registry)
 
 
@@ -121,18 +128,41 @@ def get_consultar_historial_use_case() -> ConsultarHistorialDocenteUseCase:
     return ConsultarHistorialDocenteUseCase(repository=repo)
 
 
+def get_listar_designaciones_use_case() -> ListarDesignacionesUseCase:
+    repo = get_designacion_docente_repository_gateway()
+    return ListarDesignacionesUseCase(repository=repo)
+
+
+def get_actualizar_designacion_use_case() -> ActualizarDesignacionUseCase:
+    repo = get_designacion_docente_repository_gateway()
+    return ActualizarDesignacionUseCase(repository=repo)
+
+
+def get_eliminar_designacion_use_case() -> EliminarDesignacionUseCase:
+    repo = get_designacion_docente_repository_gateway()
+    return EliminarDesignacionUseCase(repository=repo)
+
+
 def get_horarios_docencia_controller() -> HorariosDocenciaController:
+    repo = get_designacion_docente_repository_gateway()
     validar_uc = get_validar_horarios_use_case()
     registrar_uc = get_registrar_designacion_use_case()
     cesar_uc = get_cesar_designacion_use_case()
     vigentes_uc = get_consultar_vigentes_use_case()
     historial_uc = get_consultar_historial_use_case()
+    listar_uc = get_listar_designaciones_use_case()
+    actualizar_uc = get_actualizar_designacion_use_case()
+    eliminar_uc = get_eliminar_designacion_use_case()
     return HorariosDocenciaController(
         validar_use_case=validar_uc,
         registrar_use_case=registrar_uc,
         cesar_use_case=cesar_uc,
         consultar_vigentes_use_case=vigentes_uc,
         consultar_historial_use_case=historial_uc,
+        listar_use_case=listar_uc,
+        actualizar_use_case=actualizar_uc,
+        eliminar_use_case=eliminar_uc,
+        repository=repo,
     )
 
 

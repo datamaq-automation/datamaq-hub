@@ -134,13 +134,45 @@ class ValidadorHorariosDocenciaService:
         total_cargos_base = sum(1 for c in declaracion.cargos if c.es_cargo_base)
         total_modulos = sum(c.modulos for c in declaracion.cargos)
 
+        # Validación de consistencia módulos vs minutos de bloques
+        for cargo in declaracion.cargos:
+            if cargo.modulos > 0 and cargo.horarios:
+                duracion_bloques = sum(
+                    h.franja.duracion_minutos() for h in cargo.horarios
+                )
+                minutos_esperados_60 = cargo.modulos * 60
+                minutos_esperados_40 = cargo.modulos * 40
+                minutos_esperados_45 = cargo.modulos * 45
+
+                if (
+                    duracion_bloques != minutos_esperados_60
+                    and duracion_bloques != minutos_esperados_40
+                    and duracion_bloques != minutos_esperados_45
+                ):
+                    promedio_min = duracion_bloques / cargo.modulos
+                    conflictos.append(
+                        ConflictoHorario(
+                            tipo=TipoConflicto.DESVIO_DURACION_MODULO,
+                            severidad=NivelSeveridad.ADVERTENCIA,
+                            dia=None,
+                            cargos_involucrados=(cargo.id_cargo,),
+                            descripcion=(
+                                f"El cargo '{cargo.cargo_asignatura}' ({cargo.establecimiento}) declara {cargo.modulos} módulos "
+                                f"pero sus bloques suman {duracion_bloques} min semanales ({promedio_min:.1f} min/módulo)."
+                            ),
+                            minutos_solapamiento_o_traslado=abs(
+                                duracion_bloques - minutos_esperados_60
+                            ),
+                        )
+                    )
+
         if total_modulos > tope_modulos_semanales:
             conflictos.append(
                 ConflictoHorario(
                     tipo=TipoConflicto.EXCESO_MODULOS_SEMANALES,
                     severidad=NivelSeveridad.ADVERTENCIA,
                     dia=None,
-                    cargos_involucrados=tuple(c.id_cargo for c in declaracion.cargos),
+                    cargos_involucrados=(),
                     descripcion=(
                         f"La suma total de {total_modulos} módulos semanales supera el límite "
                         f"regular estatutario de {tope_modulos_semanales} módulos."
@@ -155,9 +187,7 @@ class ValidadorHorariosDocenciaService:
                     tipo=TipoConflicto.EXCESO_CARGOS_BASE,
                     severidad=NivelSeveridad.ADVERTENCIA,
                     dia=None,
-                    cargos_involucrados=tuple(
-                        c.id_cargo for c in declaracion.cargos if c.es_cargo_base
-                    ),
+                    cargos_involucrados=(),
                     descripcion=(
                         f"El docente declara {total_cargos_base} cargos de base, superando el límite "
                         f"estatutario regular de {tope_cargos_base} cargos."
@@ -166,11 +196,14 @@ class ValidadorHorariosDocenciaService:
                 )
             )
 
-        # 4. Determinación de Compatibilidad
-        # Es compatible si no tiene ningún conflicto CRITICO (superposiciones)
-        es_compatible = not any(
-            c.severidad == NivelSeveridad.CRITICO for c in conflictos
+        # 4. Determinación de Compatibilidad y métricas discriminadas
+        cant_incompatibilidades = sum(
+            1 for c in conflictos if c.severidad == NivelSeveridad.CRITICO
         )
+        cant_advertencias = sum(
+            1 for c in conflictos if c.severidad == NivelSeveridad.ADVERTENCIA
+        )
+        es_compatible = cant_incompatibilidades == 0
 
         return ResultadoCompatibilidad(
             es_compatible=es_compatible,
@@ -179,6 +212,9 @@ class ValidadorHorariosDocenciaService:
             total_modulos=total_modulos,
             total_minutos_semanales=total_minutos_semanales,
             cantidad_conflictos=len(conflictos),
+            cantidad_incompatibilidades=cant_incompatibilidades,
+            cantidad_advertencias=cant_advertencias,
+            tiene_advertencias=cant_advertencias > 0,
             conflictos=tuple(conflictos),
             grilla_semanal=dict(grilla_semanal),
         )
