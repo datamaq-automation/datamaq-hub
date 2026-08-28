@@ -2,6 +2,7 @@
 
 import re
 import unicodedata
+from dataclasses import dataclass
 from typing import Any
 
 from src.domain.recibos.entities import (
@@ -16,6 +17,16 @@ from src.domain.recibos.entities import (
 from src.domain.recibos.value_objects import TipoConcepto
 
 TOLERANCIA_REDONDEO_CENTAVOS: float = 0.10
+
+
+@dataclass(frozen=True)
+class _ItemConciliacionInterno:
+    secuencia: str
+    establecimiento_codigo: str
+    periodo_liquidado: str
+    liquido_pesos: float
+    modulos: float = 0.0
+    revista: str = ""
 
 
 class TextNormalizerService:
@@ -116,23 +127,33 @@ class ConciliadorReciboDocenteService:
             key = f"{liq.establecimiento.codigo or ''}-{liq.cargo.secuencia}"
             liq_map[key] = liq
 
-        # Iterar sobre las líneas del resumen de líquidos
-        items_a_evaluar: list[ResumenLiquidoItem] = (
-            recibo.resumen_liquidos
-            if recibo.resumen_liquidos
-            else [
-                ResumenLiquidoItem(
+        # Construir items a conciliar directamente desde las liquidaciones detalladas
+        # (o fallback a resumen de líquidos si no hubiera liquidaciones)
+        items_a_evaluar: list[_ItemConciliacionInterno] = []
+        if recibo.liquidaciones:
+            items_a_evaluar = [
+                _ItemConciliacionInterno(
                     secuencia=l.cargo.secuencia,
-                    establecimiento_codigo=l.establecimiento.codigo or "",
+                    establecimiento_codigo=f"{l.establecimiento.distrito or ''} {l.establecimiento.codigo or ''}".strip(),
                     periodo_liquidado=l.cargo.periodo_liquidado or mes_pago_norm,
-                    fecha_pago="",
-                    orden_pago_codigo="",
-                    orden_pago_descripcion="",
                     liquido_pesos=l.liquido_calculado,
+                    modulos=float(l.cargo.carga_horaria or 0.0),
+                    revista=str(l.cargo.situacion_revista or "").upper(),
                 )
                 for l in recibo.liquidaciones
             ]
-        )
+        elif recibo.resumen_liquidos:
+            items_a_evaluar = [
+                _ItemConciliacionInterno(
+                    secuencia=r.secuencia,
+                    establecimiento_codigo=r.establecimiento_codigo,
+                    periodo_liquidado=r.periodo_liquidado,
+                    liquido_pesos=r.liquido_pesos,
+                    modulos=0.0,
+                    revista="",
+                )
+                for r in recibo.resumen_liquidos
+            ]
 
         for item in items_a_evaluar:
             secuencia = str(item.secuencia).strip()
@@ -142,17 +163,8 @@ class ConciliadorReciboDocenteService:
             total_recibo += monto
 
             es_retroactivo = periodo_liq < mes_pago_norm
-
-            # Obtener datos de la liquidación si están disponibles
-            liq_detail = liq_map.get(f"{escuela_cod}-{secuencia}")
-            modulos_recibo = (
-                float(liq_detail.cargo.carga_horaria or 0.0) if liq_detail else 0.0
-            )
-            revista_recibo = (
-                str(liq_detail.cargo.situacion_revista or "").upper()
-                if liq_detail
-                else ""
-            )
+            modulos_recibo = float(getattr(item, "modulos", 0.0))
+            revista_recibo = str(getattr(item, "revista", ""))
 
             usadas_este_periodo = designaciones_usadas_por_periodo.setdefault(
                 periodo_liq, set()
