@@ -1,75 +1,23 @@
 """Tests unitarios para scripts/analytics_watchdog.py (DataMaq Hub)."""
 
-from typing import Any
 from unittest.mock import MagicMock
 
 import pytest
 
 from scripts.analytics_watchdog import (
-    _build_markdown_report,
     run_watchdog,
     send_telegram_alert,
 )
 
 
-def test_build_markdown_report_ads_within_budget() -> None:
-    ads_data: dict[str, Any] = {
-        "status": "ready",
-        "daily_budget_pacing": {"spent_today_ars": 450.0},
-        "campaign_status": "PAUSED",
-    }
-    ga4_data: dict[str, Any] = {
-        "status": "configured",
-        "conversions": {
-            "rows": [
-                {"eventName": "whatsapp_click", "eventCount": "3"},
-                {"eventName": "direct_contact", "eventCount": "1"},
-            ]
-        },
-        "top_pages": {
-            "rows": [
-                {"pagePath": "/", "screenPageViews": "42"},
-            ]
-        },
-    }
-    clarity_data: dict[str, Any] = {
-        "project_info": {
-            "intent_recording_urls": {
-                "email_click": "https://clarity.microsoft.com/recordings?filter=email",
-                "whatsapp_click": "https://clarity.microsoft.com/recordings?filter=wa",
-            }
-        },
-        "live_insights": {"status": "success"},
-    }
-
-    report = _build_markdown_report(ads_data, ga4_data, clarity_data, 1500.0)
-    assert "$450.00 ARS" in report
-    assert "whatsapp_click" in report
-    assert "Email Clicks" in report
-    assert "✅" in report
-
-
-def test_build_markdown_report_ads_over_budget() -> None:
-    ads_data: dict[str, Any] = {
-        "status": "ready",
-        "daily_budget_pacing": {"spent_today_ars": 1650.0},
-        "campaign_status": "ENABLED",
-    }
-    ga4_data: dict[str, Any] = {"status": "missing_credentials"}
-    clarity_data: dict[str, Any] = {"live_insights": {"status": "missing_token"}}
-
-    report = _build_markdown_report(ads_data, ga4_data, clarity_data, 1500.0)
-    assert "$1,650.00 ARS" in report
-    assert "⚠️" in report
-    assert "missing_credentials" in report
-
-
 def test_send_telegram_alert_missing_credentials() -> None:
+    """Verifica que sin credenciales no se envíen alertas a Telegram."""
     assert not send_telegram_alert("test", "", "")
     assert not send_telegram_alert("test", "token", "")
 
 
 def test_send_telegram_alert_success(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Verifica envío exitoso a Telegram con mock HTTP."""
     mock_resp = MagicMock()
     mock_resp.status = 200
     mock_resp.__enter__.return_value = mock_resp
@@ -82,6 +30,8 @@ def test_send_telegram_alert_success(monkeypatch: pytest.MonkeyPatch) -> None:
 
 
 def test_send_telegram_alert_network_failure(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Verifica manejo de errores de red al enviar a Telegram."""
+
     def mock_urlopen_fail(req: object, timeout: int = 10) -> object:
         raise OSError("Connection refused")
 
@@ -90,44 +40,40 @@ def test_send_telegram_alert_network_failure(monkeypatch: pytest.MonkeyPatch) ->
 
 
 def test_run_watchdog_dry_run(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Verifica ejecución del watchdog determinístico en modo dry-run."""
     monkeypatch.setattr(
-        "src.infrastructure.fastmcp.google_ads.get_google_ads_status",
-        lambda: {"status": "ready"},
+        "src.adapters.gateways.google_ads_gateway.GoogleAdsGateway.get_daily_budget_pacing",
+        lambda self: {
+            "status": "success",
+            "spent_ars": 100.0,
+            "daily_budget_limit_ars": 1500.0,
+        },
     )
     monkeypatch.setattr(
-        "src.infrastructure.fastmcp.google_ads.get_daily_budget_pacing",
-        lambda: {"spent_today_ars": 0.0},
+        "src.adapters.gateways.google_ads_gateway.GoogleAdsGateway.get_campaign_performance",
+        lambda self, days=1: {"status": "success", "campaigns": []},
     )
     monkeypatch.setattr(
-        "src.infrastructure.fastmcp.google_ads.get_campaign_performance",
-        lambda days: {"campaigns": []},
+        "src.adapters.gateways.google_ads_gateway.GoogleAdsGateway.get_search_terms_report",
+        lambda self, days=1, limit=20: {"status": "success", "terms": []},
     )
     monkeypatch.setattr(
-        "src.infrastructure.fastmcp.ga4.get_ga4_status",
-        lambda: {"status": "configured"},
+        "src.adapters.gateways.ga4_gateway.GA4Gateway.get_conversions",
+        lambda self, days=1: {"status": "success", "rows": []},
     )
     monkeypatch.setattr(
-        "src.infrastructure.fastmcp.ga4.get_ga4_conversions",
-        lambda days: {"rows": []},
+        "src.adapters.gateways.ga4_gateway.GA4Gateway.get_top_pages",
+        lambda self, days=1, limit=5, segment="all": {"status": "success", "rows": []},
     )
     monkeypatch.setattr(
-        "src.infrastructure.fastmcp.ga4.get_ga4_top_pages",
-        lambda days: {"rows": []},
-    )
-    monkeypatch.setattr(
-        "src.infrastructure.fastmcp.ga4.get_ga4_traffic_sources",
-        lambda days: {"rows": []},
-    )
-    monkeypatch.setattr(
-        "src.infrastructure.fastmcp.clarity.get_clarity_project_info",
-        lambda: {"intent_recording_urls": {}},
-    )
-    monkeypatch.setattr(
-        "src.infrastructure.fastmcp.clarity.get_live_insights",
-        lambda: {"status": "success"},
+        "src.adapters.gateways.clarity_gateway.ClarityGateway.get_intent_recording_urls",
+        lambda self: {
+            "whatsapp_click": "https://clarity.microsoft.com/recordings?filter=wa"
+        },
     )
 
     result = run_watchdog(dry_run=True, budget_limit_ars=1500.0)
-    assert "timestamp" in result
+    assert result["status"] == "success"
     assert result["telegram_sent"] is False
-    assert "DataMaq Hub" in result["report_markdown"]
+    assert result["kpis"]["spent_today_ars"] == 100.0
+    assert "DataMaq Analytics Digest" in result["resumen_markdown"]

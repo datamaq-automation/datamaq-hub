@@ -1,4 +1,4 @@
-"""FastAPI routing para endpoints de analítica, telemetría y reportes comerciales."""
+"""FastAPI routing para endpoints de analítica, telemetría y digest determinístico."""
 
 from functools import lru_cache
 from typing import Annotated, Any
@@ -10,6 +10,11 @@ from src.adapters.gateways.api_cache_gateway import ApiCacheGateway
 from src.adapters.gateways.clarity_gateway import ClarityGateway
 from src.adapters.gateways.ga4_gateway import GA4Gateway
 from src.adapters.gateways.google_ads_gateway import GoogleAdsGateway
+from src.application.dtos.analytics_dtos import (
+    AnalyticsDigestResponseDTO,
+    MarketingActionRequestDTO,
+    MarketingActionValidationDTO,
+)
 from src.infrastructure.pydantic.config import get_settings
 
 router = APIRouter(prefix="/analytics", tags=["Analytics & Telemetry"])
@@ -45,7 +50,42 @@ def get_analytics_controller() -> AnalyticsController:
         google_ads_gateway=ads_gateway,
         ga4_gateway=ga4_gateway,
         clarity_gateway=clarity_gateway,
+        budget_limit_ars=1500.0,
     )
+
+
+@router.get(
+    "/digest",
+    response_model=AnalyticsDigestResponseDTO,
+    summary="Digest Pre-procesado de Analítica (OpenClaw / Telegram)",
+    description=(
+        "Retorna un resumen estructurado, comprimido y enriquecido con detección "
+        "determinística de anomalías, cálculo de KPIs exactos y reducción de tokens para agentes."
+    ),
+)
+async def get_analytics_digest(
+    controller: Annotated[AnalyticsController, Depends(get_analytics_controller)],
+    days: int = Query(1, ge=1, le=90, description="Días hacia atrás a analizar"),
+) -> AnalyticsDigestResponseDTO:
+    """Genera el digest pre-procesado para consumo inteligente."""
+    return controller.get_digest(days=days)
+
+
+@router.post(
+    "/actions/validate",
+    response_model=MarketingActionValidationDTO,
+    summary="Validación Determinística de Acciones de Agentes (Guardrails)",
+    description=(
+        "Valida que una acción de marketing propuesta por un agente autónomo "
+        "cumpla con las políticas de seguridad y límites de presupuesto ($1.500 ARS/día)."
+    ),
+)
+async def validate_marketing_action(
+    request: MarketingActionRequestDTO,
+    controller: Annotated[AnalyticsController, Depends(get_analytics_controller)],
+) -> MarketingActionValidationDTO:
+    """Evalúa los guardrails duros de post-procesamiento."""
+    return controller.validate_marketing_action(request)
 
 
 @router.get(

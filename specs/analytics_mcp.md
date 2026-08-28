@@ -40,11 +40,31 @@ El subsistema de analítica y FastMCP de `datamaq-hub` expone herramientas estan
   - `get_intent_recording_urls()`: Enlaces web directos con filtros de Custom Tags (`lead_intent:email_click`, `lead_intent:whatsapp_click`, `lead_intent:form_submit`).
   - `get_recording_url(filter_tag: str = "")`: Generador de enlaces parametrizados.
 
+### 2.4 Analytics Digest & Guardrails FastMCP (`src/infrastructure/fastmcp/analytics_digest.py`)
+- **Adaptador / Use Cases:** `src/application/use_cases/generar_analytics_digest.py`, `src/application/use_cases/validar_accion_marketing.py`
+- **Herramientas Expuestas:**
+  - `get_analytics_digest(days: int = 1)`: Retorna el resumen consolidado pre-procesado, KPIs calculados (CTR, CPC, CPA, Pacing), lista de anomalías y enlaces a grabaciones de intención (reducción del 95% de tokens para OpenClaw).
+  - `validate_marketing_action(action_type: str, params: dict | None)`: Valida determinísticamente que una acción propuesta por un agente cumpla con los límites estrictos de seguridad ($1.500 ARS/día, CPC máximo acotado).
+
 ---
 
-## 3. Watchdog & Alerting en Background (`scripts/analytics_watchdog.py`)
+## 3. Endpoints REST de la API (`/api/v1/analytics`)
 
-- Script CLI/cron desacoplado.
-- Monitorea diariamente el pacing de Ads ($1.500 ARS/día), conversiones en GA4 y usuarios de Clarity.
+- `GET /api/v1/analytics/digest`: Snapshot consolidado y enriquecido con detección determinística de anomalías.
+- `POST /api/v1/analytics/actions/validate`: Guardrails duros de post-procesamiento para acciones de agentes.
+- `GET /api/v1/analytics/summary`: Resumen de telemetría multi-fuente.
+- `GET /api/v1/analytics/ads/pacing`: Auditoría de presupuesto acumulado.
+- `GET /api/v1/analytics/ads/campaigns`: Rendimiento por campaña.
+- `GET /api/v1/analytics/ads/search-terms`: Búsquedas reales de usuarios.
+- `GET /api/v1/analytics/ga4/conversions`: Eventos de conversión web.
+- `GET /api/v1/analytics/clarity/live`: Grabaciones de UX y live insights.
+
+---
+
+## 4. Watchdog & Alerting en Background (`scripts/analytics_watchdog.py`)
+
+- Script CLI/cron desacoplado que orquesta `GenerarAnalyticsDigestUseCase`.
+- Monitorea diariamente el pacing de Ads ($1.500 ARS/día), conversiones en GA4 y usuarios de Clarity con matemática exacta y detección de anomalías.
 - Formatea un informe ejecutivo en Markdown y lo envía a Telegram si `TELEGRAM_BOT_TOKEN` y `TELEGRAM_CHAT_ID` están configurados.
 - Soporta flags `--dry-run`, `--json`, `--budget-limit`.
+

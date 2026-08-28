@@ -1,0 +1,45 @@
+"""Puertos e interfaces de dominio para fuentes de datos de analítica."""
+
+from typing import Any, Protocol
+
+
+class GoogleAdsDataSourcePort(Protocol):
+    """Puerto para consultas a la API de Google Ads."""
+
+    def get_status(self) -> dict[str, Any]: ...
+
+    def get_campaign_performance(self, days: int = 7) -> dict[str, Any]: ...
+
+    def get_search_terms_report(
+        self, days: int = 7, limit: int = 20
+    ) -> dict[str, Any]: ...
+
+    def get_daily_budget_pacing(self) -> dict[str, Any]: ...
+
+
+class GA4DataSourcePort(Protocol):
+    """Puerto para consultas a la API de Google Analytics 4."""
+
+    def get_status(self) -> dict[str, Any]: ...
+
+    def get_top_pages(
+        self, days: int = 7, limit: int = 10, segment: str = "all"
+    ) -> dict[str, Any]: ...
+
+    def get_traffic_sources(self, days: int = 7, limit: int = 10) -> dict[str, Any]: ...
+
+    def get_geo_traffic(self, days: int = 7, limit: int = 15) -> dict[str, Any]: ...
+
+    def get_conversions(self, days: int = 7) -> dict[str, Any]: ...
+
+
+class ClarityDataSourcePort(Protocol):
+    """Puerto para consultas a Microsoft Clarity."""
+
+    def get_project_info(self) -> dict[str, Any]: ...
+
+    def get_intent_recording_urls(self) -> dict[str, str]: ...
+
+    def get_live_insights(self) -> dict[str, Any]: ...
+
+    def get_dashboard_insights(self, num_of_days: int = 3) -> dict[str, Any]: ...

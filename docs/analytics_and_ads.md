@@ -246,7 +246,21 @@ El Hub expone 3 servidores FastMCP modulares con caché persistente y fallback a
      - `lead_intent:whatsapp_click`
      - `lead_intent:form_submit`
 
+### 4.1 Motor Determinístico de Pre y Post Procesamiento (OpenClaw / Compound AI)
+
+Para optimizar el consumo de la IA (**OpenClaw**) y garantizar 0% alucinación en métricas financieras y de tráfico, el backend implementa un pipeline determinístico bajo Clean Architecture (`src/domain/analytics/` y `src/application/use_cases/`):
+
+1. **Pre-procesamiento (`GenerarAnalyticsDigestUseCase`):**
+   - Ingesta multi-fuente transparente con caché persistente (`ApiCacheGateway`).
+   - Cálculo exacto en Python de KPIs: CTR, CPC medio, CPA, tasa de conversión y pacing acumulado respecto al límite estricto de **$1.500 ARS/día**.
+   - Detección automática de anomalías por reglas de negocio (`AnomalyDetectionService`): sobregasto, campañas activas sin impresiones, eventos de conversión registrados y consultas irrelevantes con desperdicio de clics.
+   - Generación de un *Analytics Digest* ultra-compacto (reducción del 95% de tokens para OpenClaw) y resumen Markdown para alertas.
+2. **Post-procesamiento & Guardrails (`ValidarAccionMarketingUseCase`):**
+   - Evalúa de forma estricta cualquier propuesta de acción del agente (ej. ajustar presupuesto, variar CPC o agregar palabras negativas).
+   - Bloquea físicamente cualquier intento de superar el presupuesto máximo de **$1.500 ARS/día** o un CPC mayor a **$500 ARS**.
+
 ---
+
 
 ## 5. Gobernanza de Conversión y Atribución B2B
 

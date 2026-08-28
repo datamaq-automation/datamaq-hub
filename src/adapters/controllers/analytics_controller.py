@@ -1,10 +1,21 @@
-"""Controlador agnóstico para reportes y telemetría de analítica comercial (Google Ads, GA4, Clarity)."""
+"""Controlador agnóstico para reportes, telemetría y digest determinístico de analítica comercial."""
 
 from typing import Any
 
 from src.adapters.gateways.clarity_gateway import ClarityGateway
 from src.adapters.gateways.ga4_gateway import GA4Gateway
 from src.adapters.gateways.google_ads_gateway import GoogleAdsGateway
+from src.application.dtos.analytics_dtos import (
+    AnalyticsDigestResponseDTO,
+    MarketingActionRequestDTO,
+    MarketingActionValidationDTO,
+)
+from src.application.use_cases.generar_analytics_digest import (
+    GenerarAnalyticsDigestUseCase,
+)
+from src.application.use_cases.validar_accion_marketing import (
+    ValidarAccionMarketingUseCase,
+)
 
 
 class AnalyticsController:
@@ -15,10 +26,35 @@ class AnalyticsController:
         google_ads_gateway: GoogleAdsGateway,
         ga4_gateway: GA4Gateway,
         clarity_gateway: ClarityGateway,
+        budget_limit_ars: float = 1500.0,
     ) -> None:
         self._ads_gateway = google_ads_gateway
         self._ga4_gateway = ga4_gateway
         self._clarity_gateway = clarity_gateway
+        self._budget_limit_ars = budget_limit_ars
+        self._digest_use_case = GenerarAnalyticsDigestUseCase(
+            google_ads_port=google_ads_gateway,
+            ga4_port=ga4_gateway,
+            clarity_port=clarity_gateway,
+            budget_limit_ars=budget_limit_ars,
+        )
+        self._action_validator_use_case = ValidarAccionMarketingUseCase(
+            max_daily_budget_ars=budget_limit_ars,
+        )
+
+    def get_digest(
+        self, days: int = 1, current_hour_local: int | None = None
+    ) -> AnalyticsDigestResponseDTO:
+        """Genera el digest consolidado y pre-procesado con detección de anomalías."""
+        return self._digest_use_case.execute(
+            days=days, current_hour_local=current_hour_local
+        )
+
+    def validate_marketing_action(
+        self, request: MarketingActionRequestDTO
+    ) -> MarketingActionValidationDTO:
+        """Valida una acción propuesta por un agente frente a guardrails duros."""
+        return self._action_validator_use_case.execute(request)
 
     def get_summary(self) -> dict[str, Any]:
         """Genera un resumen ejecutivo consolidado del estado de marketing y telemetría."""
