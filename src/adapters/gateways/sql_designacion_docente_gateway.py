@@ -2,6 +2,7 @@
 
 import logging
 import os
+import sqlite3
 import uuid
 from datetime import date, datetime, timezone
 
@@ -117,30 +118,42 @@ def init_horarios_db(database_url: str) -> None:
     """Crea las tablas de horarios_docencia si no existen y actualiza columnas si faltan."""
     try:
         engine = create_engine(database_url, pool_pre_ping=True)
-        Base.metadata.create_all(engine)
+        Base.metadata.create_all(engine, checkfirst=True)
         with engine.connect() as conn:
-            cursor = conn.execute(text("PRAGMA table_info(horarios_designaciones)"))
-            existing_cols = {row[1] for row in cursor.fetchall()}
-            if existing_cols:
-                cols_to_add = [
-                    ("observaciones", "VARCHAR(500) DEFAULT '' NOT NULL"),
-                    ("cupof", "VARCHAR(50) DEFAULT '' NOT NULL"),
-                    ("secuencia", "INTEGER"),
-                    ("codigo_acto", "VARCHAR(50) DEFAULT '' NOT NULL"),
-                    ("escuela_numero", "VARCHAR(50) DEFAULT '' NOT NULL"),
-                    ("reemplaza_a", "VARCHAR(100) DEFAULT '' NOT NULL"),
-                    ("articulo_licencia", "VARCHAR(50) DEFAULT '' NOT NULL"),
-                ]
-                for col_name, col_type in cols_to_add:
-                    if col_name not in existing_cols:
-                        conn.execute(
-                            text(
-                                f"ALTER TABLE horarios_designaciones ADD COLUMN {col_name} {col_type}"
+            try:
+                cursor = conn.execute(text("PRAGMA table_info(horarios_designaciones)"))
+                existing_cols = {row[1] for row in cursor.fetchall()}
+                if existing_cols:
+                    cols_to_add = [
+                        ("observaciones", "VARCHAR(500) DEFAULT '' NOT NULL"),
+                        ("cupof", "VARCHAR(50) DEFAULT '' NOT NULL"),
+                        ("secuencia", "INTEGER"),
+                        ("codigo_acto", "VARCHAR(50) DEFAULT '' NOT NULL"),
+                        ("escuela_numero", "VARCHAR(50) DEFAULT '' NOT NULL"),
+                        ("reemplaza_a", "VARCHAR(100) DEFAULT '' NOT NULL"),
+                        ("articulo_licencia", "VARCHAR(50) DEFAULT '' NOT NULL"),
+                    ]
+                    for col_name, col_type in cols_to_add:
+                        if col_name not in existing_cols:
+                            conn.execute(
+                                text(
+                                    f"ALTER TABLE horarios_designaciones ADD COLUMN {col_name} {col_type}"
+                                )
                             )
-                        )
-                conn.commit()
-    except (SQLAlchemyError, OSError, ValueError, RuntimeError) as e:
-        logger.warning(f"No se pudo inicializar schema de horarios_docencia: {e}")
+                    conn.commit()
+            except (
+                SQLAlchemyError,
+                sqlite3.Error,
+                OSError,
+                ValueError,
+                RuntimeError,
+            ) as exc:
+                logger.debug(
+                    "No se pudieron verificar columnas de horarios_designaciones: %s",
+                    exc,
+                )
+    except (SQLAlchemyError, sqlite3.Error, OSError, ValueError, RuntimeError) as e:
+        logger.warning("No se pudo inicializar schema de horarios_docencia: %s", e)
 
 
 from sqlalchemy.pool import StaticPool
