@@ -15,6 +15,7 @@ from src.application.dtos.analytics_dtos import (
     MarketingActionRequestDTO,
     MarketingActionValidationDTO,
 )
+from src.application.dtos.common_dto import APIResponseDTO
 from src.infrastructure.pydantic.config import get_settings
 
 router = APIRouter(prefix="/analytics", tags=["Analytics & Telemetry"])
@@ -56,7 +57,7 @@ def get_analytics_controller() -> AnalyticsController:
 
 @router.get(
     "/digest",
-    response_model=AnalyticsDigestResponseDTO,
+    response_model=APIResponseDTO[AnalyticsDigestResponseDTO],
     summary="Digest Pre-procesado de Analítica (OpenClaw / Telegram)",
     description=(
         "Retorna un resumen estructurado, comprimido y enriquecido con detección "
@@ -66,14 +67,15 @@ def get_analytics_controller() -> AnalyticsController:
 async def get_analytics_digest(
     controller: Annotated[AnalyticsController, Depends(get_analytics_controller)],
     days: int = Query(1, ge=1, le=90, description="Días hacia atrás a analizar"),
-) -> AnalyticsDigestResponseDTO:
+) -> APIResponseDTO[AnalyticsDigestResponseDTO]:
     """Genera el digest pre-procesado para consumo inteligente."""
-    return controller.get_digest(days=days)
+    result = controller.get_digest(days=days)
+    return APIResponseDTO[AnalyticsDigestResponseDTO](success=True, data=result)
 
 
 @router.post(
     "/actions/validate",
-    response_model=MarketingActionValidationDTO,
+    response_model=APIResponseDTO[MarketingActionValidationDTO],
     summary="Validación Determinística de Acciones de Agentes (Guardrails)",
     description=(
         "Valida que una acción de marketing propuesta por un agente autónomo "
@@ -83,50 +85,58 @@ async def get_analytics_digest(
 async def validate_marketing_action(
     request: MarketingActionRequestDTO,
     controller: Annotated[AnalyticsController, Depends(get_analytics_controller)],
-) -> MarketingActionValidationDTO:
+) -> APIResponseDTO[MarketingActionValidationDTO]:
     """Evalúa los guardrails duros de post-procesamiento."""
-    return controller.validate_marketing_action(request)
+    result = controller.validate_marketing_action(request)
+    return APIResponseDTO[MarketingActionValidationDTO](success=True, data=result)
 
 
 @router.get(
     "/summary",
+    response_model=APIResponseDTO[dict[str, Any]],
     summary="Resumen Ejecutivo de Analítica y Marketing",
     description="Retorna el estado consolidado de Google Ads, conversiones de GA4 y sesiones UX de Clarity.",
 )
 async def get_analytics_summary(
     controller: Annotated[AnalyticsController, Depends(get_analytics_controller)],
-) -> dict[str, Any]:
+) -> APIResponseDTO[dict[str, Any]]:
     """Genera el resumen de telemetría y marketing en tiempo real."""
-    return controller.get_summary()
+    result = controller.get_summary()
+    return APIResponseDTO[dict[str, Any]](success=True, data=result)
 
 
 @router.get(
     "/ads/pacing",
+    response_model=APIResponseDTO[dict[str, Any]],
     summary="Pacing de Presupuesto Diario Google Ads",
     description="Audita el gasto acumulado de hoy contra el límite de seguridad de $1.500 ARS/día.",
 )
 async def get_ads_budget_pacing(
     controller: Annotated[AnalyticsController, Depends(get_analytics_controller)],
-) -> dict[str, Any]:
+) -> APIResponseDTO[dict[str, Any]]:
     """Retorna el gasto de hoy y porcentaje del presupuesto diario."""
-    return controller.get_ads_pacing()
+    result = controller.get_ads_pacing()
+    return APIResponseDTO[dict[str, Any]](success=True, data=result)
 
 
 @router.get(
     "/ads/campaigns",
+    response_model=APIResponseDTO[dict[str, Any]],
     summary="Rendimiento de Campañas Google Ads",
     description="Obtiene impresiones, clics, costos y conversiones por campaña para un período de días.",
 )
 async def get_ads_campaigns(
     controller: Annotated[AnalyticsController, Depends(get_analytics_controller)],
     days: int = Query(7, ge=1, le=90, description="Días hacia atrás a analizar"),
-) -> dict[str, Any]:
+) -> APIResponseDTO[dict[str, Any]]:
     """Retorna el reporte de rendimiento por campaña."""
-    return controller.get_ads_campaigns(days=days)
+    result = controller.get_ads_campaigns(days=days)
+    return APIResponseDTO[dict[str, Any]](success=True, data=result)
 
 
 @router.get(
     "/ads/search-terms",
+    response_model=APIResponseDTO[dict[str, Any]],
     summary="Términos de Búsqueda Reales",
     description="Obtiene los términos de búsqueda que activaron los anuncios para identificar oportunidades o palabras negativas.",
 )
@@ -134,31 +144,36 @@ async def get_ads_search_terms(
     controller: Annotated[AnalyticsController, Depends(get_analytics_controller)],
     days: int = Query(7, ge=1, le=90, description="Días hacia atrás a analizar"),
     limit: int = Query(20, ge=1, le=100, description="Cantidad máxima de términos"),
-) -> dict[str, Any]:
+) -> APIResponseDTO[dict[str, Any]]:
     """Retorna el reporte de términos de búsqueda."""
-    return controller.get_ads_search_terms(days=days, limit=limit)
+    result = controller.get_ads_search_terms(days=days, limit=limit)
+    return APIResponseDTO[dict[str, Any]](success=True, data=result)
 
 
 @router.get(
     "/ga4/conversions",
+    response_model=APIResponseDTO[dict[str, Any]],
     summary="Conversiones Web de GA4",
     description="Retorna el conteo de eventos clave (WhatsApp, formulario de contacto, llamadas) en la web.",
 )
 async def get_ga4_conversions(
     controller: Annotated[AnalyticsController, Depends(get_analytics_controller)],
     days: int = Query(7, ge=1, le=90, description="Días hacia atrás a analizar"),
-) -> dict[str, Any]:
+) -> APIResponseDTO[dict[str, Any]]:
     """Retorna el reporte de conversiones de GA4."""
-    return controller.get_ga4_conversions(days=days)
+    result = controller.get_ga4_conversions(days=days)
+    return APIResponseDTO[dict[str, Any]](success=True, data=result)
 
 
 @router.get(
     "/clarity/live",
+    response_model=APIResponseDTO[dict[str, Any]],
     summary="Grabaciones UX de Microsoft Clarity",
     description="Retorna el mapa de URLs filtradas a grabaciones de usuarios con alta intención comercial.",
 )
 async def get_clarity_live_insights(
     controller: Annotated[AnalyticsController, Depends(get_analytics_controller)],
-) -> dict[str, Any]:
+) -> APIResponseDTO[dict[str, Any]]:
     """Retorna enlaces directos a grabaciones de UX."""
-    return controller.get_clarity_insights()
+    result = controller.get_clarity_insights()
+    return APIResponseDTO[dict[str, Any]](success=True, data=result)
