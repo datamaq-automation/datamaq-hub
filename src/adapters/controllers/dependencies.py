@@ -9,6 +9,7 @@ from src.adapters.controllers.horarios_docencia_controller import (
 from src.adapters.controllers.mail_controller import MailController
 from src.adapters.controllers.receipt_controller import ReceiptController
 from src.adapters.controllers.simulation_controller import SimulationController
+from src.adapters.controllers.tools_controller import ToolsController
 from src.adapters.gateways.imap_mail_gateway import ImapMailGateway
 from src.adapters.gateways.paritaria_json_gateway import ParitariaJsonGateway
 from src.adapters.gateways.pdfplumber_extractor_gateway import (
@@ -414,3 +415,13 @@ def get_agenda_controller() -> AgendaController:
         calendar_repository=c_repo,
     )
     return AgendaController(obtener_briefing_use_case=use_case)
+
+
+@lru_cache
+def get_tools_controller() -> ToolsController:
+    """Proveedor de dependencias para ToolsController."""
+    from src.application.use_cases.calcular_recargo_cos_fi import (
+        CalcularRecargoCosFiUseCase,
+    )
+
+    return ToolsController(calcular_cos_fi_use_case=CalcularRecargoCosFiUseCase())

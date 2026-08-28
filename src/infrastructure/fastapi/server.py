@@ -12,6 +12,9 @@ from starlette.exceptions import HTTPException as StarletteHTTPException
 from src.adapters.gateways.api_cache_gateway import init_db
 from src.adapters.gateways.sql_designacion_docente_gateway import init_horarios_db
 from src.adapters.presenters.error_presenter import ErrorPresenter
+from src.domain.calculadora_cos_fi.exceptions import (
+    CalculadoraCosFiException,
+)
 from src.domain.calendar.exceptions import CalendarDomainException
 from src.domain.contacts.exceptions import ContactsDomainException
 from src.domain.horarios_docencia.exceptions import (
@@ -47,6 +50,9 @@ from src.infrastructure.fastapi.routes.simulation_routes import (
 )
 from src.infrastructure.fastapi.routes.task_routes import (
     router as task_router,
+)
+from src.infrastructure.fastapi.routes.tools_routes import (
+    router as tools_router,
 )
 from src.infrastructure.pydantic.config import get_settings
 
@@ -175,11 +181,19 @@ def create_app() -> FastAPI:
         )
         return JSONResponse(status_code=status_code, content=payload.model_dump())
 
+    @app.exception_handler(CalculadoraCosFiException)
+    async def calculadora_cos_fi_exception_handler(
+        _: Request, exc: CalculadoraCosFiException
+    ) -> JSONResponse:
+        payload, status_code = ErrorPresenter.format_domain_error(exc)
+        return JSONResponse(status_code=status_code, content=payload.model_dump())
+
     # Mount API routers under prefix /api/v1
     app.include_router(health_router, prefix="/api/v1")
     app.include_router(receipt_router, prefix="/api/v1")
     app.include_router(simulation_router, prefix="/api/v1")
     app.include_router(analytics_router, prefix="/api/v1")
+    app.include_router(tools_router, prefix="/api/v1")
     app.include_router(horarios_docencia_router, prefix="/api/v1")
     app.include_router(mail_router, prefix="/api/v1")
     app.include_router(contacts_router, prefix="/api/v1")

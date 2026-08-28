@@ -1,6 +1,12 @@
 from typing import Any
 
 from src.application.dtos.common_dto import ErrorDetailDTO, ErrorResponseDTO
+from src.domain.calculadora_cos_fi.exceptions import (
+    CalculadoraCosFiException,
+    FacturaInvalidaException,
+    PotenciaInvalidaException,
+    ValorCosFiInvalidoException,
+)
 from src.domain.calendar.exceptions import (
     CalendarDomainException,
     CalendarNotFoundError,
@@ -47,7 +53,8 @@ class ErrorPresenter:
         | MailDomainException
         | ContactsDomainException
         | CalendarDomainException
-        | LeadException,
+        | LeadException
+        | CalculadoraCosFiException,
         default_status_code: int = 422,
     ) -> tuple[ErrorResponseDTO, int]:
         status_code = default_status_code
@@ -112,6 +119,18 @@ class ErrorPresenter:
             status_code = 422
         elif isinstance(exc, LeadException):
             code_name = "LEAD_DOMAIN_ERROR"
+            status_code = 422
+        elif isinstance(exc, ValorCosFiInvalidoException):
+            code_name = "VALOR_COS_FI_INVALIDO"
+            status_code = 422
+        elif isinstance(exc, PotenciaInvalidaException):
+            code_name = "POTENCIA_INVALIDA"
+            status_code = 422
+        elif isinstance(exc, FacturaInvalidaException):
+            code_name = "FACTURA_INVALIDA"
+            status_code = 422
+        elif isinstance(exc, CalculadoraCosFiException):
+            code_name = "CALCULADORA_COS_FI_ERROR"
             status_code = 422
 
         msg = getattr(exc, "message", str(exc))
