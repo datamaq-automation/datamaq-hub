@@ -26,7 +26,41 @@ def get_latest_workflow_status(repo: str, branch: str = "main") -> WorkflowResul
     """
     token = os.getenv("GITHUB_TOKEN")
     if not token:
-        raise RuntimeError("GITHUB_TOKEN environment variable not set")
+        # Sin token no podemos autenticar; devolvemos "unknown" para que el llamador lo maneje.
+        return "unknown"
+@@
+-    return (run.get("conclusion") or run.get("status"))  # type: ignore[return-value]
++    return (run.get("conclusion") or run.get("status"))  # type: ignore[return-value]
++
++def format_run_report(run: dict) -> str:
++    """Construye un reporte legible a partir del diccionario ``run``.
++
++    Incluye conclusión, URL del run, timestamps y duración (si están disponibles).
++    """
++    url = run.get("html_url", "N/A")
++    conclusion = run.get("conclusion", "N/A")
++    status = run.get("status", "N/A")
++    started = run.get("run_started_at", "N/A")
++    completed = run.get("updated_at", "N/A")
++    duration = "N/A"
++    if started != "N/A" and completed != "N/A":
++        try:
++            from datetime import datetime
++            fmt = "%Y-%m-%dT%H:%M:%SZ"
++            dt_start = datetime.strptime(started, fmt)
++            dt_end = datetime.strptime(completed, fmt)
++            duration = str(dt_end - dt_start)
++        except Exception:
++            pass
++    return (
++        f"GitHub Actions Run Report:\n"
++        f"- URL: {url}\n"
++        f"- Estado: {status}\n"
++        f"- Conclusión: {conclusion}\n"
++        f"- Iniciado: {started}\n"
++        f"- Finalizado: {completed}\n"
++        f"- Duración: {duration}\n"
++    )
     headers = {
         "Authorization": f"token {token}",
         "Accept": "application/vnd.github+json",
