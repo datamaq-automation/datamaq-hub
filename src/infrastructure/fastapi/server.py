@@ -42,6 +42,9 @@ from src.infrastructure.fastapi.routes.receipt_routes import router as receipt_r
 from src.infrastructure.fastapi.routes.simulation_routes import (
     router as simulation_router,
 )
+from src.infrastructure.fastapi.routes.task_routes import (
+    router as task_router,
+)
 from src.infrastructure.pydantic.config import get_settings
 
 
@@ -178,6 +181,7 @@ def create_app() -> FastAPI:
     app.include_router(mail_router, prefix="/api/v1")
     app.include_router(contacts_router, prefix="/api/v1")
     app.include_router(calendar_router, prefix="/api/v1")
+    app.include_router(task_router, prefix="/api/v1")
     app.include_router(leads_router)
 
     # Root redirect/info endpoint

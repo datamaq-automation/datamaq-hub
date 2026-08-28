@@ -360,3 +360,41 @@ def get_calendar_controller(
         ),
         consultar_docencia_use_case=ConsultarAgendaDocenteUseCase(calendar_repo=repo),
     )
+
+
+from src.adapters.controllers.tarea_controller import TareaController
+from src.adapters.gateways.sql_tarea_gateway import SQLTareaGateway
+from src.application.use_cases.actualizar_tarea import ActualizarTareaUseCase
+from src.application.use_cases.completar_tarea import CompletarTareaUseCase
+from src.application.use_cases.crear_tarea import CrearTareaUseCase
+from src.application.use_cases.eliminar_tarea import EliminarTareaUseCase
+from src.application.use_cases.generar_tareas_desde_recibo import (
+    GenerarTareasDesdeReciboUseCase,
+)
+from src.application.use_cases.listar_tareas import ListarTareasUseCase
+from src.application.use_cases.obtener_tarea import ObtenerTareaUseCase
+from src.domain.tareas.ports import TareaRepositoryPort
+
+
+@lru_cache
+def get_default_tarea_gateway(database_url: str | None = None) -> TareaRepositoryPort:
+    return SQLTareaGateway(database_url=database_url)
+
+
+def get_tarea_controller() -> TareaController:
+    repo = get_default_tarea_gateway()
+    r_repo = get_recibo_repository_gateway()
+    d_repo = get_designacion_docente_repository_gateway()
+    return TareaController(
+        crear_use_case=CrearTareaUseCase(repository=repo),
+        obtener_use_case=ObtenerTareaUseCase(repository=repo),
+        listar_use_case=ListarTareasUseCase(repository=repo),
+        actualizar_use_case=ActualizarTareaUseCase(repository=repo),
+        completar_use_case=CompletarTareaUseCase(repository=repo),
+        eliminar_use_case=EliminarTareaUseCase(repository=repo),
+        generar_desde_recibo_use_case=GenerarTareasDesdeReciboUseCase(
+            recibo_repository=r_repo,
+            designacion_repository=d_repo,
+            tarea_repository=repo,
+        ),
+    )
