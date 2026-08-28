@@ -21,6 +21,9 @@ from src.domain.leads.exceptions import LeadException
 from src.domain.liquidacion.exceptions import LiquidacionDomainException
 from src.domain.mail.exceptions import MailDomainException
 from src.domain.recibos.exceptions import DomainException
+from src.infrastructure.fastapi.routes.agenda_routes import (
+    router as agenda_router,
+)
 from src.infrastructure.fastapi.routes.analytics_routes import (
     router as analytics_router,
 )
@@ -182,6 +185,7 @@ def create_app() -> FastAPI:
     app.include_router(contacts_router, prefix="/api/v1")
     app.include_router(calendar_router, prefix="/api/v1")
     app.include_router(task_router, prefix="/api/v1")
+    app.include_router(agenda_router, prefix="/api/v1")
     app.include_router(leads_router)
 
     # Root redirect/info endpoint

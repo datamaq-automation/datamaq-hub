@@ -362,6 +362,7 @@ def get_calendar_controller(
     )
 
 
+from src.adapters.controllers.agenda_controller import AgendaController
 from src.adapters.controllers.tarea_controller import TareaController
 from src.adapters.gateways.sql_tarea_gateway import SQLTareaGateway
 from src.application.use_cases.actualizar_tarea import ActualizarTareaUseCase
@@ -372,6 +373,9 @@ from src.application.use_cases.generar_tareas_desde_recibo import (
     GenerarTareasDesdeReciboUseCase,
 )
 from src.application.use_cases.listar_tareas import ListarTareasUseCase
+from src.application.use_cases.obtener_briefing_diario import (
+    ObtenerBriefingDiarioUseCase,
+)
 from src.application.use_cases.obtener_tarea import ObtenerTareaUseCase
 from src.domain.tareas.ports import TareaRepositoryPort
 
@@ -398,3 +402,15 @@ def get_tarea_controller() -> TareaController:
             tarea_repository=repo,
         ),
     )
+
+
+def get_agenda_controller() -> AgendaController:
+    d_repo = get_designacion_docente_repository_gateway()
+    t_repo = get_default_tarea_gateway()
+    c_repo = get_default_calendar_gateway()
+    use_case = ObtenerBriefingDiarioUseCase(
+        designacion_repository=d_repo,
+        tarea_repository=t_repo,
+        calendar_repository=c_repo,
+    )
+    return AgendaController(obtener_briefing_use_case=use_case)
