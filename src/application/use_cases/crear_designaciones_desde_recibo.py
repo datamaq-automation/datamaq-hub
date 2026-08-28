@@ -82,8 +82,10 @@ class CrearDesignacionesDesdeReciboUseCase:
                 else ""
             )
 
-            # Determinar fechas de vigencia a partir del período liquidado (YYYY-MM)
-            anio, mes = [int(p) for p in h.periodo_liquidado.split("-")]
+            # Determinar fechas de vigencia a partir del período liquidado (formato seguro)
+            anio, mes = ConciliadorReciboDocenteService.extraer_anio_mes(
+                h.periodo_liquidado
+            )
             fecha_desde = date(anio, mes, 1)
 
             # Fin de mes

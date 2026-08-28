@@ -247,3 +247,153 @@ def test_caso_de_uso_conciliar_y_crear_designaciones_huerfanas() -> None:
     assert len(reporte_post.lineas_huerfanas_recibo) == 0
     assert len(reporte_post.lineas_conciliadas) == 4
     assert reporte_post.total_liquidado_conciliado == 832000.0
+
+
+def test_normalizacion_periodos_y_fechas() -> None:
+    # Formatos válidos con espacios, barras, guiones, 6 dígitos
+    assert ConciliadorReciboDocenteService.extraer_anio_mes("07 / 2026") == (2026, 7)
+    assert ConciliadorReciboDocenteService.extraer_anio_mes("2026-07") == (2026, 7)
+    assert ConciliadorReciboDocenteService.extraer_anio_mes("07-2026") == (2026, 7)
+    assert ConciliadorReciboDocenteService.extraer_anio_mes("202607") == (2026, 7)
+    assert ConciliadorReciboDocenteService.extraer_anio_mes("072026") == (2026, 7)
+    assert (
+        ConciliadorReciboDocenteService.normalizar_periodo_a_iso("07 / 2026")
+        == "2026-07"
+    )
+
+
+def test_matching_flexible_sin_secuencia_con_datos_reales() -> None:
+    # Recibo con 3 líneas en ISFDyT 199 (7 mod, 4 mod, 4 mod) y 1 línea en EEST 3 (2 mod)
+    recibo = ReciboSueldo(
+        id_recibo="recibo-dgcye-real",
+        tipo_recibo=TipoRecibo.DGCYE_PBA,
+        empleador=Empleador(organismo_o_empresa="DGCyE PBA"),
+        agente=Agente(
+            nombre_completo="Docente Real",
+            numero_documento="36528392",
+            cuil="20-36528392-4",
+            mes_pago="07 / 2026",
+        ),
+        resumen_liquidos=[
+            ResumenLiquidoItem(
+                establecimiento_codigo="055 IS 0199",
+                secuencia="016",
+                periodo_liquidado="07 / 2026",
+                fecha_pago="07/08/2026",
+                orden_pago_codigo="001",
+                orden_pago_descripcion="HABERES",
+                liquido_pesos=450000.0,
+            ),
+            ResumenLiquidoItem(
+                establecimiento_codigo="055 IS 0199",
+                secuencia="017",
+                periodo_liquidado="07 / 2026",
+                fecha_pago="07/08/2026",
+                orden_pago_codigo="001",
+                orden_pago_descripcion="HABERES",
+                liquido_pesos=250000.0,
+            ),
+            ResumenLiquidoItem(
+                establecimiento_codigo="055 MT 0003",
+                secuencia="018",
+                periodo_liquidado="07 / 2026",
+                fecha_pago="07/08/2026",
+                orden_pago_codigo="001",
+                orden_pago_descripcion="HABERES",
+                liquido_pesos=150000.0,
+            ),
+        ],
+        liquidaciones=[
+            LiquidacionSecuencia(
+                establecimiento=EstablecimientoDetalle(
+                    codigo="055 IS 0199", nombre="ISFDyT N° 199"
+                ),
+                cargo=CargoDetalle(
+                    secuencia="016",
+                    situacion_revista="PROVISIONAL",
+                    carga_horaria=7.0,
+                    periodo_liquidado="07 / 2026",
+                ),
+                liquido_calculado=450000.0,
+            ),
+            LiquidacionSecuencia(
+                establecimiento=EstablecimientoDetalle(
+                    codigo="055 IS 0199", nombre="ISFDyT N° 199"
+                ),
+                cargo=CargoDetalle(
+                    secuencia="017",
+                    situacion_revista="PROVISIONAL",
+                    carga_horaria=4.0,
+                    periodo_liquidado="07 / 2026",
+                ),
+                liquido_calculado=250000.0,
+            ),
+            LiquidacionSecuencia(
+                establecimiento=EstablecimientoDetalle(
+                    codigo="055 MT 0003", nombre="EEST N°3"
+                ),
+                cargo=CargoDetalle(
+                    secuencia="018",
+                    situacion_revista="SUPLENTE",
+                    carga_horaria=2.0,
+                    periodo_liquidado="07 / 2026",
+                ),
+                liquido_calculado=150000.0,
+            ),
+        ],
+        totales=TotalesConsolidados(total_liquido=850000.0),
+    )
+
+    # Designaciones SIN secuencia y con nombres de texto libre
+    desig_199_7hs = DesignacionDocente(
+        id_designacion="desig-199-7hs",
+        docente_cuit="20365283924",
+        establecimiento="ISFDyT N°199",
+        distrito="TIGRE",
+        escuela_numero="",
+        secuencia=None,  # Sin secuencia
+        cargo_asignatura="Tec. Sup. Ciencias de Datos 3er año",
+        revista=SituacionRevista.PROVISIONAL,
+        modulos=7,
+        vigencia=PeriodoVigencia(fecha_desde=date(2025, 9, 4), fecha_hasta=None),
+    )
+
+    desig_199_4hs = DesignacionDocente(
+        id_designacion="desig-199-4hs",
+        docente_cuit="20365283924",
+        establecimiento="ISFDyT N°199",
+        distrito="TIGRE",
+        escuela_numero="",
+        secuencia=None,  # Sin secuencia
+        cargo_asignatura="Practica Profesional Modelizado IA",
+        revista=SituacionRevista.PROVISIONAL,
+        modulos=4,
+        vigencia=PeriodoVigencia(fecha_desde=date(2026, 4, 21), fecha_hasta=None),
+    )
+
+    desig_eest3 = DesignacionDocente(
+        id_designacion="desig-eest3-2hs",
+        docente_cuit="20365283924",
+        establecimiento="Tigre (Marabotto y Benavidez) - EEST N°3",
+        distrito="TIGRE",
+        escuela_numero="",
+        secuencia=None,  # Sin secuencia
+        cargo_asignatura="Laboratorio de Sistemas Operativos",
+        revista=SituacionRevista.SUPLENTE,
+        modulos=2,
+        vigencia=PeriodoVigencia(
+            fecha_desde=date(2026, 7, 3), fecha_hasta=date(2026, 8, 1)
+        ),
+    )
+
+    resultado = ConciliadorReciboDocenteService.conciliar(
+        recibo=recibo,
+        designaciones=[desig_199_7hs, desig_199_4hs, desig_eest3],
+    )
+
+    # Las 3 líneas deben quedar perfectamente conciliadas a pesar de no tener secuencia cargada
+    assert resultado.total_lineas_recibo == 3
+    assert len(resultado.lineas_conciliadas) == 3
+    assert len(resultado.lineas_huerfanas_recibo) == 0
+    assert resultado.total_liquidado_conciliado == 850000.0
+    assert resultado.es_conciliacion_completa is True

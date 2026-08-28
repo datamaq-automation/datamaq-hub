@@ -97,12 +97,14 @@ class ConciliadorReciboDocenteService:
         recibo: ReciboSueldo,
         designaciones: list[Any],
     ) -> ResultadoConciliacion:
-        mes_pago_norm = cls._normalizar_mes_pago(recibo.agente.mes_pago)
+        mes_pago_norm = cls.normalizar_periodo_a_iso(recibo.agente.mes_pago)
         docente_cuit = recibo.agente.cuil.replace("-", "").strip()
 
         lineas_conciliadas: list[LineaConciliada] = []
         lineas_huerfanas: list[LineaConciliada] = []
         designaciones_matcheadas_ids: set[str] = set()
+        # Track designaciones ya usadas por cada período devengado
+        designaciones_usadas_por_periodo: dict[str, set[str]] = {}
 
         total_recibo = 0.0
         total_conciliado = 0.0
@@ -135,7 +137,7 @@ class ConciliadorReciboDocenteService:
         for item in items_a_evaluar:
             secuencia = str(item.secuencia).strip()
             escuela_cod = str(item.establecimiento_codigo).strip()
-            periodo_liq = cls._normalizar_periodo_liquidado(item.periodo_liquidado)
+            periodo_liq = cls.normalizar_periodo_a_iso(item.periodo_liquidado)
             monto = float(item.liquido_pesos)
             total_recibo += monto
 
@@ -152,6 +154,15 @@ class ConciliadorReciboDocenteService:
                 else ""
             )
 
+            usadas_este_periodo = designaciones_usadas_por_periodo.setdefault(
+                periodo_liq, set()
+            )
+            desigs_candidatas = [
+                d
+                for d in designaciones
+                if str(getattr(d, "id_designacion", "")) not in usadas_este_periodo
+            ]
+
             # Buscar designación coincidente
             desig_match, motivo = cls._buscar_designacion_coincidente(
                 escuela_cod=escuela_cod,
@@ -159,13 +170,15 @@ class ConciliadorReciboDocenteService:
                 periodo_liq=periodo_liq,
                 modulos=modulos_recibo,
                 revista=revista_recibo,
-                designaciones=designaciones,
+                designaciones=desigs_candidatas,
             )
 
             if desig_match:
                 id_desig = getattr(desig_match, "id_designacion", None)
                 if id_desig:
-                    designaciones_matcheadas_ids.add(str(id_desig))
+                    id_str = str(id_desig)
+                    designaciones_matcheadas_ids.add(id_str)
+                    usadas_este_periodo.add(id_str)
 
                 modulos_desig = float(getattr(desig_match, "modulos", 0.0))
                 revista_desig = str(getattr(desig_match, "revista", "")).upper()
@@ -273,29 +286,34 @@ class ConciliadorReciboDocenteService:
             es_conciliacion_completa=es_completa,
         )
 
-    @staticmethod
-    def _normalizar_mes_pago(mes_pago: str) -> str:
-        s = str(mes_pago).strip().replace("/", "-")
-        if "-" in s:
-            parts = s.split("-")
-            if len(parts[0]) == 4:
-                return f"{parts[0]}-{parts[1].zfill(2)}"
-            if len(parts[1]) == 4:
-                return f"{parts[1]}-{parts[0].zfill(2)}"
-        if len(s) == 6 and s.isdigit():
-            return f"{s[:4]}-{s[4:]}"
-        return s
+    @classmethod
+    def extraer_anio_mes(cls, periodo: str) -> tuple[int, int]:
+        """Extrae de forma robusta (año, mes) a partir de cualquier formato de período.
+        Soporta: '2026-07', '07-2026', '07/2026', '07 / 2026', '202607', '072026', etc.
+        """
+        raw = str(periodo or "").strip()
+        str_nums = re.findall(r"\d+", raw)
+        if len(str_nums) >= 2:
+            n1, n2 = int(str_nums[0]), int(str_nums[1])
+            if 1900 <= n1 <= 2100 and 1 <= n2 <= 12:
+                return n1, n2
+            if 1900 <= n2 <= 2100 and 1 <= n1 <= 12:
+                return n2, n1
+        elif len(str_nums) == 1:
+            s = str_nums[0]
+            if len(s) == 6:
+                p1, p2 = int(s[:4]), int(s[4:])
+                if 1900 <= p1 <= 2100 and 1 <= p2 <= 12:
+                    return p1, p2
+                p1, p2 = int(s[:2]), int(s[2:])
+                if 1900 <= p2 <= 2100 and 1 <= p1 <= 12:
+                    return p2, p1
+        return 2026, 1
 
-    @staticmethod
-    def _normalizar_periodo_liquidado(periodo: str) -> str:
-        s = str(periodo).strip().replace("/", "-")
-        if len(s) == 6 and s.isdigit():
-            return f"{s[:4]}-{s[4:]}"
-        if "-" in s:
-            parts = s.split("-")
-            if len(parts[0]) == 4:
-                return f"{parts[0]}-{parts[1].zfill(2)}"
-        return s
+    @classmethod
+    def normalizar_periodo_a_iso(cls, periodo: str) -> str:
+        anio, mes = cls.extraer_anio_mes(periodo)
+        return f"{anio:04d}-{mes:02d}"
 
     @classmethod
     def _buscar_designacion_coincidente(
@@ -307,43 +325,56 @@ class ConciliadorReciboDocenteService:
         revista: str,
         designaciones: list[Any],
     ) -> tuple[Any | None, str]:
-        # Paso 1: Coincidencia exacta por secuencia + escuela compatible + período
+        # Candidatos que cubren el período liquidado
+        candidatos: list[tuple[int, Any, str]] = []
+
         for d in designaciones:
+            if not cls._designacion_cubre_periodo(d, periodo_liq):
+                continue
+
             sec_d = str(getattr(d, "secuencia", "") or "").strip()
-            if (
-                sec_d
-                and cls._secuencias_coinciden(sec_d, secuencia)
-                and cls._designacion_cubre_periodo(d, periodo_liq)
-                and cls._escuela_es_compatible(d, escuela_cod)
-            ):
-                return (
-                    d,
-                    "Coincidencia exacta por número de secuencia y escuela",
-                )
+            score = 0
+            motivos: list[str] = []
 
-        # Paso 2: Coincidencia por código de escuela + período + módulos
-        for d in designaciones:
-            if cls._escuela_es_compatible(
-                d, escuela_cod
-            ) and cls._designacion_cubre_periodo(d, periodo_liq):
-                mod_d = float(getattr(d, "modulos", 0.0))
-                if modulos > 0 and mod_d > 0 and abs(mod_d - modulos) < 0.01:
-                    return d, "Coincidencia por escuela y carga de módulos"
+            # 1. Coincidencia por secuencia (máxima prioridad si existe)
+            if sec_d and cls._secuencias_coinciden(sec_d, secuencia):
+                score += 1000
+                motivos.append("número de secuencia exacto")
 
-        # Paso 3: Coincidencia por escuela + período (si no hay ambigüedad)
-        matches_escuela = [
-            d
-            for d in designaciones
-            if cls._escuela_es_compatible(d, escuela_cod)
-            and cls._designacion_cubre_periodo(d, periodo_liq)
-        ]
+            # 2. Compatibilidad de escuela y distrito
+            escuela_compat = cls._escuela_es_compatible(d, escuela_cod)
+            if escuela_compat:
+                score += 500
+                motivos.append("establecimiento/distrito compatible")
+            elif not sec_d:
+                # Si no coincide la escuela y no hay secuencia, descartar
+                continue
 
-        if len(matches_escuela) == 1:
-            return matches_escuela[
-                0
-            ], "Coincidencia unívoca por establecimiento educativo"
+            # 3. Coincidencia por carga horaria / módulos
+            mod_d = float(getattr(d, "modulos", 0.0))
+            if modulos > 0 and mod_d > 0 and abs(mod_d - modulos) < 0.01:
+                score += 200
+                motivos.append(f"{modulos} módulos")
+            elif modulos > 0 and mod_d > 0:
+                # Penalizar ligera discrepancia si hay candidatos con módulos exactos
+                score += 50
 
-        return None, ""
+            # 4. Coincidencia por situación de revista
+            rev_d = str(getattr(d, "revista", "")).upper()
+            if revista and rev_d and (revista in rev_d or rev_d in revista):
+                score += 50
+                motivos.append(f"revista {revista}")
+
+            if score >= 700:
+                candidatos.append((score, d, ", ".join(motivos)))
+
+        if not candidatos:
+            return None, ""
+
+        # Ordenar por mayor score descendente
+        candidatos.sort(key=lambda x: x[0], reverse=True)
+        _score, best_d, best_motivo = candidatos[0]
+        return best_d, f"Coincidencia ({best_motivo})"
 
     @staticmethod
     def _secuencias_coinciden(sec1: str, sec2: str) -> bool:
@@ -364,31 +395,79 @@ class ConciliadorReciboDocenteService:
         estab_desig = str(getattr(desig, "establecimiento", "") or "").lower().strip()
         distrito_desig = str(getattr(desig, "distrito", "") or "").lower().strip()
 
-        # Distrito mismatch check
-        if (
-            recibo_str.startswith("116")
-            and distrito_desig
-            and "escobar" not in distrito_desig
-        ):
-            return False
-        if (
-            recibo_str.startswith("055")
-            and distrito_desig
-            and not any(k in distrito_desig for k in ("tigre", "san fernando", "055"))
-        ):
-            return False
+        # Extraer distrito del recibo
+        recibo_nums = [int(n) for n in re.findall(r"\d+", recibo_str)]
+        recibo_distrito_num = recibo_str[:3] if len(recibo_str) >= 3 else ""
 
-        # Si el establecimiento o número coincide directamente
+        # Control de compatibilidad distrital
+        if recibo_distrito_num == "116":
+            if distrito_desig and "escobar" not in distrito_desig:
+                return False
+            if (
+                "tigre" in estab_desig
+                or "san fernando" in estab_desig
+                or "pilar" in estab_desig
+            ):
+                return False
+        elif recibo_distrito_num == "055":
+            if distrito_desig and not any(
+                k in distrito_desig for k in ("tigre", "san fernando", "055")
+            ):
+                return False
+            if "escobar" in estab_desig or "pilar" in estab_desig:
+                return False
+        elif recibo_distrito_num == "084":
+            if distrito_desig and "pilar" not in distrito_desig:
+                return False
+
+        # Extraer números de escuela de la designación
+        nums_desig = [
+            int(n) for n in re.findall(r"\d+", f"{esc_num_desig} {estab_desig}")
+        ]
+
+        # En recibos DGCyE PBA "055 IS 0199", el número de escuela es el último (199)
+        if len(recibo_nums) >= 2:
+            school_num_recibo = recibo_nums[-1]
+            if school_num_recibo in nums_desig:
+                return True
+
+        # Heurísticas para nombres de sedes conocidos (si omiten el número en el nombre)
+        # EEST N°1 Tigre: sedes Tejedor / Marabotto
+        if (
+            "055 mt 0001" in recibo_str
+            or ("055" in recibo_str and "0001" in recibo_str)
+        ) and any(
+            k in estab_desig
+            for k in ("tejedor", "marabotto", "eest 1", "eest n°1", "eest n° 1")
+        ):
+            return True
+        # EEST N°3 Tigre
+        if (
+            "055 mt 0003" in recibo_str
+            or ("055" in recibo_str and "0003" in recibo_str)
+        ) and any(k in estab_desig for k in ("eest 3", "eest n°3", "eest n° 3")):
+            return True
+        # EEST N°1 Escobar: sedes Independencia / Marin / Yrigoyen
+        if (
+            "116 mt 0001" in recibo_str
+            or ("116" in recibo_str and "0001" in recibo_str)
+        ) and any(
+            k in estab_desig
+            for k in ("independencia", "marin", "yrigoyen", "eest 1", "eest n°1")
+        ):
+            return True
+        # ISFDyT N°199 Tigre
+        if (
+            "055 is 0199" in recibo_str
+            or ("055" in recibo_str and "0199" in recibo_str)
+        ) and any(k in estab_desig for k in ("199", "isfdyt", "isft")):
+            return True
+
+        # Substring fallback
         if esc_num_desig and (
             esc_num_desig in recibo_str or recibo_str in esc_num_desig
         ):
-            if distrito_desig:
-                if "pilar" in distrito_desig and "116" in recibo_str:
-                    return False
-                if "pilar" in distrito_desig and "055" in recibo_str:
-                    return False
             return True
-
         return bool(
             estab_desig and (estab_desig in recibo_str or recibo_str in estab_desig)
         )
