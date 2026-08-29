@@ -2,8 +2,8 @@
 
 from sqlalchemy import text
 
-from src.adapters.gateways.api_cache_gateway import get_engine
-from src.infrastructure.fastapi.server import _resolve_database_url, create_app
+from src.adapters.gateways.api_cache_gateway import get_engine, resolve_database_url
+from src.infrastructure.fastapi.server import create_app
 
 
 def test_gzip_middleware_registered() -> None:
@@ -16,9 +16,9 @@ def test_gzip_middleware_registered() -> None:
 
 def test_resolve_database_url_fallback() -> None:
     """R-S2: URL vacía → SQLite file; URL real se conserva."""
-    assert _resolve_database_url("") == "sqlite:///data/datamaq_hub.db"
+    assert resolve_database_url("") == "sqlite:///data/datamaq_hub.db"
     mysql_url = "mysql+pymysql://user:pass@host/db"
-    assert _resolve_database_url(mysql_url) == mysql_url
+    assert resolve_database_url(mysql_url) == mysql_url
 
 
 def test_sqlite_engine_enables_wal(tmp_path) -> None:

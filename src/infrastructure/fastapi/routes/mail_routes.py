@@ -29,7 +29,10 @@ def get_configured_mail_controller(
     ] = None,
 ) -> MailController:
     """Proveedor de dependencias para MailController configurado según la cuenta solicitada."""
-    from src.adapters.gateways.api_cache_gateway import ApiCacheGateway
+    from src.adapters.gateways.api_cache_gateway import (
+        ApiCacheGateway,
+        resolve_database_url,
+    )
     from src.adapters.gateways.cached_mail_reader_gateway import (
         CachedMailReaderGateway,
     )
@@ -61,7 +64,7 @@ def get_configured_mail_controller(
             oauth2_refresh_token=account_config.oauth2_refresh_token,
         )
     cache = ApiCacheGateway(
-        database_url=settings.database_url,
+        database_url=resolve_database_url(settings.database_url),
         ttl_by_prefix=settings.cache_ttls or None,
     )
     gateway: MailReaderPort = CachedMailReaderGateway(

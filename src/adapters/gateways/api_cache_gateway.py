@@ -22,6 +22,16 @@ from src.domain.cache.ports import ApiCachePort
 
 logger = logging.getLogger(__name__)
 
+# Archivo SQLite de respaldo cuando DATABASE_URL está vacío (decisión de la
+# capa gateway; evita cachear solo en memoria L1 y perder la caché entre procesos).
+DEFAULT_SQLITE_FILE = "sqlite:///data/datamaq_hub.db"
+
+
+def resolve_database_url(raw: str | None) -> str:
+    """Resuelve la URL de BD; usa el fallback SQLite file cuando está vacía o nula."""
+    return raw or DEFAULT_SQLITE_FILE
+
+
 # TTLs de fallback por prefijo de clave (segundos), confirmados el 2026-08-25.
 # Sobreescribibles vía ``ttl_by_prefix`` (Settings.cache_ttls desde .env).
 CACHE_TTL: dict[str, int] = {

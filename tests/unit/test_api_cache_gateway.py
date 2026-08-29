@@ -12,6 +12,7 @@ from src.adapters.gateways.api_cache_gateway import (
     get_engine,
     get_session_factory,
     init_db,
+    resolve_database_url,
 )
 
 TEST_URL = "sqlite:///:memory:"
@@ -164,3 +165,17 @@ def test_resolve_ttl_defaults_without_args() -> None:
     gw = ApiCacheGateway(database_url=None)
     assert gw._resolve_ttl("google_ads:campaign_performance:days_7") == 4 * 3600
     assert gw._resolve_ttl("clarity:live_insights") == 2 * 3600
+
+
+def test_mail_ttl_registered_by_prefix() -> None:
+    """Contratos C6: los prefijos de mail resuelven su TTL desde constantes aprobadas."""
+    gw = ApiCacheGateway(database_url=None)
+    assert gw._resolve_ttl("mail:unread_summary:abc:INBOX") == 60
+    assert gw._resolve_ttl("mail:folders:abc") == 5 * 60
+
+
+def test_resolve_database_url_fallback_sqlite() -> None:
+    """Regresión: DATABASE_URL vacío resuelve al archivo SQLite persistente."""
+    assert resolve_database_url("") == "sqlite:///data/datamaq_hub.db"
+    assert resolve_database_url(None) == "sqlite:///data/datamaq_hub.db"
+    assert resolve_database_url("mysql+pymysql://db") == "mysql+pymysql://db"
