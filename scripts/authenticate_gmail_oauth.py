@@ -3,7 +3,12 @@
 
 import argparse
 import json
+import os
+import signal
+import socket
+import subprocess
 import sys
+import time
 import urllib.error
 import urllib.parse
 import urllib.request
@@ -20,6 +25,70 @@ SCOPES = [
     "https://mail.google.com/",
     "https://www.googleapis.com/auth/userinfo.email",
 ]
+
+
+class TemporaryPortManager:
+    """Libera temporalmente el puerto especificado deteniendo el proceso que lo usa y restaurándolo al salir."""
+
+    def __init__(self, port: int) -> None:
+        self.port = port
+        self.saved_processes: list[tuple[list[str], str]] = []
+
+    def __enter__(self):
+        pids: list[int] = []
+        try:
+            out = subprocess.check_output(
+                ["lsof", "-ti", f":{self.port}"], text=True
+            ).strip()
+            pids = [int(p) for p in out.splitlines() if p.isdigit()]
+        except (subprocess.SubprocessError, OSError):
+            pids = []
+
+        for pid in pids:
+            try:
+                with open(f"/proc/{pid}/cmdline", "rb") as f:
+                    raw_cmd = f.read().split(b"\x00")
+                    cmd = [c.decode("utf-8", errors="ignore") for c in raw_cmd if c]
+                cwd = os.readlink(f"/proc/{pid}/cwd")
+                if cmd:
+                    proc_name = Path(cmd[0]).name
+                    print(
+                        f"⚠️ Puerto {self.port} ocupado por '{proc_name}' (PID {pid}). Pausando temporalmente..."
+                    )
+                    os.kill(pid, signal.SIGTERM)
+                    self.saved_processes.append((cmd, cwd))
+            except (OSError, RuntimeError) as e:
+                print(f"No se pudo pausar proceso PID {pid}: {e}")
+
+        if self.saved_processes:
+            # Esperar hasta que el puerto quede liberado
+            for _ in range(15):
+                time.sleep(0.2)
+                try:
+                    s = socket.socket()
+                    s.settimeout(0.5)
+                    s.bind(("localhost", self.port))
+                    s.close()
+                    break
+                except OSError:
+                    continue
+
+        return self
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        for cmd, cwd in self.saved_processes:
+            proc_name = Path(cmd[0]).name
+            print(f"\n🔄 Restaurando proceso '{proc_name}' en segundo plano...")
+            try:
+                subprocess.Popen(
+                    cmd,
+                    cwd=cwd,
+                    start_new_session=True,
+                    stdout=subprocess.DEVNULL,
+                    stderr=subprocess.DEVNULL,
+                )
+            except (subprocess.SubprocessError, OSError) as e:
+                print(f"Error restaurando '{proc_name}': {e}")
 
 
 class OAuthCallbackHandler(BaseHTTPRequestHandler):
@@ -152,27 +221,12 @@ def main():
     print("=" * 70)
     print(f"Cuenta objetivo: \033[1;33m{args.email}\033[0m\n")
 
-    if not args.manual:
-        # Intentar iniciar servidor en el puerto indicado o buscar uno libre
-        server: HTTPServer | None = None
-        selected_port = args.port
-        for p in [selected_port, 8089, 8090, 8095, 9090]:
-            try:
-                server = HTTPServer(("localhost", p), OAuthCallbackHandler)
-                selected_port = p
-                break
-            except OSError:
-                continue
+    code = None
 
-        if server is None:
-            print(
-                "⚠️ No se pudo abrir un puerto local automáticamente. Cambiando a modo manual..."
-            )
-            args.manual = True
-        else:
-            redirect_uri = f"http://localhost:{selected_port}"
-            auth_params["redirect_uri"] = redirect_uri
-            auth_url = f"https://accounts.google.com/o/oauth2/v2/auth?{urllib.parse.urlencode(auth_params)}"
+    if not args.manual:
+        with TemporaryPortManager(args.port):
+            HTTPServer.allow_reuse_address = True
+            server = HTTPServer(("localhost", args.port), OAuthCallbackHandler)
 
             print("1. Abriendo navegador para autorizar la cuenta...")
             print("   (Si no abre automáticamente, ingresá a este enlace:)\n")
@@ -182,20 +236,21 @@ def main():
             except (webbrowser.Error, OSError):
                 pass
 
-            print(f"2. Esperando autorización en http://localhost:{selected_port}...")
+            print(f"2. Esperando autorización en http://localhost:{args.port}...")
             try:
                 server.handle_request()
             finally:
                 server.server_close()
 
             code = OAuthCallbackHandler.auth_code
-            if not code:
-                print(
-                    f"\n❌ Error: No se recibió el código de autorización ({OAuthCallbackHandler.error})."
-                )
-                sys.exit(1)
 
-    if args.manual:
+        if not code:
+            print(
+                f"\n❌ Error: No se recibió el código de autorización ({OAuthCallbackHandler.error})."
+            )
+            sys.exit(1)
+
+    if args.manual or not code:
         print("1. Ingresá a este enlace en tu navegador:")
         print(f"\n   \033[1;34m{auth_url}\033[0m\n")
         raw_input = input(
@@ -221,7 +276,6 @@ def main():
         print(
             "⚠️ Google devolvió tokens pero sin refresh_token (es posible que ya estuviera autorizada)."
         )
-        print("   Para forzar un nuevo refresh_token, ejecutá con prompt=consent.")
         refresh_token = tokens.get("access_token", "")
 
     print("\n" + "=" * 70)
