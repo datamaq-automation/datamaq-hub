@@ -142,7 +142,7 @@ def main():
         "response_type": "code",
         "scope": " ".join(SCOPES),
         "access_type": "offline",
-        "prompt": "consent",
+        "prompt": "select_account consent",
         "login_hint": args.email,
     }
     auth_url = f"https://accounts.google.com/o/oauth2/v2/auth?{urllib.parse.urlencode(auth_params)}"
@@ -153,31 +153,60 @@ def main():
     print(f"Cuenta objetivo: \033[1;33m{args.email}\033[0m\n")
 
     if not args.manual:
-        print("1. Abriendo navegador para autorizar la cuenta...")
-        print("   (Si no abre automáticamente, ingresá a este enlace:)\n")
-        print(f"   \033[1;34m{auth_url}\033[0m\n")
-        try:
-            webbrowser.open(auth_url)
-        except (webbrowser.Error, OSError):
-            pass
+        # Intentar iniciar servidor en el puerto indicado o buscar uno libre
+        server: HTTPServer | None = None
+        selected_port = args.port
+        for p in [selected_port, 8089, 8090, 8095, 9090]:
+            try:
+                server = HTTPServer(("localhost", p), OAuthCallbackHandler)
+                selected_port = p
+                break
+            except OSError:
+                continue
 
-        print(f"2. Esperando autorización en http://localhost:{args.port}...")
-        server = HTTPServer(("localhost", args.port), OAuthCallbackHandler)
-        try:
-            server.handle_request()
-        finally:
-            server.server_close()
-
-        code = OAuthCallbackHandler.auth_code
-        if not code:
+        if server is None:
             print(
-                f"\n❌ Error: No se recibió el código de autorización ({OAuthCallbackHandler.error})."
+                "⚠️ No se pudo abrir un puerto local automáticamente. Cambiando a modo manual..."
             )
-            sys.exit(1)
-    else:
+            args.manual = True
+        else:
+            redirect_uri = f"http://localhost:{selected_port}"
+            auth_params["redirect_uri"] = redirect_uri
+            auth_url = f"https://accounts.google.com/o/oauth2/v2/auth?{urllib.parse.urlencode(auth_params)}"
+
+            print("1. Abriendo navegador para autorizar la cuenta...")
+            print("   (Si no abre automáticamente, ingresá a este enlace:)\n")
+            print(f"   \033[1;34m{auth_url}\033[0m\n")
+            try:
+                webbrowser.open(auth_url)
+            except (webbrowser.Error, OSError):
+                pass
+
+            print(f"2. Esperando autorización en http://localhost:{selected_port}...")
+            try:
+                server.handle_request()
+            finally:
+                server.server_close()
+
+            code = OAuthCallbackHandler.auth_code
+            if not code:
+                print(
+                    f"\n❌ Error: No se recibió el código de autorización ({OAuthCallbackHandler.error})."
+                )
+                sys.exit(1)
+
+    if args.manual:
         print("1. Ingresá a este enlace en tu navegador:")
         print(f"\n   \033[1;34m{auth_url}\033[0m\n")
-        code = input("2. Pegá acá el código de autorización devuelto: ").strip()
+        raw_input = input(
+            "2. Pegá acá el código o la URL completa de la redirección: "
+        ).strip()
+        if "code=" in raw_input:
+            parsed = urllib.parse.urlparse(raw_input)
+            params = urllib.parse.parse_qs(parsed.query)
+            code = params.get("code", [raw_input])[0]
+        else:
+            code = raw_input
 
     print("\n⏳ Canjeando código por REFRESH_TOKEN...")
     tokens = exchange_code_for_tokens(
