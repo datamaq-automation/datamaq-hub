@@ -117,11 +117,11 @@ def collect_processes() -> dict[str, Any]:
     procs: dict[str, Any] = {}
 
     patrones: dict[str, list[tuple[str, ...]]] = {
-        # `comm` es un único token (el nombre del ejecutable): para gateway Node el
-        # `comm` suele ser "node" o "openclaw", nunca ambos. Se listan como tuplas
-        # alternativas (cualquiera matchea la fila).
-        "openclaw": [("node",), ("openclaw",)],
-        "datamaq_hub": [("python3", "datamaq")],
+        # `args` es el cmdline completo (path del ejecutable incluido), no el `comm`
+        # (token único). Se usa el path para distinguir el venv de datamaq-hub de
+        # otros servicios Python del VPS sin capturarlos por error.
+        "openclaw": [("openclaw",)],
+        "datamaq_hub": [("datamaq-hub",)],
         "mysql": [("mysqld",)],
         "dovecot": [("dovecot",)],
     }
@@ -213,10 +213,10 @@ def bench_endpoints(extra_message: str = "") -> list[dict[str, Any]]:
 # Helpers
 # --------------------------------------------------------------------------- #
 def _ps_rows() -> list[dict[str, Any]]:
-    """Lista procesos con pid/rss/cpu vía ps."""
+    """Lista procesos con pid/rss/cpu/cmdline completo vía ps."""
     try:
         raw = subprocess.run(
-            ["ps", "axo", "pid=,rss=,%cpu=,comm="],
+            ["ps", "axo", "pid=,rss=,%cpu=,args="],
             capture_output=True,
             text=True,
             check=False,
