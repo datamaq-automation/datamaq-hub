@@ -17,6 +17,7 @@
 | **[`calendar_manager.md`](calendar_manager.md)** | Módulo de Calendario y Eventos | **Aprobado / Implementado** | Gestión de eventos, citas y disponibilidad horaria. |
 | **[`horarios_docencia.md`](horarios_docencia.md)** | Horarios de Docencia y Compatibilidad | **Aprobado / Implementado** | Auditoría estatutaria DGCyE PBA, CRUD de designaciones y proyección de clases. |
 | **[`endpoints_optimization.md`](endpoints_optimization.md)** | Optimización de Endpoints y VPS (OpenClaw) | **En Implementación** | Compresión gzip, caché SQLite WAL, modos compact/resumen y límites reducidos para ahorro de tokens. |
+| **[`vps_replica.md`](vps_replica.md)** | Réplica Local desde el VPS (SSOT) | **Aprobado / Implementado** | Sincronización unidireccional VPS ➔ Local con snapshot WAL-safe, backup preventivo y verificación de integridad. |
 
 ---
 

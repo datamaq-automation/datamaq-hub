@@ -36,7 +36,8 @@ El repositorio cuenta con una jerarquía de documentación técnica viva (SSOT) 
 * **[`docs/adr/2026-08-25_api_cache_gateway_sqlalchemy.md`](docs/adr/2026-08-25_api_cache_gateway_sqlalchemy.md)**: ADR de persistencia y caché.
 * **[`docs/mail_openclaw_integration.md`](docs/mail_openclaw_integration.md)**: SSOT de integración segura de sólo lectura para OpenClaw sobre buzones IMAP.
 * **[`docs/contacts_calendar_openclaw.md`](docs/contacts_calendar_openclaw.md)**: SSOT de libreta de contactos y calendario de eventos para OpenClaw.
-* **[`docs/analytics_and_ads.md`](docs/analytics_and_ads.md)**: SSOT de gobernanza Google Ads (**Basic Access Aprobado**), GA4, Clarity, Watchdog y Atribución B2B.
+ * **[`docs/analytics_and_ads.md`](docs/analytics_and_ads.md)**: SSOT de gobernanza Google Ads (**Basic Access Aprobado**), GA4, Clarity, Watchdog y Atribución B2B.
+ * **[`docs/vps_replica_runbook.md`](docs/vps_replica_runbook.md)**: Runbook de sincronización de la réplica local desde el VPS (SSOT), backup y restauración.
 
 ---
 
@@ -148,6 +149,31 @@ uvicorn src.main:app --reload --host 0.0.0.0 --port 8000
 - **Swagger UI:** [http://localhost:8000/docs](http://localhost:8000/docs)
 - **ReDoc:** [http://localhost:8000/redoc](http://localhost:8000/redoc)
 - **Health Check:** [http://localhost:8000/api/v1/health](http://localhost:8000/api/v1/health)
+
+---
+
+## 🔄 Sincronización de Datos (VPS ➔ Local)
+
+El **VPS DonWeb** (`/var/www/datamaq-hub/`) es la **Fuente de Verdad (SSOT)** de datos
+persistentes y operativos (contactos, calendario de OpenClaw, caché de analítica,
+liquidaciones y tareas). El entorno local funciona como réplica fiel para desarrollo,
+tests, analítica y ejecución de agentes.
+
+```bash
+# Réplica completa en 1 comando (snapshot WAL-safe + backup local + verificación)
+./scripts/sync_replica.sh
+
+# Solo bases SQLite | Vista previa | Otro host | Sin backup
+./scripts/sync_replica.sh --only-dbs
+./scripts/sync_replica.sh --dry-run
+./scripts/sync_replica.sh --host vps4
+./scripts/sync_replica.sh --no-backup
+```
+
+> **Direccionalidad estricta:** VPS ➔ Local. Nunca escribe datos en el VPS; para
+> desplegar código se usa Git y `deploy_with_check.sh`. Ver
+> [`docs/vps_replica_runbook.md`](docs/vps_replica_runbook.md) para restauración de
+> backups y resolución de problemas.
 
 ---
 
