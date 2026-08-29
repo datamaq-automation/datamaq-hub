@@ -19,12 +19,26 @@ from pathlib import Path
 # Ensure project root is in sys.path
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
+import re
+
 from src.infrastructure.pydantic.config import get_settings
 
 SCOPES = [
     "https://mail.google.com/",
     "https://www.googleapis.com/auth/userinfo.email",
 ]
+
+
+def extract_auth_code(raw_input: str) -> str:
+    """Extrae de forma robusta el código de autorización desde URL, headers HTTP o texto copiado."""
+    raw = raw_input.strip()
+    match = re.search(r"code=([^&\s]+)", raw)
+    if match:
+        return urllib.parse.unquote(match.group(1))
+    match_code = re.search(r"(4/[a-zA-Z0-9_\-]+)", raw)
+    if match_code:
+        return match_code.group(1)
+    return raw
 
 
 def copy_to_clipboard(text: str) -> bool:
@@ -324,12 +338,7 @@ def main():
             raw_input = input(
                 "2. Pegá acá el código o la URL completa de la redirección: "
             ).strip()
-            if "code=" in raw_input:
-                parsed = urllib.parse.urlparse(raw_input)
-                params = urllib.parse.parse_qs(parsed.query)
-                code = params.get("code", [raw_input])[0]
-            else:
-                code = raw_input
+            code = extract_auth_code(raw_input)
 
         print("\n⏳ Canjeando código por REFRESH_TOKEN...")
         tokens = exchange_code_for_tokens(
