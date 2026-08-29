@@ -29,15 +29,19 @@ def get_configured_mail_controller(
     ] = None,
 ) -> MailController:
     """Proveedor de dependencias para MailController configurado según la cuenta solicitada."""
+    from src.adapters.gateways.api_cache_gateway import ApiCacheGateway
+    from src.adapters.gateways.cached_mail_reader_gateway import (
+        CachedMailReaderGateway,
+    )
     from src.adapters.gateways.gmail_api_gateway import GmailApiGateway
     from src.domain.mail.ports import MailReaderPort
 
     settings = get_settings()
     account_config = settings.get_mail_account_config(account)
 
-    gateway: MailReaderPort
+    reader: MailReaderPort
     if account_config.oauth2_refresh_token:
-        gateway = GmailApiGateway(
+        reader = GmailApiGateway(
             client_id=account_config.oauth2_client_id,
             client_secret=account_config.oauth2_client_secret,
             refresh_token=account_config.oauth2_refresh_token,
@@ -45,7 +49,7 @@ def get_configured_mail_controller(
             timeout_seconds=account_config.timeout_seconds,
         )
     else:
-        gateway = ImapMailGateway(
+        reader = ImapMailGateway(
             host=account_config.host,
             port=account_config.port,
             user=account_config.user,
@@ -56,6 +60,15 @@ def get_configured_mail_controller(
             oauth2_client_secret=account_config.oauth2_client_secret,
             oauth2_refresh_token=account_config.oauth2_refresh_token,
         )
+    cache = ApiCacheGateway(
+        database_url=settings.database_url,
+        ttl_by_prefix=settings.cache_ttls or None,
+    )
+    gateway: MailReaderPort = CachedMailReaderGateway(
+        reader=reader,
+        cache=cache,
+        account=account_config.user,
+    )
     return get_mail_controller(gateway=gateway)
 
 

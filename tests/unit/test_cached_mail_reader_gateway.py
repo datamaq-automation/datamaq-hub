@@ -79,9 +79,7 @@ class FakeReader(MailReaderPort):
         return UnreadSummary(
             carpeta=folder,
             total_no_leidos=201,
-            ultimos_no_leidos=[
-                EmailSummary(uid="1", remitente="a@b.c", asunto="Hola")
-            ],
+            ultimos_no_leidos=[EmailSummary(uid="1", remitente="a@b.c", asunto="Hola")],
         )
 
 
@@ -99,7 +97,7 @@ def test_unread_summary_hit_sirve_desde_cache_sin_invocar_reader() -> None:
     resultado = gateway.get_unread_summary(folder="INBOX")
     assert resultado.total_no_leidos == 201
     assert reader.unread_calls == primer_invoca
-    assert f"mail:unread_summary:abc:INBOX" in cache.get_calls
+    assert "mail:unread_summary:abc:INBOX" in cache.get_calls
 
 
 def test_unread_summary_miss_delega_y_poblifica() -> None:
@@ -109,7 +107,7 @@ def test_unread_summary_miss_delega_y_poblifica() -> None:
     resultado = gateway.get_unread_summary(folder="SPAM")
     assert resultado.total_no_leidos == 201
     assert reader.unread_calls == 1
-    assert f"mail:unread_summary:abc:SPAM" in cache.set_calls
+    assert "mail:unread_summary:abc:SPAM" in cache.set_calls
 
 
 def test_unread_summary_con_error_no_poblifica_cache() -> None:
@@ -135,7 +133,7 @@ def test_folders_hit_sirve_desde_cache() -> None:
     carpetas = gateway.get_folders()
     assert carpetas[0].nombre == "INBOX"
     assert reader.folders_calls == invoca
-    assert f"mail:folders:abc" in cache.get_calls
+    assert "mail:folders:abc" in cache.get_calls
 
 
 def test_list_messages_y_detalle_son_passthrough() -> None:

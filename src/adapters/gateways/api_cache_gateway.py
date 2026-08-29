@@ -34,6 +34,8 @@ CACHE_TTL: dict[str, int] = {
     "ga4:geo_traffic": 3600,  # 1 hora
     "clarity:live_insights": 2 * 3600,  # 2 horas
     "clarity:dashboard_insights": 2 * 3600,  # 2 horas
+    "mail:unread_summary": 60,  # 1 minuto
+    "mail:folders": 5 * 60,  # 5 minutos
     "search_console:top_queries": 6 * 3600,  # 6 horas
     "search_console:top_pages": 6 * 3600,  # 6 horas
     "search_console:page_queries": 6 * 3600,  # 6 horas
