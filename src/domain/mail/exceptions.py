@@ -1,5 +1,7 @@
 """Domain exceptions for email operations."""
 
+from typing import Any
+
 
 class MailDomainException(Exception):
     """Base exception for all mail domain errors."""
@@ -66,8 +68,16 @@ class InvalidEmailAddressError(MailDomainException):
 class AccountNotFoundError(MailDomainException):
     """Raised when a requested mail account is not configured."""
 
-    def __init__(self, account: str) -> None:
-        super().__init__(
-            f"La cuenta de correo '{account}' no está configurada en el sistema."
-        )
+    def __init__(
+        self, account: str, available_accounts: list[str] | None = None
+    ) -> None:
+        disponibles = available_accounts or []
+        msg = f"La cuenta de correo '{account}' no está configurada en el sistema."
+        if disponibles:
+            msg += f" Cuentas disponibles: {disponibles}"
+        super().__init__(msg)
         self.account = account
+        self.available_accounts = disponibles
+        self.details: dict[str, Any] | None = (
+            {"cuentas_disponibles": disponibles} if disponibles else None
+        )

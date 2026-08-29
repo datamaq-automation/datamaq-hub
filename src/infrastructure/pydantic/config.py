@@ -87,8 +87,17 @@ class Settings(BaseSettings):
     def get_mail_account_config(
         self, account_name: str | None = None
     ) -> MailAccountConfig:
-        """Obtiene la configuración de la cuenta solicitada con fallback seguro a la cuenta por defecto."""
-        target = (account_name or self.default_mail_account).strip().lower()
+        """Obtiene la configuración de la cuenta solicitada con fallback seguro e inteligente."""
+        raw_target = (account_name or self.default_mail_account).strip().lower()
+
+        # Mapeo de alias semánticos comunes hacia la cuenta docente ABC
+        alias_map = {
+            "docente": "abc",
+            "abc.gob.ar": "abc",
+            "gmail": "abc",
+            "google": "abc",
+        }
+        target = alias_map.get(raw_target, raw_target)
 
         config_obj: MailAccountConfig | None = None
         if target in self.mail_accounts:
@@ -100,20 +109,23 @@ class Settings(BaseSettings):
                     break
 
         if config_obj is not None:
-            if config_obj.oauth2_refresh_token:
-                if not config_obj.oauth2_client_id:
-                    config_obj.oauth2_client_id = self.google_ads_client_id
-                if not config_obj.oauth2_client_secret:
-                    config_obj.oauth2_client_secret = self.google_ads_client_secret
-            return config_obj
+            return self._with_oauth2_fallback(config_obj)
 
-        # Fallback a las variables top-level clásicas
+        # Fallback a las variables top-level clásicas o a la única cuenta en MAIL_ACCOUNTS
         if target in (
             self.default_mail_account.lower(),
             "datamaq",
             "default",
             "openclaw@datamaq.com.ar",
         ):
+            # Si el default IMAP no tiene usuario ni clave configurados, pero hay cuentas en
+            # MAIL_ACCOUNTS, usar la primera/única cuenta (fallback inteligente para OpenClaw).
+            if not self.mail_imap_user and not self.mail_imap_pass and self.mail_accounts:
+                first_name = next(iter(self.mail_accounts))
+                return self._with_oauth2_fallback(
+                    self.mail_accounts[first_name].model_copy()
+                )
+
             return MailAccountConfig(
                 host=self.mail_imap_host,
                 port=self.mail_imap_port,
@@ -125,7 +137,22 @@ class Settings(BaseSettings):
 
         from src.domain.mail.exceptions import AccountNotFoundError
 
-        raise AccountNotFoundError(account_name or self.default_mail_account)
+        disponibles = list(self.mail_accounts.keys())
+        raise AccountNotFoundError(
+            account=account_name or self.default_mail_account,
+            available_accounts=disponibles,
+        )
+
+    def _with_oauth2_fallback(
+        self, config: MailAccountConfig
+    ) -> MailAccountConfig:
+        """Inyecta los client_id/secret globales en una cuenta OAuth2 si faltan."""
+        if config.oauth2_refresh_token:
+            if not config.oauth2_client_id:
+                config.oauth2_client_id = self.google_ads_client_id
+            if not config.oauth2_client_secret:
+                config.oauth2_client_secret = self.google_ads_client_secret
+        return config
 
 
 @lru_cache
