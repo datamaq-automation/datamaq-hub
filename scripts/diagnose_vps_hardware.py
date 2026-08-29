@@ -117,7 +117,10 @@ def collect_processes() -> dict[str, Any]:
     procs: dict[str, Any] = {}
 
     patrones: dict[str, list[tuple[str, ...]]] = {
-        "openclaw": [("node", "openclaw")],
+        # `comm` es un único token (el nombre del ejecutable): para gateway Node el
+        # `comm` suele ser "node" o "openclaw", nunca ambos. Se listan como tuplas
+        # alternativas (cualquiera matchea la fila).
+        "openclaw": [("node",), ("openclaw",)],
         "datamaq_hub": [("python3", "datamaq")],
         "mysql": [("mysqld",)],
         "dovecot": [("dovecot",)],
