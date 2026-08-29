@@ -93,6 +93,11 @@ class MailReaderPort(Protocol):
 - `MailboxNotFoundError`: Carpeta IMAP solicitada inexistente.
 - `MailConnectionError`: Error de conexión o timeout con el servidor IMAP.
 - `MailAuthenticationError`: Falla de credenciales o autenticación IMAP.
+- `AccountNotFoundError`:
+  - Constructor: `AccountNotFoundError(account: str, available_accounts: list[str] | None = None)`.
+  - Atributos: `account: str`, `available_accounts: list[str]`, `details: dict[str, Any] | None`.
+  - `details` expone la clave `cuentas_disponibles: list[str]` para que agentes LLM (OpenClaw) puedan auto-corregirse.
+  - Mensaje: `"La cuenta de correo '{account}' no está configurada en el sistema. Cuentas disponibles: [..]"`
 
 ---
 
@@ -142,6 +147,16 @@ class MailReaderPort(Protocol):
 - `mail_imap_pass: str = ""`
 - `mail_imap_use_ssl: bool = True`
 - `mail_imap_timeout_seconds: int = 10`
+- `default_mail_account: str = "openclaw@datamaq.com.ar"`
+- `mail_accounts: dict[str, MailAccountConfig]`
+
+#### `get_mail_account_config(account_name: str | None = None) -> MailAccountConfig`
+Resolución de la cuenta solicitada con normalización de alias y fallback inteligente:
+
+1. **Normalización y Mapeo de Alias:** El target se normaliza a minúsculas. Alias semánticos comunes se resuelven a la cuenta `"abc"`: `docente`, `abc.gob.ar`, `gmail`, `google`. Búsqueda insensible a mayúsculas por clave de diccionario y por `config.user`.
+2. **Inyección OAuth2:** Si la cuenta tiene `oauth2_refresh_token` pero carece de `oauth2_client_id` o `oauth2_client_secret`, hereda los valores globales `google_ads_client_id` y `google_ads_client_secret`.
+3. **Fallback Inteligente:** Si `account_name` es `None` (o apunta a la cuenta base `openclaw@datamaq.com.ar` / `datamaq` / `default`), y las credenciales IMAP clásicas (`mail_imap_user`, `mail_imap_pass`) están vacías pero existen cuentas en `mail_accounts`, se selecciona automáticamente la **primera cuenta configurada** (ej. `"abc"`), en lugar de devolver una config IMAP sin credenciales.
+4. **Excepción Enriquecida:** Si la cuenta solicitada no existe, lanza `AccountNotFoundError` con `available_accounts` = lista de claves en `mail_accounts`, expuesto en `details["cuentas_disponibles"]`.
 
 ### 4.2 Rutas FastAPI Multi-Cuenta (`fastapi/routes/mail_routes.py`)
 - `GET /api/v1/mail/carpetas?account={account}`
@@ -161,4 +176,5 @@ class MailReaderPort(Protocol):
 | Dominio | `tests/unit/test_mail_domain.py` | Value Objects, Entidades, Normalización y Sanitización |
 | Aplicación | `tests/unit/test_mail_use_cases.py` | Orquestación de Casos de Uso con mock de `MailReaderPort` |
 | Adaptadores | `tests/unit/test_imap_mail_gateway.py` | Gateway IMAP con mock de respuestas RFC 822 y flags PEEK |
+| Config | `tests/unit/test_mail_config_resolution.py` | Resolución directa (`abc`), alias (`docente`, `abc.gob.ar`, `agustinbustos@abc.gob.ar`), fallback inteligente (default sin credenciales → primera cuenta) y `AccountNotFoundError` con `details["cuentas_disponibles"]` |
 | Integración HTTP | `tests/integration/test_mail_routes.py` | Endpoints FastAPI con `TestClient` y validación de esquemas |
