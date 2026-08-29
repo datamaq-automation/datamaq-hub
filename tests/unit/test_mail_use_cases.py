@@ -91,26 +91,53 @@ class FakeMailReaderGateway(MailReaderPort):
         limit: int = 20,
         offset: int = 0,
         unread_only: bool = False,
+        q: str | None = None,
     ) -> tuple[list[EmailSummary], int, int]:
         filtered = self.messages
         if unread_only:
             filtered = [m for m in filtered if not m.leido]
+        if q:
+            filtered = [m for m in filtered if q.lower() in m.asunto.lower()]
         sliced = filtered[offset : offset + limit]
         total_in_folder = len(self.messages)
         total_unread = len([m for m in self.messages if not m.leido])
         return sliced, total_in_folder, total_unread
 
-    def get_message_by_uid(self, uid: str, folder: str = "INBOX") -> EmailDetail | None:
-        return self.details.get(uid)
+    def get_message_by_uid(
+        self,
+        uid: str,
+        folder: str = "INBOX",
+        include_html: bool = False,
+        max_chars: int = 4000,
+    ) -> EmailDetail | None:
+        detail = self.details.get(uid)
+        if detail and not include_html:
+            return EmailDetail(
+                uid=detail.uid,
+                remitente=detail.remitente,
+                destinatarios=detail.destinatarios,
+                cc=detail.cc,
+                asunto=detail.asunto,
+                fecha=detail.fecha,
+                leido=detail.leido,
+                cuerpo_texto=detail.cuerpo_texto,
+                cuerpo_html="",
+                adjuntos=detail.adjuntos,
+                carpeta=detail.carpeta,
+            )
+        return detail
 
     def get_unread_summary(
-        self, folder: str = "INBOX", limit: int = 5
+        self, folder: str = "INBOX", limit: int = 5, q: str | None = None
     ) -> UnreadSummary:
-        unreads = [m for m in self.messages if not m.leido][:limit]
+        unreads = [m for m in self.messages if not m.leido]
+        if q:
+            unreads = [m for m in unreads if q.lower() in m.asunto.lower()]
+        sliced = unreads[:limit]
         return UnreadSummary(
             carpeta=folder,
             total_no_leidos=len(unreads),
-            ultimos_no_leidos=unreads,
+            ultimos_no_leidos=sliced,
         )
 
 

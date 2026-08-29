@@ -33,6 +33,7 @@ class EmailSummary:
     leido: bool = False
     tiene_adjuntos: bool = False
     carpeta: str = "INBOX"
+    snippet: str = ""
 
 
 @dataclass(frozen=True)

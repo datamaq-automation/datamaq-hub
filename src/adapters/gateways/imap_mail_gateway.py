@@ -248,6 +248,7 @@ class ImapMailGateway(MailReaderPort):
         limit: int = 20,
         offset: int = 0,
         unread_only: bool = False,
+        q: str | None = None,
     ) -> tuple[list[EmailSummary], int, int]:
         """List email summaries from a folder in strict read-only mode."""
         client = self._create_connection()
@@ -259,7 +260,16 @@ class ImapMailGateway(MailReaderPort):
 
             total_messages, total_unread = self._get_folder_status(client, folder)
 
-            search_criteria = "UNSEEN" if unread_only else "ALL"
+            if q and q.strip():
+                clean_q = q.strip().replace('"', '\\"')
+                search_criteria = (
+                    f'(UNSEEN TEXT "{clean_q}")'
+                    if unread_only
+                    else f'(TEXT "{clean_q}")'
+                )
+            else:
+                search_criteria = "UNSEEN" if unread_only else "ALL"
+
             typ, search_data = client.uid("SEARCH", search_criteria)
             if typ != "OK" or not search_data or not search_data[0]:
                 return [], total_messages, total_unread
@@ -297,7 +307,13 @@ class ImapMailGateway(MailReaderPort):
 
         return messages, total_messages, total_unread
 
-    def get_message_by_uid(self, uid: str, folder: str = "INBOX") -> EmailDetail | None:
+    def get_message_by_uid(
+        self,
+        uid: str,
+        folder: str = "INBOX",
+        include_html: bool = False,
+        max_chars: int = 4000,
+    ) -> EmailDetail | None:
         """Fetch full email details by UID in read-only mode without mutating seen status."""
         client = self._create_connection()
         try:
@@ -310,7 +326,9 @@ class ImapMailGateway(MailReaderPort):
             if typ != "OK" or not msg_data:
                 return None
 
-            return self._parse_detail_from_fetch(uid, folder, msg_data)
+            return self._parse_detail_from_fetch(
+                uid, folder, msg_data, include_html=include_html, max_chars=max_chars
+            )
 
         except MailDomainException:
             raise
@@ -324,11 +342,11 @@ class ImapMailGateway(MailReaderPort):
             _safe_logout(client)
 
     def get_unread_summary(
-        self, folder: str = "INBOX", limit: int = 5
+        self, folder: str = "INBOX", limit: int = 5, q: str | None = None
     ) -> UnreadSummary:
         """Fetch count and brief list of recent unread messages."""
         messages, _, total_unread = self.list_messages(
-            folder=folder, limit=limit, offset=0, unread_only=True
+            folder=folder, limit=limit, offset=0, unread_only=True, q=q
         )
         return UnreadSummary(
             carpeta=folder,
@@ -382,10 +400,16 @@ class ImapMailGateway(MailReaderPort):
             leido=leido,
             tiene_adjuntos=tiene_adjuntos,
             carpeta=folder,
+            snippet="",
         )
 
     def _parse_detail_from_fetch(
-        self, uid: str, folder: str, fetch_response: list[object]
+        self,
+        uid: str,
+        folder: str,
+        fetch_response: list[object],
+        include_html: bool = False,
+        max_chars: int = 4000,
     ) -> EmailDetail | None:
         """Parses full EmailDetail entity from complete RFC 822 MIME byte stream."""
         raw_email: bytes = b""
@@ -457,7 +481,7 @@ class ImapMailGateway(MailReaderPort):
                     if isinstance(payload, bytes):
                         charset = part.get_content_charset() or "utf-8"
                         cuerpo_texto = self._decode_payload(payload, charset)
-                elif content_type == "text/html" and not cuerpo_html:
+                elif content_type == "text/html" and include_html and not cuerpo_html:
                     payload = part.get_payload(decode=True)
                     if isinstance(payload, bytes):
                         charset = part.get_content_charset() or "utf-8"
@@ -468,9 +492,17 @@ class ImapMailGateway(MailReaderPort):
                 charset = msg.get_content_charset() or "utf-8"
                 decoded_body = self._decode_payload(payload, charset)
                 if msg.get_content_type() == "text/html":
-                    cuerpo_html = decoded_body
+                    if include_html:
+                        cuerpo_html = decoded_body
                 else:
                     cuerpo_texto = decoded_body
+
+        sanitized_text = MailDecoderService.sanitize_text(cuerpo_texto)
+        if max_chars > 0 and len(sanitized_text) > max_chars:
+            sanitized_text = (
+                sanitized_text[:max_chars]
+                + f"\n\n[...Texto truncado por límite de {max_chars} caracteres...]"
+            )
 
         return EmailDetail(
             uid=uid,
@@ -480,8 +512,8 @@ class ImapMailGateway(MailReaderPort):
             asunto=asunto,
             fecha=fecha_iso,
             leido=leido,
-            cuerpo_texto=MailDecoderService.sanitize_text(cuerpo_texto),
-            cuerpo_html=cuerpo_html.strip(),
+            cuerpo_texto=sanitized_text,
+            cuerpo_html=cuerpo_html.strip() if include_html else "",
             adjuntos=adjuntos,
             carpeta=folder,
         )

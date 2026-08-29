@@ -49,6 +49,7 @@ class MailMapper:
             leido=entity.leido,
             tiene_adjuntos=entity.tiene_adjuntos,
             carpeta=entity.carpeta,
+            snippet=entity.snippet,
         )
 
     @staticmethod

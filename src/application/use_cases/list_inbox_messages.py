@@ -17,6 +17,7 @@ class ListInboxMessagesUseCase:
         limit: int = 20,
         offset: int = 0,
         unread_only: bool = False,
+        q: str | None = None,
     ) -> MailInboxResponseDTO:
         """Executes message listing and returns paginated DTO response."""
         safe_limit = max(1, min(limit, 100))
@@ -27,6 +28,7 @@ class ListInboxMessagesUseCase:
             limit=safe_limit,
             offset=safe_offset,
             unread_only=unread_only,
+            q=q,
         )
 
         dtos = [MailMapper.to_summary_dto(m) for m in messages]

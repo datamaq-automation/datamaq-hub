@@ -37,6 +37,7 @@ class MailController:
         limit: int = 20,
         offset: int = 0,
         sin_leer: bool = False,
+        q: str | None = None,
     ) -> MailInboxResponseDTO:
         """Queries messages from folder with pagination and filters."""
         return self.list_inbox_use_case.execute(
@@ -44,26 +45,33 @@ class MailController:
             limit=limit,
             offset=offset,
             unread_only=sin_leer,
+            q=q,
         )
 
     def get_unread_summary(
         self,
         folder: str = "INBOX",
         limit: int = 5,
+        q: str | None = None,
     ) -> UnreadSummaryDTO:
         """Queries quick unread messages summary."""
         return self.get_unread_summary_use_case.execute(
             folder=folder,
             limit=limit,
+            q=q,
         )
 
     def get_message_detail(
         self,
         uid: str,
         folder: str = "INBOX",
+        include_html: bool = False,
+        max_chars: int = 4000,
     ) -> EmailDetailDTO:
         """Queries full email detail by UID."""
         return self.get_mail_detail_use_case.execute(
             uid=uid,
             folder=folder,
+            include_html=include_html,
+            max_chars=max_chars,
         )

@@ -45,7 +45,7 @@ def test_imap_gateway_parse_detail():
     fetch_data = [(b"1 (FLAGS (\\Seen) BODY[] {1234}", raw_email)]
 
     detail = gateway._parse_detail_from_fetch(
-        uid="1001", folder="INBOX", fetch_response=fetch_data
+        uid="1001", folder="INBOX", fetch_response=fetch_data, include_html=True
     )
 
     assert detail is not None
@@ -61,6 +61,25 @@ def test_imap_gateway_parse_detail():
     assert detail.adjuntos[0].nombre == "cotizacion.pdf"
     assert detail.adjuntos[0].content_type == "application/pdf"
     assert detail.adjuntos[0].tamano_bytes > 0
+
+
+def test_imap_gateway_parse_detail_without_html_and_truncated():
+    gateway = ImapMailGateway()
+    raw_email = _build_test_multipart_email()
+    fetch_data = [(b"1 (FLAGS (\\Seen) BODY[] {1234}", raw_email)]
+
+    detail = gateway._parse_detail_from_fetch(
+        uid="1001",
+        folder="INBOX",
+        fetch_response=fetch_data,
+        include_html=False,
+        max_chars=10,
+    )
+
+    assert detail is not None
+    assert detail.cuerpo_html == ""
+    assert "Hola equip" in detail.cuerpo_texto
+    assert "truncado" in detail.cuerpo_texto
 
 
 def test_imap_gateway_parse_summary():

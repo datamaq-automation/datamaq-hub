@@ -11,8 +11,12 @@ class GetUnreadSummaryUseCase:
     def __init__(self, mail_reader: MailReaderPort) -> None:
         self.mail_reader = mail_reader
 
-    def execute(self, folder: str = "INBOX", limit: int = 5) -> UnreadSummaryDTO:
+    def execute(
+        self, folder: str = "INBOX", limit: int = 5, q: str | None = None
+    ) -> UnreadSummaryDTO:
         """Executes unread summary query."""
         safe_limit = max(1, min(limit, 50))
-        summary = self.mail_reader.get_unread_summary(folder=folder, limit=safe_limit)
+        summary = self.mail_reader.get_unread_summary(
+            folder=folder, limit=safe_limit, q=q
+        )
         return MailMapper.to_unread_summary_dto(summary)

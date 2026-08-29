@@ -160,8 +160,9 @@ class GmailApiGateway(MailReaderPort):
         limit: int = 20,
         offset: int = 0,
         unread_only: bool = False,
+        q: str | None = None,
     ) -> tuple[list[EmailSummary], int, int]:
-        """List email summaries from a label/folder."""
+        """List email summaries from a label/folder with optional search query."""
         query_parts: list[str] = []
         if folder.upper() == "INBOX":
             query_parts.append("in:inbox")
@@ -171,6 +172,9 @@ class GmailApiGateway(MailReaderPort):
         if unread_only:
             query_parts.append("is:unread")
 
+        if q and q.strip():
+            query_parts.append(f"({q.strip()})")
+
         q_str = " ".join(query_parts)
         params = {"q": q_str, "maxResults": str(limit)}
 
@@ -178,10 +182,13 @@ class GmailApiGateway(MailReaderPort):
         raw_messages = cast(list[dict[str, Any]], data.get("messages", []))
         result_estimate = int(data.get("resultSizeEstimate", len(raw_messages)))
 
+        unread_parts = list(query_parts)
+        if not unread_only:
+            unread_parts.append("is:unread")
         unread_data = self._make_api_request(
             "messages",
             {
-                "q": f"{'in:inbox' if folder.upper() == 'INBOX' else f'label:"{folder}"'} is:unread",
+                "q": " ".join(unread_parts),
                 "maxResults": "1",
             },
         )
@@ -197,6 +204,7 @@ class GmailApiGateway(MailReaderPort):
                     f"messages/{msg_id}",
                     {"format": "metadata"},
                 )
+                snippet_val = str(meta.get("snippet", ""))[:150]
                 payload = cast(dict[str, Any], meta.get("payload", {}))
                 headers_list = cast(list[dict[str, str]], payload.get("headers", []))
                 headers_dict: dict[str, str] = {
@@ -229,6 +237,7 @@ class GmailApiGateway(MailReaderPort):
                         leido=is_read,
                         tiene_adjuntos=has_attach,
                         carpeta=folder,
+                        snippet=snippet_val,
                     )
                 )
             except Exception as e:  # noqa: BLE001
@@ -236,8 +245,14 @@ class GmailApiGateway(MailReaderPort):
 
         return summaries, result_estimate, total_unread
 
-    def get_message_by_uid(self, uid: str, folder: str = "INBOX") -> EmailDetail | None:
-        """Fetch full email detail by ID."""
+    def get_message_by_uid(
+        self,
+        uid: str,
+        folder: str = "INBOX",
+        include_html: bool = False,
+        max_chars: int = 4000,
+    ) -> EmailDetail | None:
+        """Fetch full email detail by ID with token optimization options."""
         try:
             data = self._make_api_request(f"messages/{uid}", {"format": "full"})
         except MailboxNotFoundError:
@@ -287,7 +302,7 @@ class GmailApiGateway(MailReaderPort):
                     )
                     if mime_type == "text/plain" and not body_text:
                         body_text = decoded
-                    elif mime_type == "text/html" and not body_html:
+                    elif mime_type == "text/html" and include_html and not body_html:
                         body_html = decoded
                 except (ValueError, TypeError, UnicodeDecodeError):
                     pass
@@ -308,6 +323,12 @@ class GmailApiGateway(MailReaderPort):
                 except (ValueError, TypeError, UnicodeDecodeError):
                     pass
 
+        if max_chars > 0 and len(body_text) > max_chars:
+            body_text = (
+                body_text[:max_chars]
+                + f"\n\n[...Texto truncado por límite de {max_chars} caracteres...]"
+            )
+
         return EmailDetail(
             uid=uid,
             remitente=from_val,
@@ -317,17 +338,17 @@ class GmailApiGateway(MailReaderPort):
             fecha=date_val,
             leido=is_read,
             cuerpo_texto=body_text,
-            cuerpo_html=body_html,
+            cuerpo_html=body_html if include_html else "",
             adjuntos=attachments,
             carpeta=folder,
         )
 
     def get_unread_summary(
-        self, folder: str = "INBOX", limit: int = 5
+        self, folder: str = "INBOX", limit: int = 5, q: str | None = None
     ) -> UnreadSummary:
         """Fetch count and brief list of recent unread messages."""
         messages, _total_folder, total_unread = self.list_messages(
-            folder=folder, limit=limit, unread_only=True
+            folder=folder, limit=limit, unread_only=True, q=q
         )
         return UnreadSummary(
             carpeta=folder,

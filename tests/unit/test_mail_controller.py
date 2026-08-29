@@ -29,6 +29,14 @@ def test_mail_controller_methods():
     unread = controller.get_unread_summary(folder="INBOX", limit=5)
     assert unread.total_no_leidos == 1
 
-    detail = controller.get_message_detail(uid="1", folder="INBOX")
+    detail = controller.get_message_detail(uid="1", folder="INBOX", include_html=False)
     assert detail.uid == "1"
     assert detail.asunto == "Primer Correo"
+    assert detail.cuerpo_html == ""
+
+    # Test with q search filter
+    inbox_filtered = controller.get_inbox_messages(
+        folder="INBOX", limit=10, offset=0, sin_leer=False, q="Segundo"
+    )
+    assert len(inbox_filtered.correos) == 1
+    assert inbox_filtered.correos[0].uid == "2"

@@ -86,7 +86,7 @@ async def list_folders(
     summary="Consultar Correos de la Bandeja de Entrada o Carpeta",
     description=(
         "Consulta y pagina los correos de la carpeta indicada en modo estricto de sólo lectura. "
-        "Permite filtrar mensajes no leídos y ajustar el límite y desplazamiento."
+        "Permite filtrar mensajes no leídos, buscar por texto (q) y ajustar el límite y desplazamiento."
     ),
 )
 async def list_inbox_messages(
@@ -102,14 +102,18 @@ async def list_inbox_messages(
     sin_leer: bool = Query(
         False, description="Filtrar exclusivamente correos no leídos"
     ),
+    q: str | None = Query(
+        None, description="Filtro o término de búsqueda (ej. 'SAD', 'designacion')"
+    ),
     carpeta: str = Query("INBOX", description="Nombre de la carpeta IMAP a consultar"),
 ) -> APIResponseDTO[MailInboxResponseDTO]:
-    """Retorna la lista paginada de correos."""
+    """Retorna la lista paginada de correos con snippet de previsualización."""
     result = controller.get_inbox_messages(
         folder=carpeta,
         limit=limit,
         offset=desde,
         sin_leer=sin_leer,
+        q=q,
     )
     return APIResponseDTO[MailInboxResponseDTO](
         success=True,
@@ -132,12 +136,14 @@ async def get_unread_summary(
     limit: int = Query(
         5, ge=1, le=50, description="Cantidad máxima de no leídos recientes"
     ),
+    q: str | None = Query(None, description="Filtro o término de búsqueda (opcional)"),
     carpeta: str = Query("INBOX", description="Nombre de la carpeta IMAP"),
 ) -> APIResponseDTO[UnreadSummaryDTO]:
     """Retorna el resumen de correos no leídos."""
     summary = controller.get_unread_summary(
         folder=carpeta,
         limit=limit,
+        q=q,
     )
     return APIResponseDTO[UnreadSummaryDTO](
         success=True,
@@ -150,8 +156,8 @@ async def get_unread_summary(
     response_model=APIResponseDTO[EmailDetailDTO],
     summary="Obtener Detalle Completo de un Correo",
     description=(
-        "Obtiene el detalle completo de un mensaje por su UID (asunto, remitente, destinatarios, "
-        "cuerpo texto plano, cuerpo HTML y metadatos de adjuntos) sin alterar el flag de lectura en el servidor."
+        "Obtiene el detalle de un mensaje por su UID (asunto, remitente, destinatarios, "
+        "cuerpo texto plano y metadatos de adjuntos). Por defecto omite el HTML para ahorrar tokens."
     ),
 )
 async def get_inbox_message_detail(
@@ -162,11 +168,23 @@ async def get_inbox_message_detail(
         Query(description="Identificador o email de la cuenta de correo (opcional)"),
     ] = None,
     carpeta: str = Query("INBOX", description="Nombre de la carpeta IMAP"),
+    include_html: bool = Query(
+        False,
+        description="Incluir cuerpo HTML completo (por defecto False para ahorro de tokens)",
+    ),
+    max_chars: int = Query(
+        4000,
+        ge=100,
+        le=100000,
+        description="Límite máximo de caracteres en el cuerpo de texto",
+    ),
 ) -> APIResponseDTO[EmailDetailDTO]:
-    """Retorna el detalle completo del correo."""
+    """Retorna el detalle optimizado del correo."""
     detail = controller.get_message_detail(
         uid=uid,
         folder=carpeta,
+        include_html=include_html,
+        max_chars=max_chars,
     )
     return APIResponseDTO[EmailDetailDTO](
         success=True,
@@ -188,11 +206,23 @@ async def get_message_detail_shortcut(
         Query(description="Identificador o email de la cuenta de correo (opcional)"),
     ] = None,
     carpeta: str = Query("INBOX", description="Nombre de la carpeta IMAP"),
+    include_html: bool = Query(
+        False,
+        description="Incluir cuerpo HTML completo (por defecto False para ahorro de tokens)",
+    ),
+    max_chars: int = Query(
+        4000,
+        ge=100,
+        le=100000,
+        description="Límite máximo de caracteres en el cuerpo de texto",
+    ),
 ) -> APIResponseDTO[EmailDetailDTO]:
-    """Retorna el detalle completo del correo por UID."""
+    """Retorna el detalle optimizado del correo por UID."""
     detail = controller.get_message_detail(
         uid=uid,
         folder=carpeta,
+        include_html=include_html,
+        max_chars=max_chars,
     )
     return APIResponseDTO[EmailDetailDTO](
         success=True,

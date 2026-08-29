@@ -11,10 +11,10 @@ from src.domain.mail.entities import (
 
 
 class MailReaderPort(Protocol):
-    """Port for read-only email querying operations against an IMAP server."""
+    """Port for read-only email querying operations against an IMAP server or Gmail REST API."""
 
     def get_folders(self) -> list[EmailFolder]:
-        """Fetch all accessible IMAP folders with counts of total and unread messages."""
+        """Fetch all accessible IMAP folders or Gmail labels with counts of total and unread messages."""
         ...
 
     def list_messages(
@@ -23,6 +23,7 @@ class MailReaderPort(Protocol):
         limit: int = 20,
         offset: int = 0,
         unread_only: bool = False,
+        q: str | None = None,
     ) -> tuple[list[EmailSummary], int, int]:
         """List email summaries from a folder.
 
@@ -31,12 +32,21 @@ class MailReaderPort(Protocol):
         """
         ...
 
-    def get_message_by_uid(self, uid: str, folder: str = "INBOX") -> EmailDetail | None:
+    def get_message_by_uid(
+        self,
+        uid: str,
+        folder: str = "INBOX",
+        include_html: bool = False,
+        max_chars: int = 4000,
+    ) -> EmailDetail | None:
         """Fetch full email details by UID in read-only mode without mutating seen status."""
         ...
 
     def get_unread_summary(
-        self, folder: str = "INBOX", limit: int = 5
+        self,
+        folder: str = "INBOX",
+        limit: int = 5,
+        q: str | None = None,
     ) -> UnreadSummary:
         """Fetch count and brief list of recent unread messages."""
         ...

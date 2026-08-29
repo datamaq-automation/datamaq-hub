@@ -12,9 +12,20 @@ class GetMailDetailUseCase:
     def __init__(self, mail_reader: MailReaderPort) -> None:
         self.mail_reader = mail_reader
 
-    def execute(self, uid: str, folder: str = "INBOX") -> EmailDetailDTO:
+    def execute(
+        self,
+        uid: str,
+        folder: str = "INBOX",
+        include_html: bool = False,
+        max_chars: int = 4000,
+    ) -> EmailDetailDTO:
         """Fetches email details or raises EmailNotFoundError if message does not exist."""
-        detail = self.mail_reader.get_message_by_uid(uid=uid, folder=folder)
+        detail = self.mail_reader.get_message_by_uid(
+            uid=uid,
+            folder=folder,
+            include_html=include_html,
+            max_chars=max_chars,
+        )
         if detail is None:
             raise EmailNotFoundError(uid=uid, folder=folder)
         return MailMapper.to_detail_dto(detail)

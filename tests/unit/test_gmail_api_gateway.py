@@ -138,5 +138,68 @@ def test_gmail_api_gateway_get_message_by_uid_success():
     assert detail is not None
     assert detail.uid == "msg101"
     assert "Hola Agustin" in detail.cuerpo_texto
+    assert detail.cuerpo_html == ""  # include_html is False by default
     assert len(detail.adjuntos) == 1
     assert detail.adjuntos[0].nombre == "oferta.pdf"
+
+
+def test_gmail_api_gateway_token_optimization_options():
+    gateway = GmailApiGateway(
+        client_id="cid",
+        client_secret="sec",
+        refresh_token="ref",
+        user_email="docente@abc.gob.ar",
+    )
+
+    mock_full_data = {
+        "id": "msg102",
+        "labelIds": ["INBOX"],
+        "payload": {
+            "headers": [
+                {"name": "From", "value": "director@escuela.gob.ar"},
+                {"name": "Subject", "value": "Reunión de Personal"},
+                {"name": "Date", "value": "Wed, 28 Aug 2026 12:00:00 -0300"},
+            ],
+            "body": {"size": 0},
+            "parts": [
+                {
+                    "mimeType": "text/plain",
+                    "filename": "",
+                    "body": {
+                        "data": "Q29udGVuaWRvIGxhcmdvIGRlbCBtZW5zYWplIHBhcmEgdHJ1bmNhcg=="  # 'Contenido largo del mensaje para truncar'
+                    },
+                },
+                {
+                    "mimeType": "text/html",
+                    "filename": "",
+                    "body": {
+                        "data": "PHA+Q29udGVuaWRvIEhUTUw8L3A+"  # '<p>Contenido HTML</p>'
+                    },
+                },
+            ],
+        },
+    }
+
+    # Case A: include_html=True
+    with (
+        patch.object(gateway, "_get_access_token", return_value="mock_token"),
+        patch.object(gateway, "_make_api_request", return_value=mock_full_data),
+    ):
+        detail_html = gateway.get_message_by_uid("msg102", include_html=True)
+
+    assert detail_html is not None
+    assert "<p>Contenido HTML</p>" in detail_html.cuerpo_html
+
+    # Case B: max_chars truncation
+    with (
+        patch.object(gateway, "_get_access_token", return_value="mock_token"),
+        patch.object(gateway, "_make_api_request", return_value=mock_full_data),
+    ):
+        detail_trunc = gateway.get_message_by_uid(
+            "msg102", include_html=False, max_chars=10
+        )
+
+    assert detail_trunc is not None
+    assert "Contenido " in detail_trunc.cuerpo_texto
+    assert "truncado" in detail_trunc.cuerpo_texto
+    assert detail_trunc.cuerpo_html == ""

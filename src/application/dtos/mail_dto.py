@@ -34,6 +34,10 @@ class EmailSummaryDTO(BaseModel):
         default=False, description="Indica si el correo contiene archivos adjuntos"
     )
     carpeta: str = Field(default="INBOX", description="Nombre de la carpeta de origen")
+    snippet: str = Field(
+        default="",
+        description="Previsualización compacta de texto del correo (primeros 150 caracteres)",
+    )
 
 
 class EmailDetailDTO(BaseModel):
