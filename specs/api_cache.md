@@ -67,6 +67,8 @@ Implementa `ApiCachePort`. Contiene además el ORM encapsulado:
 | `ga4:geo_traffic` | 3_600 | 1 hora |
 | `clarity:live_insights` | 7_200 | 2 horas |
 | `clarity:dashboard_insights` | 7_200 | 2 horas |
+| `mail:unread_summary` | 60 | 1 minuto |
+| `mail:folders` | 300 | 5 minutos |
 | *(clave no registrada)* `DEFAULT_TTL` | 3_600 | 1 hora |
 
 - Timestamps **UTC correctos**: generados con `datetime.now(timezone.utc)` y
@@ -91,6 +93,8 @@ Implementa `ApiCachePort`. Contiene además el ORM encapsulado:
 | `GA4Gateway.get_conversions` | `ga4:conversions:days_{days}` |
 | `ClarityGateway.get_live_insights` | `clarity:live_insights` |
 | `ClarityGateway.get_dashboard_insights` | `clarity:dashboard_insights:days_{days}` |
+| `CachedMailReaderGateway.get_unread_summary` | `mail:unread_summary:{account}:{folder}` |
+| `CachedMailReaderGateway.get_folders` | `mail:folders:{account}` |
 
 ### 3.3 Inyección en gateways externos
 
@@ -119,6 +123,39 @@ fluyen por constructor desde la capa más externa.
 
 `src/infrastructure/fastapi/server.py` usa un *lifespan* `@asynccontextmanager` que
 ejecuta `init_db(settings.database_url)` (reemplaza `on_event("startup")`, deprecado).
+
+### 3.5 `CachedMailReaderGateway` (`src/adapters/gateways/cached_mail_reader_gateway.py`)
+
+**Wrapper** de `MailReaderPort` que inserta una capa de caché (vía `ApiCachePort`) frente al
+cuello de botella dominante del VPS: los accesos IMAP (≈ 2.6 s por consulta).
+
+- Constructor: `CachedMailReaderGateway(reader: MailReaderPort, cache: ApiCachePort, account: str)`.
+- Interfaz: implementa `MailReaderPort` completo; delega a `reader` bajo caché.
+- **Cachea** (política de contrato):
+
+| Método | Clave | TTL (resuelto por prefijo) |
+|---|---|---|
+| `get_unread_summary` | `mail:unread_summary:{account}:{folder}` | 60 s |
+| `get_folders` | `mail:folders:{account}` | 300 s |
+
+- **Passthrough** (no cachea): `list_messages` y `get_message_by_uid`. Son lecturas
+  volátiles de contenido con paginación y dependen de `q`/`offset`/`include_html`;
+  cachearlas (excepto resúmenes contados) arriesga respuestas obsoletas.
+- **Serialización:** las entidades de dominio (`EmailFolder`, `UnreadSummary`,
+  `EmailSummary`) son `dataclasses(frozen=True)`; se serializan con `dataclasses.asdict`
+  en `set` (objetos JSON puros) y se reconstruyen con `dataclasses.replace` en el `get`.
+  Queda explícito en el gateway (no depende del `default=str` del `ApiCacheGateway`).
+- Solo se cachea en **hit miss**: `get` → si devuelve valor, retorna sin tocar el IMAP;
+  si `None`, delega a `reader`, y si la operación NO lanzó excepción, hace `set`.
+
+### 3.6 Inyección del gateway cacheado en mail
+
+La ruta `mail_routes.py` construye el lector base (`ImapMailGateway`), lo envuelve con
+`CachedMailReaderGateway(reader=..., cache=..., account=...)` y lo pasa a
+`get_mail_controller(gateway=wrapper)`. El `account` es el alias de cuenta resuelto
+por `Settings.get_mail_account_config()`; la caché usa el mismo `database_url` de la app.
+Los filtros `filtro`/`q`/`limite` que NO participan en la clave reducen la efectividad de la
+caché (se delega a IMAP), garantizando corrección sobre velocidad.
 
 ## 4. Matriz de Pruebas (RED Suite)
 

@@ -167,6 +167,17 @@ Resolución de la cuenta solicitada con normalización de alias y fallback intel
 
 > **Soporte Multi-Cuenta:** Si se omite `account`, el servidor utiliza la cuenta predeterminada (`default_mail_account`). Permite consultar cuentas corporativas (`datamaq`) y docentes (`abc`) en paralelo.
 
+### 4.3 Caché de Lecturas IMAP (`gateways/cached_mail_reader_gateway.py`)
+
+El acceso IMAP es el cuello de botella del VPS (≈ 2.6 s por consulta). Para aliviar la
+latencia sin comprometer corrección, el lector base (`ImapMailGateway`) se envuelve con
+`CachedMailReaderGateway(reader, cache: ApiCachePort, account)`, inyectado en las rutas.
+
+- **`get_unread_summary`**: clave `mail:unread_summary:{account}:{folder}`, TTL 60 s.
+- **`get_folders`**: clave `mail:folders:{account}`, TTL 300 s.
+- **Passthrough** (delegación directa, sin caché): `list_messages` y `get_message_by_uid`.
+- Serializa entidades de dominio con `dataclasses.asdict`/reconstrucción en `get`.
+
 ---
 
 ## 5. Matriz de Pruebas
@@ -178,3 +189,15 @@ Resolución de la cuenta solicitada con normalización de alias y fallback intel
 | Adaptadores | `tests/unit/test_imap_mail_gateway.py` | Gateway IMAP con mock de respuestas RFC 822 y flags PEEK |
 | Config | `tests/unit/test_mail_config_resolution.py` | Resolución directa (`abc`), alias (`docente`, `abc.gob.ar`, `agustinbustos@abc.gob.ar`), fallback inteligente (default sin credenciales → primera cuenta) y `AccountNotFoundError` con `details["cuentas_disponibles"]` |
 | Integración HTTP | `tests/integration/test_mail_routes.py` | Endpoints FastAPI con `TestClient` y validación de esquemas |
+| Adaptadores (caché) | `tests/unit/test_cached_mail_reader_gateway.py` | Wrapper con `FakeReader` + `FakeCache`: hit/miss, serialización round-trip, passthrough, TTL por prefijo |
+
+### Contratos de tests del wrapper cacheado (RED Suite)
+
+| # | Escenario Gherkin | Resultado esperado |
+|---|---|---|
+| C1 | **Dado** caché con `mail:unread_summary:abc:INBOX` vigente, **Cuando** `get_unread_summary`, **Entonces** se sirve desde caché sin invocar al reader | hit |
+| C2 | **Dado** caché vacía, **Cuando** `get_unread_summary`, **Entonces** delega al reader y luego hace `set` | miss + populate |
+| C3 | **Dado** reader lanza excepción, **Cuando** `get_unread_summary`, **Entonces** propaga la excepción y NO hace `set` | no-populate on error |
+| C4 | **Dado** caché con `mail:folders:abc` vigente, **Cuando** `get_folders`, **Entonces** se sirve desde caché sin invocar al reader | hit |
+| C5 | **Dado** `list_messages` y `get_message_by_uid`, **Cuando** se invocan, **Entonces** delegan directo al reader sin tocar la caché | passthrough |
+| C6 | **Dado** un `FakeCache` con contadores, **Entonces** los parámetros de la clave usan el prefijo registrado en `_ttl_by_prefix` | TTL resuelto por prefijo |
