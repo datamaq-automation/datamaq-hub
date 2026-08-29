@@ -61,3 +61,13 @@ class InvalidEmailAddressError(MailDomainException):
             f"La dirección de correo '{address}' no tiene un formato válido."
         )
         self.address = address
+
+
+class AccountNotFoundError(MailDomainException):
+    """Raised when a requested mail account is not configured."""
+
+    def __init__(self, account: str) -> None:
+        super().__init__(
+            f"La cuenta de correo '{account}' no está configurada en el sistema."
+        )
+        self.account = account

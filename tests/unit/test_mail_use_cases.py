@@ -203,7 +203,9 @@ def test_settings_mail_account_resolution():
     default_cfg = settings.get_mail_account_config()
     assert default_cfg.user == "info@datamaq.com.ar"
 
-    # 3. Cuenta inexistente lanza ValueError
-    with pytest.raises(ValueError) as exc_info:
+    # 3. Cuenta inexistente lanza AccountNotFoundError
+    from src.domain.mail.exceptions import AccountNotFoundError
+
+    with pytest.raises(AccountNotFoundError) as exc_info:
         settings.get_mail_account_config("cuenta_desconocida")
     assert "cuenta_desconocida" in str(exc_info.value)

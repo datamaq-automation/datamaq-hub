@@ -1,4 +1,4 @@
-from typing import Any
+from typing import Any, cast
 
 from src.application.dtos.common_dto import ErrorDetailDTO, ErrorResponseDTO
 from src.domain.calculadora_cos_fi.exceptions import (
@@ -27,6 +27,7 @@ from src.domain.leads.exceptions import (
 )
 from src.domain.liquidacion.exceptions import LiquidacionDomainException
 from src.domain.mail.exceptions import (
+    AccountNotFoundError,
     EmailNotFoundError,
     MailAuthenticationError,
     MailboxNotFoundError,
@@ -87,6 +88,9 @@ class ErrorPresenter:
         elif isinstance(exc, MailboxNotFoundError):
             code_name = "MAILBOX_NOT_FOUND"
             status_code = 404
+        elif isinstance(exc, AccountNotFoundError):
+            code_name = "ACCOUNT_NOT_FOUND"
+            status_code = 404
         elif isinstance(exc, MailAuthenticationError):
             code_name = "MAIL_AUTHENTICATION_ERROR"
             status_code = 401
@@ -134,7 +138,12 @@ class ErrorPresenter:
             status_code = 422
 
         msg = getattr(exc, "message", str(exc))
-        details = getattr(exc, "details", None)
+        raw_details: Any = getattr(exc, "details", None)
+        details: dict[str, Any] | None = None
+        if isinstance(raw_details, dict):
+            details = cast(dict[str, Any], raw_details)
+        elif isinstance(raw_details, str) and raw_details.strip():
+            details = {"detalle": raw_details.strip()}
 
         payload = ErrorResponseDTO(
             success=False,

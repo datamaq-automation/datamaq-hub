@@ -110,9 +110,9 @@ class Settings(BaseSettings):
                 timeout_seconds=self.mail_imap_timeout_seconds,
             )
 
-        raise ValueError(
-            f"Cuenta de correo '{account_name}' no configurada en mail_accounts ni en variables de entorno."
-        )
+        from src.domain.mail.exceptions import AccountNotFoundError
+
+        raise AccountNotFoundError(account_name or self.default_mail_account)
 
 
 @lru_cache
