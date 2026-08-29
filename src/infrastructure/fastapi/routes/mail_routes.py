@@ -29,19 +29,33 @@ def get_configured_mail_controller(
     ] = None,
 ) -> MailController:
     """Proveedor de dependencias para MailController configurado según la cuenta solicitada."""
+    from src.adapters.gateways.gmail_api_gateway import GmailApiGateway
+    from src.domain.mail.ports import MailReaderPort
+
     settings = get_settings()
     account_config = settings.get_mail_account_config(account)
-    gateway = ImapMailGateway(
-        host=account_config.host,
-        port=account_config.port,
-        user=account_config.user,
-        password=account_config.password,
-        use_ssl=account_config.use_ssl,
-        timeout_seconds=account_config.timeout_seconds,
-        oauth2_client_id=account_config.oauth2_client_id,
-        oauth2_client_secret=account_config.oauth2_client_secret,
-        oauth2_refresh_token=account_config.oauth2_refresh_token,
-    )
+
+    gateway: MailReaderPort
+    if account_config.oauth2_refresh_token:
+        gateway = GmailApiGateway(
+            client_id=account_config.oauth2_client_id,
+            client_secret=account_config.oauth2_client_secret,
+            refresh_token=account_config.oauth2_refresh_token,
+            user_email=account_config.user,
+            timeout_seconds=account_config.timeout_seconds,
+        )
+    else:
+        gateway = ImapMailGateway(
+            host=account_config.host,
+            port=account_config.port,
+            user=account_config.user,
+            password=account_config.password,
+            use_ssl=account_config.use_ssl,
+            timeout_seconds=account_config.timeout_seconds,
+            oauth2_client_id=account_config.oauth2_client_id,
+            oauth2_client_secret=account_config.oauth2_client_secret,
+            oauth2_refresh_token=account_config.oauth2_refresh_token,
+        )
     return get_mail_controller(gateway=gateway)
 
 

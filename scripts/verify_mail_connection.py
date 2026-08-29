@@ -28,22 +28,38 @@ def verify_account(alias: str, settings) -> bool:
         print(f"❌ \033[1;31mError:\033[0m {e.message}")
         return False
 
-    auth_mode = "OAuth2 XOAUTH2" if config.oauth2_refresh_token else "Básica (Password)"
-    print(f"  • Servidor: {config.host}:{config.port} (SSL: {config.use_ssl})")
-    print(f"  • Usuario:  {config.user} ({auth_mode})")
-    print(f"  • Timeout:  {config.timeout_seconds}s")
+    from src.adapters.gateways.gmail_api_gateway import GmailApiGateway
+    from src.domain.mail.ports import MailReaderPort
 
-    gateway = ImapMailGateway(
-        host=config.host,
-        port=config.port,
-        user=config.user,
-        password=config.password,
-        use_ssl=config.use_ssl,
-        timeout_seconds=config.timeout_seconds,
-        oauth2_client_id=config.oauth2_client_id,
-        oauth2_client_secret=config.oauth2_client_secret,
-        oauth2_refresh_token=config.oauth2_refresh_token,
-    )
+    gateway: MailReaderPort
+    if config.oauth2_refresh_token:
+        auth_mode = "Google OAuth2 (Gmail REST API)"
+        print("  • API:      Gmail REST API (OAuth2)")
+        print(f"  • Usuario:  {config.user} ({auth_mode})")
+        print(f"  • Timeout:  {config.timeout_seconds}s")
+        gateway = GmailApiGateway(
+            client_id=config.oauth2_client_id,
+            client_secret=config.oauth2_client_secret,
+            refresh_token=config.oauth2_refresh_token,
+            user_email=config.user,
+            timeout_seconds=config.timeout_seconds,
+        )
+    else:
+        auth_mode = "Básica (Password)"
+        print(f"  • Servidor: {config.host}:{config.port} (SSL: {config.use_ssl})")
+        print(f"  • Usuario:  {config.user} ({auth_mode})")
+        print(f"  • Timeout:  {config.timeout_seconds}s")
+        gateway = ImapMailGateway(
+            host=config.host,
+            port=config.port,
+            user=config.user,
+            password=config.password,
+            use_ssl=config.use_ssl,
+            timeout_seconds=config.timeout_seconds,
+            oauth2_client_id=config.oauth2_client_id,
+            oauth2_client_secret=config.oauth2_client_secret,
+            oauth2_refresh_token=config.oauth2_refresh_token,
+        )
 
     t0 = time.perf_counter()
     try:
