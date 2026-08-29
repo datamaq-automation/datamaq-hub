@@ -98,3 +98,35 @@ def test_recibos_crud_y_conciliacion_routes(client: TestClient) -> None:
     assert r_notfound.status_code == 404
     assert r_notfound.json()["success"] is False
     assert r_notfound.json()["error"]["code"] == "RECIBO_NOT_FOUND"
+
+
+def test_parse_solo_resumen(client: TestClient, sample_pdf_bytes: bytes) -> None:
+    """R-RI1: solo_resumen=true retorna claves exactas del ReceiptSummaryDTO."""
+    response = client.post(
+        "/api/v1/recibos/parse?solo_resumen=true",
+        files={"file": ("recibo.pdf", sample_pdf_bytes, "application/pdf")},
+    )
+    assert response.status_code == 200
+    data = response.json()["data"]
+    assert set(data.keys()) == {
+        "total_haberes",
+        "total_descuentos",
+        "neto_a_cobrar",
+        "periodo",
+        "cargos",
+        "horas_totales",
+        "antiguedad_max_anios",
+    }
+
+
+def test_parse_completo_default(client: TestClient, sample_pdf_bytes: bytes) -> None:
+    """R-RI2: parse por defecto mantiene el shape completo actual."""
+    response = client.post(
+        "/api/v1/recibos/parse",
+        files={"file": ("recibo.pdf", sample_pdf_bytes, "application/pdf")},
+    )
+    assert response.status_code == 200
+    data = response.json()["data"]
+    assert data["tipo_recibo"] == "DGCYE_PBA"
+    assert len(data["liquidaciones"]) == 14
+    assert data["totales"]["total_liquido"] == 2585423.32

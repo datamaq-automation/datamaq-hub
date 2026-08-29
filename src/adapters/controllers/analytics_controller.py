@@ -84,9 +84,34 @@ class AnalyticsController:
         """Audita el gasto acumulado del día contra el presupuesto límite."""
         return self._ads_gateway.get_daily_budget_pacing()
 
-    def get_ads_campaigns(self, days: int = 7) -> dict[str, Any]:
-        """Obtiene el rendimiento histórico por campaña."""
-        return self._ads_gateway.get_campaign_performance(days=days)
+    def get_ads_campaigns(self, days: int = 7, summary: bool = True) -> dict[str, Any]:
+        """Obtiene el rendimiento por campaña; con ``summary=True`` agrega métricas sin lista."""
+        report = self._ads_gateway.get_campaign_performance(days=days)
+        if not summary or report.get("status") != "success":
+            return report
+
+        campaigns = report.get("campaigns", [])
+        impressions = sum(c.get("impressions") or 0 for c in campaigns)
+        clicks = sum(c.get("clicks") or 0 for c in campaigns)
+        cost_ars = sum(c.get("cost_ars") or 0.0 for c in campaigns)
+        conversions = sum(c.get("conversions") or 0 for c in campaigns)
+        ctr_percent = round((clicks / impressions * 100.0) if impressions else 0.0, 2)
+        cpc_avg_ars = round((cost_ars / clicks) if clicks else 0.0, 2)
+
+        return {
+            "status": report.get("status"),
+            "customer_id": report.get("customer_id"),
+            "period_days": report.get("period_days"),
+            "total_campaigns": report.get("total_campaigns", len(campaigns)),
+            "summary": {
+                "impressions": impressions,
+                "clicks": clicks,
+                "cost_ars": round(cost_ars, 2),
+                "ctr_percent": ctr_percent,
+                "conversions": conversions,
+                "cpc_avg_ars": cpc_avg_ars,
+            },
+        }
 
     def get_ads_search_terms(self, days: int = 7, limit: int = 20) -> dict[str, Any]:
         """Obtiene los términos de búsqueda reales de usuarios."""

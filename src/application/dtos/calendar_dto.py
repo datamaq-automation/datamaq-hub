@@ -24,6 +24,17 @@ class CalendarEventDTO(BaseModel):
     cuenta: str = ""
 
 
+class CalendarEventCompactDTO(BaseModel):
+    """Proyección reducida de evento para consumo de bajo-token (OpenClaw)."""
+
+    id_evento: str
+    titulo: str
+    inicio: datetime
+    fin: datetime
+    estado: str = "CONFIRMED"
+    cuenta: str = ""
+
+
 class CreateEventDTO(BaseModel):
     """Input DTO for creating a new calendar event."""
 

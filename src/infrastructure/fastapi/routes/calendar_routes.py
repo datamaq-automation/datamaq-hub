@@ -13,6 +13,7 @@ from src.application.dtos.calendar_docencia_dto import (
 )
 from src.application.dtos.calendar_dto import (
     AvailabilityResponseDTO,
+    CalendarEventCompactDTO,
     CalendarEventDTO,
     CreateEventDTO,
     UpdateEventDTO,
@@ -38,7 +39,23 @@ def get_configured_calendar_controller() -> CalendarController:
     )
 
 
-@router.get("/eventos", response_model=APIResponseDTO[list[CalendarEventDTO]])
+def _proyectar_compacto(event: CalendarEventDTO) -> CalendarEventCompactDTO:
+    """Reduce un evento a su representación de bajo-token (compact)."""
+    return CalendarEventCompactDTO(
+        id_evento=event.id_evento,
+        titulo=event.titulo,
+        inicio=event.inicio,
+        fin=event.fin,
+        estado=event.estado,
+        cuenta=event.cuenta,
+    )
+
+
+@router.get(
+    "/eventos",
+    response_model=APIResponseDTO[list[CalendarEventDTO]]
+    | APIResponseDTO[list[CalendarEventCompactDTO]],
+)
 async def list_events(
     controller: Annotated[
         CalendarController, Depends(get_configured_calendar_controller)
@@ -51,12 +68,18 @@ async def list_events(
         datetime | None,
         Query(description="Fecha y hora de fin máxima (ISO 8601)"),
     ] = None,
-    limit: Annotated[int, Query(ge=1, le=200)] = 50,
+    limit: Annotated[int, Query(ge=1, le=200)] = 20,
     account: Annotated[
         str | None,
         Query(description="Cuenta de correo asociada (opcional)"),
     ] = None,
-) -> APIResponseDTO[list[CalendarEventDTO]]:
+    compact: Annotated[
+        bool, Query(description="Proyectar solo campos esenciales (bajo-token)")
+    ] = True,
+) -> (
+    APIResponseDTO[list[CalendarEventDTO]]
+    | APIResponseDTO[list[CalendarEventCompactDTO]]
+):
     """Lists calendar events within an optional date range."""
     settings = get_settings()
     effective_account = account or settings.default_mail_account
@@ -66,6 +89,10 @@ async def list_events(
         end_date=fecha_hasta,
         limit=limit,
     )
+    if compact:
+        return APIResponseDTO[list[CalendarEventCompactDTO]](
+            success=True, data=[_proyectar_compacto(e) for e in result]
+        )
     return APIResponseDTO[list[CalendarEventDTO]](success=True, data=result)
 
 

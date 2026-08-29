@@ -132,3 +132,17 @@ class ReceiptResponseDTO(BaseModel):
     )
     totales: TotalesConsolidadosDTO
     metadata: dict[str, Any] = Field(default_factory=dict[str, Any])
+
+
+class ReceiptSummaryDTO(BaseModel):
+    """Resumen reducido del recibo para consumo de bajo-token (OpenClaw)."""
+
+    model_config = ConfigDict(extra="ignore")
+
+    total_haberes: float
+    total_descuentos: float
+    neto_a_cobrar: float
+    periodo: str
+    cargos: list[CargoDTO] = Field(default_factory=list[CargoDTO])
+    horas_totales: float
+    antiguedad_max_anios: int | None = None

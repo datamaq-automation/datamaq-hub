@@ -14,7 +14,7 @@ from datetime import datetime, timedelta, timezone
 from functools import cache
 from typing import Any
 
-from sqlalchemy import DateTime, Engine, Integer, Text, create_engine, select
+from sqlalchemy import DateTime, Engine, Integer, Text, create_engine, event, select
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import DeclarativeBase, Mapped, Session, mapped_column, sessionmaker
 
@@ -68,18 +68,31 @@ def _utcnow() -> datetime:
     return datetime.now(timezone.utc).replace(tzinfo=None)
 
 
+def _habilitar_wal(engine: Engine) -> None:
+    """Activa PRAGMA journal_mode=WAL en cada conexión de un engine SQLite file."""
+
+    @event.listens_for(engine, "connect")
+    def _set_wal(dbapi_connection: Any, _connection_record: Any) -> None:
+        cursor: Any = dbapi_connection.cursor()
+        cursor.execute("PRAGMA journal_mode=WAL")
+        cursor.close()
+
+
 @cache
 def get_engine(database_url: str | None) -> Engine | None:
     """Retorna el motor SQLAlchemy cacheado por URL. None si no hay BD configurada o si falla la conexión."""
     if not database_url:
         return None
     try:
-        return create_engine(
+        engine = create_engine(
             database_url,
             pool_pre_ping=True,
             pool_recycle=3600,
             echo=False,
         )
+        if database_url.startswith("sqlite") and ":memory:" not in database_url:
+            _habilitar_wal(engine)
+        return engine
     except (SQLAlchemyError, OSError, ValueError, RuntimeError) as exc:
         logger.debug("ApiCache: No se pudo crear engine para %s: %s", database_url, exc)
         return None

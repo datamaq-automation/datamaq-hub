@@ -74,3 +74,41 @@ def test_delete_contact_route(contacts_client: TestClient):
     res_get = contacts_client.get("/api/v1/contactos/1")
     assert res_get.status_code == 404
     assert res_get.json()["error"]["code"] == "CONTACT_NOT_FOUND"
+
+
+def test_list_contacts_route_full_default(contacts_client: TestClient):
+    """R-K1: /contactos por defecto retorna claves completas (sin romper consumidores)."""
+    response = contacts_client.get("/api/v1/contactos")
+    assert response.status_code == 200
+    data = response.json()
+    item = data["data"]["contactos"][0]
+    assert set(item.keys()) == {
+        "id_contacto",
+        "nombre",
+        "nombre_pila",
+        "apellido",
+        "email",
+        "telefono",
+        "organizacion",
+        "notas",
+        "vcard",
+        "modificado",
+        "cuenta",
+        "grupos",
+    }
+
+
+def test_list_contacts_route_compact(contacts_client: TestClient):
+    """R-K2: compact=true retorna claves reducidas de contacto."""
+    response = contacts_client.get("/api/v1/contactos?compact=true")
+    assert response.status_code == 200
+    data = response.json()
+    assert data["data"]["total"] == 2
+    item = data["data"]["contactos"][0]
+    assert set(item.keys()) == {
+        "id_contacto",
+        "nombre",
+        "email",
+        "telefono",
+        "organizacion",
+    }

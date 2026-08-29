@@ -4,7 +4,8 @@ from src.adapters.presenters.receipt_presenter import ReceiptPresenter
 from src.application.dtos.common_dto import APIResponseDTO
 from src.application.dtos.conciliacion_dto import ConciliacionResponseDTO
 from src.application.dtos.horarios_docencia_dto import DesignacionDocenteDTO
-from src.application.dtos.receipt_dto import ReceiptResponseDTO
+from src.application.dtos.receipt_dto import ReceiptResponseDTO, ReceiptSummaryDTO
+from src.application.mappers.receipt_mapper import ReceiptMapper
 from src.application.use_cases.conciliar_recibo import ConciliarReciboUseCase
 from src.application.use_cases.crear_designaciones_desde_recibo import (
     CrearDesignacionesDesdeReciboUseCase,
@@ -39,11 +40,16 @@ class ReceiptController:
         content: bytes,
         filename: str = "receipt.pdf",
         persistir: bool = True,
-    ) -> APIResponseDTO[ReceiptResponseDTO]:
+        solo_resumen: bool = False,
+    ) -> APIResponseDTO[ReceiptResponseDTO] | APIResponseDTO[ReceiptSummaryDTO]:
         """Execute receipt parsing on byte stream and present envelope."""
         receipt_dto = self._parse_use_case.execute_bytes(
             content, filename=filename, persistir=persistir
         )
+        if solo_resumen:
+            return APIResponseDTO[ReceiptSummaryDTO](
+                success=True, data=ReceiptMapper.to_summary(receipt_dto)
+            )
         return ReceiptPresenter.present(receipt_dto)
 
     def obtener_por_id(self, id_recibo: str) -> APIResponseDTO[ReceiptResponseDTO]:

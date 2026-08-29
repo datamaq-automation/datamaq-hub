@@ -54,3 +54,23 @@ class ContactListResponseDTO(BaseModel):
     total: int
     cuenta: str
     contactos: list[ContactDTO] = Field(default_factory=list[ContactDTO])
+
+
+class ContactoCompactoDTO(BaseModel):
+    """Proyección reducida de contacto para consumo de bajo-token (OpenClaw)."""
+
+    id_contacto: str
+    nombre: str
+    email: str = ""
+    telefono: str = ""
+    organizacion: str = ""
+
+
+class ContactListCompactResponseDTO(BaseModel):
+    """Lista paginada con contactos proyectados de forma compacta."""
+
+    total: int
+    cuenta: str
+    contactos: list[ContactoCompactoDTO] = Field(
+        default_factory=list[ContactoCompactoDTO]
+    )

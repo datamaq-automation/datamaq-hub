@@ -16,6 +16,7 @@
 | **[`contacts_manager.md`](contacts_manager.md)** | Módulo de Libreta de Contactos | **En Desarrollo** | Libreta de direcciones corporativa sincronizada con Roundcube. |
 | **[`calendar_manager.md`](calendar_manager.md)** | Módulo de Calendario y Eventos | **Aprobado / Implementado** | Gestión de eventos, citas y disponibilidad horaria. |
 | **[`horarios_docencia.md`](horarios_docencia.md)** | Horarios de Docencia y Compatibilidad | **Aprobado / Implementado** | Auditoría estatutaria DGCyE PBA, CRUD de designaciones y proyección de clases. |
+| **[`endpoints_optimization.md`](endpoints_optimization.md)** | Optimización de Endpoints y VPS (OpenClaw) | **En Implementación** | Compresión gzip, caché SQLite WAL, modos compact/resumen y límites reducidos para ahorro de tokens. |
 
 ---
 

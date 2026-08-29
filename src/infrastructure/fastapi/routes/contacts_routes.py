@@ -9,7 +9,9 @@ from src.adapters.controllers.dependencies import get_contacts_controller
 from src.application.dtos.common_dto import APIResponseDTO
 from src.application.dtos.contacts_dto import (
     ContactDTO,
+    ContactListCompactResponseDTO,
     ContactListResponseDTO,
+    ContactoCompactoDTO,
     CreateContactDTO,
     UpdateContactDTO,
 )
@@ -27,7 +29,22 @@ def get_configured_contacts_controller() -> ContactsController:
     return get_contacts_controller(repository=gateway)
 
 
-@router.get("", response_model=APIResponseDTO[ContactListResponseDTO])
+def _proyectar_compacto(contacto: ContactDTO) -> ContactoCompactoDTO:
+    """Reduce un contacto a su representación de bajo-token (compact)."""
+    return ContactoCompactoDTO(
+        id_contacto=contacto.id_contacto,
+        nombre=contacto.nombre,
+        email=contacto.email,
+        telefono=contacto.telefono,
+        organizacion=contacto.organizacion,
+    )
+
+
+@router.get(
+    "",
+    response_model=APIResponseDTO[ContactListResponseDTO]
+    | APIResponseDTO[ContactListCompactResponseDTO],
+)
 async def list_contacts(
     controller: Annotated[
         ContactsController, Depends(get_configured_contacts_controller)
@@ -36,19 +53,34 @@ async def list_contacts(
         str | None,
         Query(description="Búsqueda por texto (nombre, apellido, email, etc.)"),
     ] = None,
-    limit: Annotated[int, Query(ge=1, le=200)] = 50,
+    limit: Annotated[int, Query(ge=1, le=200)] = 20,
     offset: Annotated[int, Query(ge=0)] = 0,
     account: Annotated[
         str | None,
         Query(description="Cuenta de correo asociada (opcional)"),
     ] = None,
-) -> APIResponseDTO[ContactListResponseDTO]:
+    compact: Annotated[
+        bool, Query(description="Proyectar solo campos esenciales (bajo-token)")
+    ] = False,
+) -> (
+    APIResponseDTO[ContactListResponseDTO]
+    | APIResponseDTO[ContactListCompactResponseDTO]
+):
     """Lists and searches address book contacts."""
     settings = get_settings()
     effective_account = account or settings.default_mail_account
     result = controller.list_contacts(
         account=effective_account, query=q, limit=limit, offset=offset
     )
+    if compact:
+        return APIResponseDTO[ContactListCompactResponseDTO](
+            success=True,
+            data=ContactListCompactResponseDTO(
+                total=result.total,
+                cuenta=result.cuenta,
+                contactos=[_proyectar_compacto(c) for c in result.contactos],
+            ),
+        )
     return APIResponseDTO[ContactListResponseDTO](success=True, data=result)
 
 

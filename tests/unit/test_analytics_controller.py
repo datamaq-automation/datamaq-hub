@@ -129,3 +129,113 @@ def test_analytics_controller_delegated_methods() -> None:
     assert controller.get_ga4_conversions(days=7) == {"rows": []}
     insights = controller.get_clarity_insights()
     assert insights["project_id"] == "wx5hfvmv5y"
+
+
+def _reporte_campanas_success() -> dict:
+    """Reporte Google Ads success con 2 campañas y métricas conocidas."""
+    return {
+        "status": "success",
+        "customer_id": "4057778237",
+        "period_days": 7,
+        "total_campaigns": 2,
+        "total_cost_ars": 300.0,
+        "campaigns": [
+            {
+                "id": "1",
+                "name": "C1",
+                "status": "ENABLED",
+                "impressions": 1000,
+                "clicks": 100,
+                "cost_ars": 200.0,
+                "avg_cpc_ars": 2.0,
+                "conversions": 5,
+            },
+            {
+                "id": "2",
+                "name": "C2",
+                "status": "ENABLED",
+                "impressions": 500,
+                "clicks": 50,
+                "cost_ars": 100.0,
+                "avg_cpc_ars": 2.0,
+                "conversions": 3,
+            },
+        ],
+    }
+
+
+def _controller_con_ads(mock_ads: MagicMock) -> AnalyticsController:
+    return AnalyticsController(
+        google_ads_gateway=mock_ads,
+        ga4_gateway=MagicMock(),
+        clarity_gateway=MagicMock(),
+    )
+
+
+def test_ads_campaigns_summary_agrega() -> None:
+    """R-A1: summary=True consolida métricas y elimina la lista campaigns."""
+    mock_ads = MagicMock()
+    mock_ads.get_campaign_performance.return_value = _reporte_campanas_success()
+    controller = _controller_con_ads(mock_ads)
+
+    result = controller.get_ads_campaigns(days=7, summary=True)
+
+    assert "campaigns" not in result
+    assert result["total_campaigns"] == 2
+    summary = result["summary"]
+    assert summary["impressions"] == 1500
+    assert summary["clicks"] == 150
+    assert summary["cost_ars"] == 300.0
+    assert summary["ctr_percent"] == 10.0
+    assert summary["conversions"] == 8
+    assert summary["cpc_avg_ars"] == 2.0
+
+
+def test_ads_campaigns_full_passthrough() -> None:
+    """R-A2: summary=False retorna el payload original con campaigns."""
+    report = _reporte_campanas_success()
+    mock_ads = MagicMock()
+    mock_ads.get_campaign_performance.return_value = report
+    controller = _controller_con_ads(mock_ads)
+
+    result = controller.get_ads_campaigns(days=7, summary=False)
+
+    assert result == report
+    assert "campaigns" in result
+
+
+def test_ads_campaigns_error_passthrough() -> None:
+    """R-A3: status != success → passthrough sin agregación."""
+    error_report = {"status": "missing_credentials", "details": {"x": 1}}
+    mock_ads = MagicMock()
+    mock_ads.get_campaign_performance.return_value = error_report
+    controller = _controller_con_ads(mock_ads)
+
+    result = controller.get_ads_campaigns(days=7, summary=True)
+
+    assert result == error_report
+
+
+def test_ads_campaigns_summary_ceros_defensivos() -> None:
+    """R-A4: campañas vacías → summary con ceros (sin ZeroDivisionError)."""
+    empty_report = {
+        "status": "success",
+        "customer_id": "4057778237",
+        "period_days": 7,
+        "total_campaigns": 0,
+        "total_cost_ars": 0.0,
+        "campaigns": [],
+    }
+    mock_ads = MagicMock()
+    mock_ads.get_campaign_performance.return_value = empty_report
+    controller = _controller_con_ads(mock_ads)
+
+    result = controller.get_ads_campaigns(days=7, summary=True)
+
+    summary = result["summary"]
+    assert summary["impressions"] == 0
+    assert summary["clicks"] == 0
+    assert summary["cost_ars"] == 0.0
+    assert summary["ctr_percent"] == 0.0
+    assert summary["conversions"] == 0
+    assert summary["cpc_avg_ars"] == 0.0

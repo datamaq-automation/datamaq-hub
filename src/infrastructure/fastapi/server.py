@@ -8,6 +8,7 @@ from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from starlette.exceptions import HTTPException as StarletteHTTPException
+from starlette.middleware.gzip import GZipMiddleware
 
 from src.adapters.gateways.api_cache_gateway import init_db
 from src.adapters.gateways.sql_designacion_docente_gateway import init_horarios_db
@@ -57,6 +58,11 @@ from src.infrastructure.fastapi.routes.tools_routes import (
 from src.infrastructure.pydantic.config import get_settings
 
 
+def _resolve_database_url(raw: str) -> str:
+    """Resuelve la URL de BD con fallback SQLite file cuando está vacía."""
+    return raw or "sqlite:///data/datamaq_hub.db"
+
+
 def create_app() -> FastAPI:
     """Create and configure FastAPI application instance."""
     settings = get_settings()
@@ -64,8 +70,9 @@ def create_app() -> FastAPI:
     @asynccontextmanager
     async def lifespan(_: FastAPI) -> AsyncIterator[None]:
         """Inicializa los schemas de BD (caché y horarios) al arrancar el servidor."""
-        init_db(settings.database_url)
-        init_horarios_db(settings.database_url)
+        effective = _resolve_database_url(settings.database_url)
+        init_db(effective)
+        init_horarios_db(effective)
         yield
 
     app = FastAPI(
@@ -86,6 +93,9 @@ def create_app() -> FastAPI:
         allow_methods=["*"],
         allow_headers=["*"],
     )
+
+    # Compresión gzip para respuestas mayores a 1 KB (ahorro de tokens/ancho de banda)
+    app.add_middleware(GZipMiddleware, minimum_size=1000)
 
     # Domain exception handlers
     @app.exception_handler(DomainException)

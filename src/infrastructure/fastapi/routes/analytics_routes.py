@@ -128,9 +128,12 @@ async def get_ads_budget_pacing(
 async def get_ads_campaigns(
     controller: Annotated[AnalyticsController, Depends(get_analytics_controller)],
     days: int = Query(7, ge=1, le=90, description="Días hacia atrás a analizar"),
+    summary: bool = Query(
+        True, description="True para agregar métricas sin lista (bajo-token)"
+    ),
 ) -> APIResponseDTO[dict[str, Any]]:
     """Retorna el reporte de rendimiento por campaña."""
-    result = controller.get_ads_campaigns(days=days)
+    result = controller.get_ads_campaigns(days=days, summary=summary)
     return APIResponseDTO[dict[str, Any]](success=True, data=result)
 
 

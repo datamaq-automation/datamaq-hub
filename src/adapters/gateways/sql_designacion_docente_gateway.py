@@ -120,6 +120,8 @@ def init_horarios_db(database_url: str) -> None:
         engine = create_engine(database_url, pool_pre_ping=True)
         Base.metadata.create_all(engine, checkfirst=True)
         with engine.connect() as conn:
+            if database_url.startswith("sqlite") and ":memory:" not in database_url:
+                conn.execute(text("PRAGMA journal_mode=WAL"))
             try:
                 cursor = conn.execute(text("PRAGMA table_info(horarios_designaciones)"))
                 existing_cols = {row[1] for row in cursor.fetchall()}

@@ -85,3 +85,51 @@ def test_delete_event_route(calendar_client: TestClient):
     res_get = calendar_client.get("/api/v1/calendario/eventos/1")
     assert res_get.status_code == 404
     assert res_get.json()["error"]["code"] == "EVENT_NOT_FOUND"
+
+
+def test_list_events_route_compact_default(calendar_client: TestClient):
+    """R-C1: /eventos por defecto retorna claves compactas."""
+    response = calendar_client.get("/api/v1/calendario/eventos")
+    assert response.status_code == 200
+    data = response.json()
+    assert data["success"] is True
+    item = data["data"][0]
+    assert set(item.keys()) == {
+        "id_evento",
+        "titulo",
+        "inicio",
+        "fin",
+        "estado",
+        "cuenta",
+    }
+
+
+def test_list_events_route_full(calendar_client: TestClient):
+    """R-C2: compact=false retorna claves completas de CalendarEventDTO."""
+    response = calendar_client.get("/api/v1/calendario/eventos?compact=false")
+    assert response.status_code == 200
+    data = response.json()
+    item = data["data"][0]
+    assert set(item.keys()) == {
+        "id_evento",
+        "id_calendario",
+        "uid",
+        "titulo",
+        "inicio",
+        "fin",
+        "descripcion",
+        "ubicacion",
+        "todo_el_dia",
+        "estado",
+        "asistentes",
+        "url",
+        "categorias",
+        "cuenta",
+    }
+
+
+def test_list_events_route_limit_20(calendar_client: TestClient):
+    """R-C3: limit=20 es aceptado (default reducido)."""
+    response = calendar_client.get("/api/v1/calendario/eventos?limit=20")
+    assert response.status_code == 200
+    assert response.json()["success"] is True

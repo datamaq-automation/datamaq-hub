@@ -7,14 +7,15 @@ from src.adapters.controllers.receipt_controller import ReceiptController
 from src.application.dtos.common_dto import APIResponseDTO
 from src.application.dtos.conciliacion_dto import ConciliacionResponseDTO
 from src.application.dtos.horarios_docencia_dto import DesignacionDocenteDTO
-from src.application.dtos.receipt_dto import ReceiptResponseDTO
+from src.application.dtos.receipt_dto import ReceiptResponseDTO, ReceiptSummaryDTO
 
 router = APIRouter(prefix="/recibos", tags=["Recibos"])
 
 
 @router.post(
     "/parse",
-    response_model=APIResponseDTO[ReceiptResponseDTO],
+    response_model=APIResponseDTO[ReceiptResponseDTO]
+    | APIResponseDTO[ReceiptSummaryDTO],
     summary="Parsear e importar recibo de sueldo en PDF",
     description=(
         "Sube un recibo de sueldo en formato PDF (DGCyE PBA o genérico), extrae los datos estructurados "
@@ -32,7 +33,10 @@ async def parse_receipt(
     persistir: Annotated[
         bool, Query(description="True para almacenar el recibo en la base de datos")
     ] = True,
-) -> APIResponseDTO[ReceiptResponseDTO]:
+    solo_resumen: Annotated[
+        bool, Query(description="Retornar solo el resumen reducido (bajo-token)")
+    ] = False,
+) -> APIResponseDTO[ReceiptResponseDTO] | APIResponseDTO[ReceiptSummaryDTO]:
     filename = file.filename or "receipt.pdf"
 
     if not filename.lower().endswith(".pdf") and file.content_type != "application/pdf":
@@ -55,7 +59,9 @@ async def parse_receipt(
             detail="The uploaded PDF file is empty.",
         )
 
-    return controller.parse_bytes(content, filename=filename, persistir=persistir)
+    return controller.parse_bytes(
+        content, filename=filename, persistir=persistir, solo_resumen=solo_resumen
+    )
 
 
 @router.get(

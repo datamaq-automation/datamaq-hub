@@ -8,6 +8,7 @@ from src.application.dtos.receipt_dto import (
     EstablecimientoDTO,
     LiquidacionSecuenciaDTO,
     ReceiptResponseDTO,
+    ReceiptSummaryDTO,
     ResumenLiquidoItemDTO,
     TotalesConsolidadosDTO,
 )
@@ -95,4 +96,22 @@ class ReceiptMapper:
                 total_liquido=entity.totales.total_liquido,
             ),
             metadata=dict(entity.metadata),
+        )
+
+    @staticmethod
+    def to_summary(dto: ReceiptResponseDTO) -> ReceiptSummaryDTO:
+        """Proyecta un ReceiptResponseDTO a su resumen reducido de bajo-token."""
+        cargos = [liq.cargo for liq in dto.liquidaciones]
+        horas_totales = round(sum(c.carga_horaria or 0.0 for c in cargos), 2)
+        antiguedades = [
+            c.antiguedad_anios for c in cargos if c.antiguedad_anios is not None
+        ]
+        return ReceiptSummaryDTO(
+            total_haberes=dto.totales.total_haberes,
+            total_descuentos=dto.totales.total_descuentos,
+            neto_a_cobrar=dto.totales.total_liquido,
+            periodo=dto.agente.mes_pago,
+            cargos=cargos,
+            horas_totales=horas_totales,
+            antiguedad_max_anios=max(antiguedades) if antiguedades else None,
         )
