@@ -92,12 +92,18 @@ class ImapMailGateway(MailReaderPort):
                 self.host, self.port, f"Conexión rechazada: {e}"
             ) from e
 
-        if self.user and self.password:
-            try:
-                client.login(self.user, self.password)
-            except (imaplib.IMAP4.error, OSError, ValueError) as e:
-                _safe_logout(client)
-                raise MailAuthenticationError(self.user, str(e)) from e
+        if not self.user or not self.password:
+            _safe_logout(client)
+            raise MailAuthenticationError(
+                self.user or "no_configurado",
+                "Credenciales IMAP no configuradas (usuario o contraseña vacíos). Verifique la configuración de la cuenta en .env.",
+            )
+
+        try:
+            client.login(self.user, self.password)
+        except (imaplib.IMAP4.error, OSError, ValueError) as e:
+            _safe_logout(client)
+            raise MailAuthenticationError(self.user, str(e)) from e
 
         return client
 

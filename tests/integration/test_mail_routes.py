@@ -89,3 +89,21 @@ def test_get_message_detail_not_found(mail_client: TestClient):
     assert data["success"] is False
     assert data["error"]["code"] == "EMAIL_NOT_FOUND"
     assert "999" in data["error"]["message"]
+
+
+def test_get_folders_with_account_query_route(mail_client: TestClient):
+    """Verifica que el parámetro account='abc' sea aceptado en /carpetas."""
+    response = mail_client.get("/api/v1/mail/carpetas?account=abc")
+    assert response.status_code == 200
+    data = response.json()
+    assert data["success"] is True
+    assert len(data["data"]) == 2
+
+
+def test_get_unread_summary_with_account_query_route(mail_client: TestClient):
+    """Verifica que el parámetro account='datamaq' sea aceptado en /inbox/sin-leer."""
+    response = mail_client.get("/api/v1/mail/inbox/sin-leer?account=datamaq&limit=3")
+    assert response.status_code == 200
+    data = response.json()
+    assert data["success"] is True
+    assert data["data"]["total_no_leidos"] == 1

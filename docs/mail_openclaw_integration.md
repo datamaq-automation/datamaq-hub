@@ -181,12 +181,15 @@ Retorna el detalle completo de un correo específico por su UID.
 OpenClaw puede consultar los endpoints mediante `curl` o mediante llamadas HTTP en sus herramientas internas:
 
 ```bash
-# Consultar resumen de no leídos
+# Consultar resumen de no leídos (cuenta por defecto / corporativa)
 curl -sS http://127.0.0.1:8013/api/v1/mail/inbox/sin-leer
 
-# Listar últimos 5 correos recibidos
-curl -sS "http://127.0.0.1:8013/api/v1/mail/inbox?limit=5"
+# Consultar resumen de no leídos de la cuenta docente ABC
+curl -sS "http://127.0.0.1:8013/api/v1/mail/inbox/sin-leer?account=abc"
+
+# Listar últimos 5 correos de la cuenta ABC
+curl -sS "http://127.0.0.1:8013/api/v1/mail/inbox?account=abc&limit=5"
 
 # Obtener detalle de un correo específico
-curl -sS http://127.0.0.1:8013/api/v1/mail/inbox/1052
+curl -sS "http://127.0.0.1:8013/api/v1/mail/inbox/1052?account=abc"
 ```

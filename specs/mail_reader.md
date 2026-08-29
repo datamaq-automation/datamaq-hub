@@ -143,11 +143,14 @@ class MailReaderPort(Protocol):
 - `mail_imap_use_ssl: bool = True`
 - `mail_imap_timeout_seconds: int = 10`
 
-### 4.2 Rutas FastAPI (`fastapi/routes/mail_routes.py`)
-- `GET /api/v1/mail/carpetas`
-- `GET /api/v1/mail/inbox`
-- `GET /api/v1/mail/inbox/sin-leer`
-- `GET /api/v1/mail/inbox/{uid}`
+### 4.2 Rutas FastAPI Multi-Cuenta (`fastapi/routes/mail_routes.py`)
+- `GET /api/v1/mail/carpetas?account={account}`
+- `GET /api/v1/mail/inbox?account={account}&limit=20&desde=0&sin_leer=false&carpeta=INBOX`
+- `GET /api/v1/mail/inbox/sin-leer?account={account}&limit=5&carpeta=INBOX`
+- `GET /api/v1/mail/inbox/{uid}?account={account}&carpeta=INBOX`
+- `GET /api/v1/mail/{uid}?account={account}&carpeta=INBOX`
+
+> **Soporte Multi-Cuenta:** Si se omite `account`, el servidor utiliza la cuenta predeterminada (`default_mail_account`). Permite consultar cuentas corporativas (`datamaq`) y docentes (`abc`) en paralelo.
 
 ---
 

@@ -174,3 +174,36 @@ def test_get_unread_summary_use_case():
     assert summary.total_no_leidos == 1
     assert len(summary.ultimos_no_leidos) == 1
     assert summary.ultimos_no_leidos[0].uid == "2"
+
+
+def test_settings_mail_account_resolution():
+    """Verifica que get_mail_account_config resuelva cuentas específicas y default."""
+    from src.infrastructure.pydantic.config import MailAccountConfig, Settings
+
+    settings = Settings(
+        default_mail_account="datamaq",
+        mail_imap_user="info@datamaq.com.ar",
+        mail_imap_pass="corp_pass",
+        mail_accounts={
+            "abc": MailAccountConfig(
+                host="imap.gmail.com",
+                port=993,
+                user="docente@abc.gob.ar",
+                password="abc_app_password",
+            )
+        },
+    )
+
+    # 1. Resolver cuenta específica 'abc'
+    abc_cfg = settings.get_mail_account_config("abc")
+    assert abc_cfg.host == "imap.gmail.com"
+    assert abc_cfg.user == "docente@abc.gob.ar"
+
+    # 2. Resolver cuenta por defecto 'datamaq'
+    default_cfg = settings.get_mail_account_config()
+    assert default_cfg.user == "info@datamaq.com.ar"
+
+    # 3. Cuenta inexistente lanza ValueError
+    with pytest.raises(ValueError) as exc_info:
+        settings.get_mail_account_config("cuenta_desconocida")
+    assert "cuenta_desconocida" in str(exc_info.value)

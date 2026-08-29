@@ -1,6 +1,5 @@
-"""FastAPI routing para lectura de correos electrónicos vía IMAP (OpenClaw / Interno)."""
+"""FastAPI routing para lectura de correos electrónicos vía IMAP Multi-Cuenta (OpenClaw / Interno)."""
 
-from functools import lru_cache
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, Query
@@ -20,17 +19,25 @@ from src.infrastructure.pydantic.config import get_settings
 router = APIRouter(prefix="/mail", tags=["Correo Electrónico (Mail Reader)"])
 
 
-@lru_cache
-def get_configured_mail_controller() -> MailController:
-    """Proveedor de dependencias para MailController con configuración de entorno."""
+def get_configured_mail_controller(
+    account: Annotated[
+        str | None,
+        Query(
+            description="Identificador o email de la cuenta de correo (opcional, ej. 'datamaq', 'abc')",
+            examples=["datamaq", "abc"],
+        ),
+    ] = None,
+) -> MailController:
+    """Proveedor de dependencias para MailController configurado según la cuenta solicitada."""
     settings = get_settings()
+    account_config = settings.get_mail_account_config(account)
     gateway = ImapMailGateway(
-        host=settings.mail_imap_host,
-        port=settings.mail_imap_port,
-        user=settings.mail_imap_user,
-        password=settings.mail_imap_pass,
-        use_ssl=settings.mail_imap_use_ssl,
-        timeout_seconds=settings.mail_imap_timeout_seconds,
+        host=account_config.host,
+        port=account_config.port,
+        user=account_config.user,
+        password=account_config.password,
+        use_ssl=account_config.use_ssl,
+        timeout_seconds=account_config.timeout_seconds,
     )
     return get_mail_controller(gateway=gateway)
 
@@ -43,6 +50,10 @@ def get_configured_mail_controller() -> MailController:
 )
 async def list_folders(
     controller: Annotated[MailController, Depends(get_configured_mail_controller)],
+    account: Annotated[
+        str | None,
+        Query(description="Identificador o email de la cuenta de correo (opcional)"),
+    ] = None,
 ) -> APIResponseDTO[list[EmailFolderDTO]]:
     """Obtiene la lista de carpetas IMAP."""
     folders = controller.get_folders()
@@ -63,6 +74,10 @@ async def list_folders(
 )
 async def list_inbox_messages(
     controller: Annotated[MailController, Depends(get_configured_mail_controller)],
+    account: Annotated[
+        str | None,
+        Query(description="Identificador o email de la cuenta de correo (opcional)"),
+    ] = None,
     limit: int = Query(
         20, ge=1, le=100, description="Límite máximo de correos a retornar"
     ),
@@ -93,6 +108,10 @@ async def list_inbox_messages(
 )
 async def get_unread_summary(
     controller: Annotated[MailController, Depends(get_configured_mail_controller)],
+    account: Annotated[
+        str | None,
+        Query(description="Identificador o email de la cuenta de correo (opcional)"),
+    ] = None,
     limit: int = Query(
         5, ge=1, le=50, description="Cantidad máxima de no leídos recientes"
     ),
@@ -121,6 +140,10 @@ async def get_unread_summary(
 async def get_inbox_message_detail(
     uid: str,
     controller: Annotated[MailController, Depends(get_configured_mail_controller)],
+    account: Annotated[
+        str | None,
+        Query(description="Identificador o email de la cuenta de correo (opcional)"),
+    ] = None,
     carpeta: str = Query("INBOX", description="Nombre de la carpeta IMAP"),
 ) -> APIResponseDTO[EmailDetailDTO]:
     """Retorna el detalle completo del correo."""
@@ -143,6 +166,10 @@ async def get_inbox_message_detail(
 async def get_message_detail_shortcut(
     uid: str,
     controller: Annotated[MailController, Depends(get_configured_mail_controller)],
+    account: Annotated[
+        str | None,
+        Query(description="Identificador o email de la cuenta de correo (opcional)"),
+    ] = None,
     carpeta: str = Query("INBOX", description="Nombre de la carpeta IMAP"),
 ) -> APIResponseDTO[EmailDetailDTO]:
     """Retorna el detalle completo del correo por UID."""

@@ -2,8 +2,19 @@
 
 from functools import lru_cache
 
-from pydantic import Field
+from pydantic import BaseModel, Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
+
+
+class MailAccountConfig(BaseModel):
+    """Configuración de conexión para una cuenta de correo IMAP."""
+
+    host: str = "127.0.0.1"
+    port: int = 993
+    user: str = ""
+    password: str = ""
+    use_ssl: bool = True
+    timeout_seconds: int = 10
 
 
 class Settings(BaseSettings):
@@ -48,7 +59,7 @@ class Settings(BaseSettings):
     telegram_bot_token: str = ""
     telegram_chat_id: str = ""
 
-    # === SERVIDOR DE CORREO IMAP (Lectura para OpenClaw) ===
+    # === SERVIDOR DE CORREO IMAP (Lectura para OpenClaw — Configuración Base) ===
     mail_imap_host: str = "127.0.0.1"
     mail_imap_port: int = 993
     mail_imap_user: str = ""
@@ -56,14 +67,52 @@ class Settings(BaseSettings):
     mail_imap_use_ssl: bool = True
     mail_imap_timeout_seconds: int = 10
 
+    # === CUENTAS DE CORREO MULTI-CUENTA (DataMaq, ABC Docente, etc.) ===
+    default_mail_account: str = "openclaw@datamaq.com.ar"
+    mail_accounts: dict[str, MailAccountConfig] = Field(
+        default_factory=dict[str, MailAccountConfig]
+    )
+
     # === BASE DE DATOS ROUNDCUBE (Contactos y Calendario) ===
     roundcube_db_url: str = "sqlite:///data/roundcube.db"
-    default_mail_account: str = "openclaw@datamaq.com.ar"
 
     # === TTLs de caché por prefijo de clave (segundos) ===
     # JSON en .env. Vacío = el gateway usa sus defaults aprobados (fallback).
     # Ejemplo: CACHE_TTLS={"google_ads:daily_budget_pacing": 900}
     cache_ttls: dict[str, int] = Field(default_factory=dict[str, int])
+
+    def get_mail_account_config(
+        self, account_name: str | None = None
+    ) -> MailAccountConfig:
+        """Obtiene la configuración de la cuenta solicitada con fallback seguro a la cuenta por defecto."""
+        target = (account_name or self.default_mail_account).strip().lower()
+
+        if target in self.mail_accounts:
+            return self.mail_accounts[target]
+
+        for name, config in self.mail_accounts.items():
+            if name.lower() == target or config.user.lower() == target:
+                return config
+
+        # Fallback a las variables top-level clásicas
+        if target in (
+            self.default_mail_account.lower(),
+            "datamaq",
+            "default",
+            "openclaw@datamaq.com.ar",
+        ):
+            return MailAccountConfig(
+                host=self.mail_imap_host,
+                port=self.mail_imap_port,
+                user=self.mail_imap_user,
+                password=self.mail_imap_pass,
+                use_ssl=self.mail_imap_use_ssl,
+                timeout_seconds=self.mail_imap_timeout_seconds,
+            )
+
+        raise ValueError(
+            f"Cuenta de correo '{account_name}' no configurada en mail_accounts ni en variables de entorno."
+        )
 
 
 @lru_cache

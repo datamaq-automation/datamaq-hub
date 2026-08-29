@@ -86,8 +86,26 @@ def test_imap_gateway_parse_summary():
     assert summary.tiene_adjuntos is True
 
 
+def test_imap_gateway_missing_credentials():
+    gateway = ImapMailGateway(user="", password="")
+    mock_client = MagicMock()
+
+    with (
+        patch("imaplib.IMAP4_SSL", return_value=mock_client),
+        pytest.raises(MailAuthenticationError) as exc_info,
+    ):
+        gateway._create_connection()
+    assert "no configuradas" in exc_info.value.message
+
+
 def test_imap_gateway_connection_timeout():
-    gateway = ImapMailGateway(host="192.0.2.1", port=993, timeout_seconds=1)
+    gateway = ImapMailGateway(
+        host="192.0.2.1",
+        port=993,
+        user="test@datamaq.com.ar",
+        password="pwd",
+        timeout_seconds=1,
+    )
 
     with (
         patch("imaplib.IMAP4_SSL", side_effect=TimeoutError("Timed out")),
