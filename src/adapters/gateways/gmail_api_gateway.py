@@ -195,7 +195,7 @@ class GmailApiGateway(MailReaderPort):
             try:
                 meta = self._make_api_request(
                     f"messages/{msg_id}",
-                    {"format": "metadata", "metadataHeaders": "From"},
+                    {"format": "metadata"},
                 )
                 payload = cast(dict[str, Any], meta.get("payload", {}))
                 headers_list = cast(list[dict[str, str]], payload.get("headers", []))
