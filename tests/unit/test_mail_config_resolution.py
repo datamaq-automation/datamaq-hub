@@ -54,9 +54,17 @@ def test_resolve_account_aliases():
     """Escenario 2: los alias semánticos y el correo completo resuelven a 'abc'."""
     settings = _settings_with_abc_oauth2()
 
-    for alias in ("docente", "abc.gob.ar", "gmail", "google", "agustinbustos@abc.gob.ar"):
+    for alias in (
+        "docente",
+        "abc.gob.ar",
+        "gmail",
+        "google",
+        "agustinbustos@abc.gob.ar",
+    ):
         cfg = settings.get_mail_account_config(alias)
-        assert cfg.user == "agustinbustos@abc.gob.ar", f"alias {alias!r} no resolvió a abc"
+        assert cfg.user == "agustinbustos@abc.gob.ar", (
+            f"alias {alias!r} no resolvió a abc"
+        )
 
 
 def test_intelligent_fallback_when_default_unconfigured():

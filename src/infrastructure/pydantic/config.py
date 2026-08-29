@@ -120,7 +120,11 @@ class Settings(BaseSettings):
         ):
             # Si el default IMAP no tiene usuario ni clave configurados, pero hay cuentas en
             # MAIL_ACCOUNTS, usar la primera/única cuenta (fallback inteligente para OpenClaw).
-            if not self.mail_imap_user and not self.mail_imap_pass and self.mail_accounts:
+            if (
+                not self.mail_imap_user
+                and not self.mail_imap_pass
+                and self.mail_accounts
+            ):
                 first_name = next(iter(self.mail_accounts))
                 return self._with_oauth2_fallback(
                     self.mail_accounts[first_name].model_copy()
@@ -143,9 +147,7 @@ class Settings(BaseSettings):
             available_accounts=disponibles,
         )
 
-    def _with_oauth2_fallback(
-        self, config: MailAccountConfig
-    ) -> MailAccountConfig:
+    def _with_oauth2_fallback(self, config: MailAccountConfig) -> MailAccountConfig:
         """Inyecta los client_id/secret globales en una cuenta OAuth2 si faltan."""
         if config.oauth2_refresh_token:
             if not config.oauth2_client_id:
