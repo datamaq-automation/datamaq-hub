@@ -97,7 +97,7 @@ MAIL_ACCOUNTS={"abc": {"host": "imap.gmail.com", "port": 993, "user": "agustinbu
 > - **Opción B:** Configurar `DEFAULT_MAIL_ACCOUNT=abc` si se desea que toda consulta sin parámetros apunte al correo docente ABC.
 
 > [!IMPORTANT]
-> El `refresh_token` es un token **offline permanente** de Google que ya fue generado y verificado localmente mediante el flujo OAuth2 interactivo (`scripts/authorize_gmail_oauth.py`). No es necesario repetir el consentimiento interactivo en Google Cloud: basta con replicar la entrada `MAIL_ACCOUNTS` en el `.env` del VPS.
+> El `refresh_token` es un token **offline permanente** de Google que ya fue generado y verificado localmente mediante el flujo OAuth2 interactivo (`scripts/authenticate_gmail_oauth.py`). No es necesario repetir el consentimiento interactivo en Google Cloud: basta con replicar la entrada `MAIL_ACCOUNTS` en el `.env` del VPS.
 
 ### 3.3 Medidas de Seguridad en el VPS
 
