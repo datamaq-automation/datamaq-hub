@@ -2,6 +2,8 @@
 
 from pydantic import BaseModel, Field
 
+from src.domain.mail.value_objects import CategoriaEmail, NivelPrioridad
+
 
 class EmailFolderDTO(BaseModel):
     """DTO representing an IMAP mailbox folder."""
@@ -89,4 +91,65 @@ class MailInboxResponseDTO(BaseModel):
     correos: list[EmailSummaryDTO] = Field(
         default_factory=list[EmailSummaryDTO],
         description="Lista de correos en la página actual",
+    )
+
+
+class EntidadesDetectadasDTO(BaseModel):
+    """DTO de entidades extraídas determinísticamente del correo."""
+
+    empresa: str | None = Field(default=None, description="Empresa o grupo industrial")
+    contacto_nombre: str | None = Field(default=None, description="Nombre del contacto")
+    contacto_cargo: str | None = Field(default=None, description="Cargo del contacto")
+    tipo_proyecto: str | None = Field(default=None, description="Tipo de proyecto")
+    ubicacion_planta: str | None = Field(default=None, description="Planta/ubicación")
+    telefonos: list[str] = Field(
+        default_factory=list[str], description="Teléfonos detectados en la firma"
+    )
+
+
+class AnalisisEmailDTO(BaseModel):
+    """DTO del análisis de oportunidad B2B de un correo."""
+
+    uid: str = Field(description="Identificador único IMAP del correo")
+    categoria: CategoriaEmail = Field(description="Clasificación semántica")
+    prioridad: NivelPrioridad = Field(description="Nivel de prioridad comercial")
+    score: int = Field(description="Puntuación de oportunidad de 0 a 100")
+    resumen_ejecutivo: str = Field(
+        default="", description="Resumen en español del análisis"
+    )
+    accion_sugerida: str = Field(default="", description="Acción recomendada")
+    entidades: EntidadesDetectadasDTO = Field(
+        default_factory=EntidadesDetectadasDTO,
+        description="Entidades extraídas del correo",
+    )
+    requiere_alerta: bool = Field(
+        default=False, description="Indica si el correo amerita alerta"
+    )
+    cuenta: str = Field(default="", description="Cuenta de correo de origen")
+
+
+class ScanMailRequestDTO(BaseModel):
+    """DTO de solicitud de escaneo y notificación de correos entrantes."""
+
+    cuenta: str = Field(default="datamaq", description="Cuenta de correo a escanear")
+    carpeta: str = Field(default="INBOX", description="Carpeta a inspeccionar")
+    limit: int = Field(default=10, ge=1, le=50, description="Máximo de correos a escanear")
+    forzar_notificacion: bool = Field(
+        default=False, description="Omite el caché de deduplicación"
+    )
+    auto_registrar_contacto: bool = Field(
+        default=False, description="Auto-registra el contacto en Roundcube"
+    )
+
+
+class ScanMailResponseDTO(BaseModel):
+    """DTO de respuesta del escaneo de oportunidades sortino a notificación."""
+
+    total_escaneados: int = Field(description="Correos evaluados")
+    total_oportunidades: int = Field(description="Correos clasificados como oportunidad")
+    alertas_enviadas: int = Field(description="Alertas Telegram entregadas")
+    contactos_registrados: int = Field(description="Contactos auto-registrados")
+    analisis: list[AnalisisEmailDTO] = Field(
+        default_factory=list[AnalisisEmailDTO],
+        description="Análisis de cada correo escaneado",
     )

@@ -1,9 +1,28 @@
-"""Value objects for mail domain."""
+"""Value objects and enumerations for mail domain."""
 
 import re
 from dataclasses import dataclass
+from enum import Enum
 
 from src.domain.mail.exceptions import InvalidEmailAddressError
+
+
+class CategoriaEmail(str, Enum):
+    """Clasificación semántica determinística del correo entrante."""
+
+    OPORTUNIDAD_COMERCIAL = "OPORTUNIDAD_COMERCIAL"
+    DOCENCIA_OFICIAL = "DOCENCIA_OFICIAL"
+    PROVEEDOR_FACTURACION = "PROVEEDOR_FACTURACION"
+    SPAM_NEWSLETTER = "SPAM_NEWSLETTER"
+    GENERAL_INFORMATIVO = "GENERAL_INFORMATIVO"
+
+
+class NivelPrioridad(str, Enum):
+    """Nivel de urgencia comercial asignado por el scoring determinístico."""
+
+    ALTA = "ALTA"
+    MEDIA = "MEDIA"
+    BAJA = "BAJA"
 
 EMAIL_REGEX = re.compile(
     r"^(?:[a-zA-Z0-9_.+-]+|<[^>]+>)?\s*(?:<?([a-zA-Z0-9_.+-]+@[a-zA-Z0-9-]+\.[a-zA-Z0-9-.]+)>?)?$"

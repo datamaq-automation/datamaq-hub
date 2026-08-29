@@ -1,17 +1,21 @@
 """Mappers for converting between Domain Entities and Application DTOs."""
 
 from src.application.dtos.mail_dto import (
+    AnalisisEmailDTO,
     EmailAttachmentDTO,
     EmailDetailDTO,
     EmailFolderDTO,
     EmailSummaryDTO,
+    EntidadesDetectadasDTO,
     UnreadSummaryDTO,
 )
 from src.domain.mail.entities import (
+    AnalisisEmail,
     EmailAttachmentMetadata,
     EmailDetail,
     EmailFolder,
     EmailSummary,
+    EntidadesDetectadas,
     UnreadSummary,
 )
 
@@ -78,4 +82,31 @@ class MailMapper:
             ultimos_no_leidos=[
                 MailMapper.to_summary_dto(s) for s in entity.ultimos_no_leidos
             ],
+        )
+
+    @staticmethod
+    def to_analisis_dto(entidad: AnalisisEmail) -> AnalisisEmailDTO:
+        """Convierte una entidad AnalisisEmail a su DTO de aplicación."""
+        return AnalisisEmailDTO(
+            uid=entidad.uid,
+            categoria=entidad.categoria,
+            prioridad=entidad.prioridad,
+            score=entidad.score,
+            resumen_ejecutivo=entidad.resumen_ejecutivo,
+            accion_sugerida=entidad.accion_sugerida,
+            entidades=MailMapper.to_entidades_dto(entidad.entidades),
+            requiere_alerta=entidad.requiere_alerta,
+            cuenta=entidad.cuenta,
+        )
+
+    @staticmethod
+    def to_entidades_dto(entidad: EntidadesDetectadas) -> EntidadesDetectadasDTO:
+        """Convierte la entidad de entidades detectadas a DTO."""
+        return EntidadesDetectadasDTO(
+            empresa=entidad.empresa,
+            contacto_nombre=entidad.contacto_nombre,
+            contacto_cargo=entidad.contacto_cargo,
+            tipo_proyecto=entidad.tipo_proyecto,
+            ubicacion_planta=entidad.ubicacion_planta,
+            telefonos=list(entidad.telefonos),
         )

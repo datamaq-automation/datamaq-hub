@@ -4,12 +4,23 @@ Valida deduplicación persistente (ApiCachePort), auto-registro de contacto
 (Roundcube) y forzado de notificación.
 """
 
+from typing import Any
+
 from src.application.dtos.mail_dto import ScanMailRequestDTO
 from src.application.use_cases.analizar_correos_entrantes import (
     AnalizarCorreosEntrantesUseCase,
 )
-from src.domain.mail.entities import EmailDetail, EmailSummary
-from src.domain.mail.ports import MailReaderPort
+from src.domain.cache.ports import ApiCachePort
+from src.domain.contacts.entities import Contact, ContactGroup
+from src.domain.contacts.ports import ContactsRepositoryPort
+from src.domain.mail.entities import (
+    AnalisisEmail,
+    EmailDetail,
+    EmailSummary,
+    UnreadSummary,
+)
+from src.domain.mail.ports import MailNotifierPort, MailReaderPort
+from src.domain.mail.services import EmailOpportunityAnalyzerService
 
 
 class FakeMailReaderGateway(MailReaderPort):
@@ -61,50 +72,97 @@ class FakeMailReaderGateway(MailReaderPort):
             ),
         }
 
-    def list_messages(self, **kwargs):  # type: ignore[override]
-        return self.summaries, len(self.summaries), 0
+    def list_messages(
+        self,
+        folder: str = "INBOX",
+        limit: int = 20,
+        offset: int = 0,
+        unread_only: bool = False,
+        q: str | None = None,
+    ) -> tuple[list[EmailSummary], int, int]:
+        return self.summaries, len(self.summaries), len(self.summaries)
 
-    def get_message_by_uid(self, uid: str, **kwargs):  # type: ignore[override]
+    def get_message_by_uid(
+        self,
+        uid: str,
+        folder: str = "INBOX",
+        include_html: bool = False,
+        max_chars: int = 4000,
+    ) -> EmailDetail | None:
         return self.details_by_uid.get(uid)
 
-    def get_folders(self):  # type: ignore[override]
-        return []
+    def get_folders(self):
+        from src.domain.mail.entities import EmailFolder
 
-    def get_unread_summary(self, **kwargs):  # type: ignore[override]
-        from src.domain.mail.entities import UnreadSummary
+        return [EmailFolder(nombre="INBOX", total_mensajes=2, no_leidos=2)]
 
-        return UnreadSummary(carpeta="INBOX", total_no_leidos=0)
+    def get_unread_summary(
+        self,
+        folder: str = "INBOX",
+        limit: int = 5,
+        q: str | None = None,
+    ) -> UnreadSummary:
+        return UnreadSummary(carpeta="INBOX", total_no_leidos=2)
 
 
-class FakeMailNotifierGateway:
+class FakeMailNotifierGateway(MailNotifierPort):
+    """Notifier falso que registra las alertas enviadas."""
+
     def __init__(self) -> None:
         self.veces_notificado = 0
-        self.analisis = []
+        self.analisis: list = []
 
-    def notificar_oportunidad_email(self, analisis, email) -> bool:  # type: ignore[no-untyped-def]
+    def notificar_oportunidad_email(
+        self, analisis: AnalisisEmail, email: EmailDetail
+    ) -> bool:
         self.veces_notificado += 1
         self.analisis.append(analisis)
         return True
 
 
-class FakeCacheGateway:
-    def __init__(self) -> None:
-        self.valores: dict[str, object] = {}
+class FakeCacheGateway(ApiCachePort):
+    """Cache en memoria con la interfaz de ApiCachePort."""
 
-    def get(self, key: str):
+    def __init__(self) -> None:
+        self.valores: dict[str, Any] = {}
+
+    def get(self, key: str) -> Any | None:
         return self.valores.get(key)
 
-    def set(self, key: str, value, ttl_seconds: int | None = None) -> None:  # type: ignore[no-untyped-def]
+    def set(self, key: str, value: Any, ttl_seconds: int | None = None) -> None:
         self.valores[key] = value
 
 
-class FakeContactsGateway:
+class FakeContactsGateway(ContactsRepositoryPort):
+    """ContactsRepositoryPort falso que implementa todo el protocolo."""
+
     def __init__(self) -> None:
         self.creados = 0
 
-    def create_contact(self, contact, account: str):  # type: ignore[no-untyped-def]
+    def list_contacts(
+        self,
+        account: str,
+        query: str | None = None,
+        limit: int = 50,
+        offset: int = 0,
+    ) -> tuple[list[Contact], int]:
+        return [], 0
+
+    def get_contact_by_id(self, contact_id: str, account: str) -> Contact | None:
+        return None
+
+    def create_contact(self, contact: Contact, account: str) -> Contact:
         self.creados += 1
         return contact
+
+    def update_contact(self, contact: Contact, account: str) -> Contact:
+        return contact
+
+    def delete_contact(self, contact_id: str, account: str) -> bool:
+        return False
+
+    def list_groups(self, account: str) -> list[ContactGroup]:
+        return []
 
 
 def _use_case(
@@ -117,7 +175,7 @@ def _use_case(
     return (
         AnalizarCorreosEntrantesUseCase(
             mail_reader=FakeMailReaderGateway(),
-            analyzer=None,  # type: ignore[arg-type]
+            analyzer=EmailOpportunityAnalyzerService(),
             notifier=notif,
             cache=cac,
             contacts_repo=contacts,
@@ -138,13 +196,13 @@ def test_primera_pasada_notifica_una_vez() -> None:
     assert resultado.alertas_enviadas == 1
     assert resultado.contactos_registrados == 0
     assert notif.veces_notificado == 1
-    assert f"mail:alerted:{request.cuenta}:" not in ""
-    assert "1" in f"{[k for k in cac.valores.keys()]}"
+    clave = f"mail:alerted:{request.cuenta}:1"
+    assert clave in cac.valores
 
 
 def test_segunda_pasada_dedup_no_notifica() -> None:
     """Dado un cache ya poblado para el uid → no se re-envía alerta."""
-    uc, notif, cac = _use_case()
+    uc, notif, _ = _use_case()
     request = ScanMailRequestDTO()
     uc.execute(request)
     notif.veces_notificado = 0

@@ -2,6 +2,8 @@
 
 from dataclasses import dataclass, field
 
+from src.domain.mail.value_objects import CategoriaEmail, NivelPrioridad
+
 
 @dataclass(frozen=True)
 class EmailFolder:
@@ -62,3 +64,30 @@ class UnreadSummary:
     carpeta: str
     total_no_leidos: int
     ultimos_no_leidos: list[EmailSummary] = field(default_factory=list[EmailSummary])
+
+
+@dataclass(frozen=True)
+class EntidadesDetectadas:
+    """Entidades extraídas determinísticamente del correo entrante."""
+
+    empresa: str | None = None
+    contacto_nombre: str | None = None
+    contacto_cargo: str | None = None
+    tipo_proyecto: str | None = None
+    ubicacion_planta: str | None = None
+    telefonos: list[str] = field(default_factory=list[str])
+
+
+@dataclass(frozen=True)
+class AnalisisEmail:
+    """Resultado del scoring determinístico de oportunidad B2B para un correo."""
+
+    uid: str
+    categoria: CategoriaEmail
+    prioridad: NivelPrioridad
+    score: int
+    resumen_ejecutivo: str
+    accion_sugerida: str
+    entidades: EntidadesDetectadas
+    requiere_alerta: bool
+    cuenta: str = ""

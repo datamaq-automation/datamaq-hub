@@ -3,7 +3,8 @@
 Valida serialización del mensaje, headers y manejo de errores de red.
 """
 
-from unittest.mock import patch
+import json
+from unittest.mock import MagicMock, patch
 
 import pytest
 
@@ -43,6 +44,14 @@ def _email() -> EmailDetail:
     )
 
 
+def _respuesta_json(status: int) -> MagicMock:
+    resp = MagicMock()
+    resp.status = status
+    resp.__enter__ = MagicMock(return_value=resp)
+    resp.__exit__ = MagicMock(return_value=False)
+    return resp
+
+
 def test_sin_token_no_op_false() -> None:
     """Dado gateway sin bot_token ni chat_id → no-op, retorna False."""
     gw = TelegramMailNotifierGateway()
@@ -51,36 +60,62 @@ def test_sin_token_no_op_false() -> None:
 
 def test_envio_exitoso_payload_correcto() -> None:
     """Dado token/chat configurado y POST exitoso → True y payload con badges."""
-    gw = TelegramMailNotifierGateway(
-        bot_token="TOKEN_TEST", chat_id="CHAT_TEST"
-    )
-    with patch("requests.post") as mock_post:
-        mock_post.return_value.status_code = 200
-        mock_post.return_value.raise_for_status = lambda: None
-
+    gw = TelegramMailNotifierGateway(bot_token="TOKEN_TEST", chat_id="CHAT_TEST")
+    mock_urlopen = MagicMock(return_value=_respuesta_json(200))
+    with patch("urllib.request.urlopen", mock_urlopen):
         ok = gw.notificar_oportunidad_email(_analisis(), _email())
 
     assert ok is True
-    assert mock_post.call_count == 1
-    args, kwargs = mock_post.call_args
-    assert "TOKEN_TEST" in args[0]
-    assert kwargs["json"]["chat_id"] == "CHAT_TEST"
-    payload = kwargs["json"]["text"]
-    assert "OPORTUNIDAD B2B" in payload
-    assert "Toyota Group" in payload
-    assert "Buyer" in payload
-    assert "95/100" in payload
-    assert "ALTA" in payload
-    assert "Realizado" in payload or "Responder" in payload or "siguiente" in payload
+    assert mock_urlopen.call_count == 1
+    req = mock_urlopen.call_args[0][0]
+    assert "TOKEN_TEST" in req.full_url
+    body = json.loads(req.data.decode("utf-8"))
+    assert body["chat_id"] == "CHAT_TEST"
+    assert body["parse_mode"] == "Markdown"
+    texto = body["text"]
+    assert "OPORTUNIDAD B2B" in texto
+    assert "Toyota Group" in texto
+    assert "Buyer" in texto
+    assert "95/100" in texto
+    assert "ALTA" in texto
+    assert "Responder" in texto
+
+
+def test_respuesta_no_2xx_retorna_false() -> None:
+    """Dado POST con status HTTP de error → False."""
+    gw = TelegramMailNotifierGateway(bot_token="TOKEN_TEST", chat_id="CHAT_TEST")
+    with patch("urllib.request.urlopen", MagicMock(return_value=_respuesta_json(500))):
+        assert gw.notificar_oportunidad_email(_analisis(), _email()) is False
 
 
 def test_error_de_red_retorna_false() -> None:
-    """Dado fallo de red en requests → False sin propagar excepción."""
-    gw = TelegramMailNotifierGateway(
-        bot_token="TOKEN_TEST", chat_id="CHAT_TEST"
-    )
-    with patch("requests.post", side_effect=Exception("boom")):
-        with pytest.raises(Exception):
-            # El gateway debe capturar internamente y retornar False.
-            pass
+    """Dado fallo de red en urlopen → False sin propagar excepción."""
+    gw = TelegramMailNotifierGateway(bot_token="TOKEN_TEST", chat_id="CHAT_TEST")
+    with patch("urllib.request.urlopen", side_effect=OSError("boom")):
         assert gw.notificar_oportunidad_email(_analisis(), _email()) is False
+
+
+@pytest.mark.parametrize(
+    "prioridad,esperado",
+    [
+        (NivelPrioridad.ALTA, "🟢"),
+        (NivelPrioridad.MEDIA, "🟡"),
+        (NivelPrioridad.BAJA, "⚪"),
+    ],
+)
+def test_badge_segun_prioridad(prioridad: NivelPrioridad, esperado: str) -> None:
+    """Dado cada prioridad → badge de color correcto en el texto."""
+    analisis = _analisis()
+    analisis = AnalisisEmail(
+        uid=analisis.uid,
+        categoria=analisis.categoria,
+        prioridad=prioridad,
+        score=analisis.score,
+        resumen_ejecutivo=analisis.resumen_ejecutivo,
+        accion_sugerida=analisis.accion_sugerida,
+        entidades=analisis.entidades,
+        requiere_alerta=analisis.requiere_alerta,
+        cuenta=analisis.cuenta,
+    )
+    texto = TelegramMailNotifierGateway._construir_mensaje(analisis, _email())
+    assert esperado in texto

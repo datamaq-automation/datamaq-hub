@@ -3,6 +3,7 @@
 from typing import Protocol
 
 from src.domain.mail.entities import (
+    AnalisisEmail,
     EmailDetail,
     EmailFolder,
     EmailSummary,
@@ -49,4 +50,14 @@ class MailReaderPort(Protocol):
         q: str | None = None,
     ) -> UnreadSummary:
         """Fetch count and brief list of recent unread messages."""
+        ...
+
+
+class MailNotifierPort(Protocol):
+    """Abstracción para despachar alertas de oportunidad de correo a canales externos."""
+
+    def notificar_oportunidad_email(
+        self, analisis: AnalisisEmail, email: EmailDetail
+    ) -> bool:
+        """Retorna True si la notificación fue entregada con éxito."""
         ...
