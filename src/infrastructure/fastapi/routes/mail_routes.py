@@ -38,6 +38,9 @@ def get_configured_mail_controller(
         password=account_config.password,
         use_ssl=account_config.use_ssl,
         timeout_seconds=account_config.timeout_seconds,
+        oauth2_client_id=account_config.oauth2_client_id,
+        oauth2_client_secret=account_config.oauth2_client_secret,
+        oauth2_refresh_token=account_config.oauth2_refresh_token,
     )
     return get_mail_controller(gateway=gateway)
 

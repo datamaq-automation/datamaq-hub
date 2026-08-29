@@ -246,3 +246,52 @@ def test_imap_gateway_get_unread_summary_success():
     assert summary.carpeta == "INBOX"
     assert summary.total_no_leidos == 1
     assert len(summary.ultimos_no_leidos) == 1
+
+
+def test_imap_gateway_xoauth2_success():
+    """Verifica autenticación IMAP mediante XOAUTH2."""
+    gateway = ImapMailGateway(
+        host="imap.gmail.com",
+        port=993,
+        user="docente@abc.gob.ar",
+        oauth2_client_id="mock_client_id",
+        oauth2_client_secret="mock_client_secret",
+        oauth2_refresh_token="mock_refresh_token",
+    )
+    mock_client = MagicMock()
+
+    with (
+        patch.object(
+            gateway, "_get_oauth2_access_token", return_value="mock_access_token"
+        ),
+        patch("imaplib.IMAP4_SSL", return_value=mock_client),
+    ):
+        conn = gateway._create_connection()
+
+    assert conn == mock_client
+    mock_client.authenticate.assert_called_once()
+    args, _ = mock_client.authenticate.call_args
+    assert args[0] == "XOAUTH2"
+    auth_cb = args[1]
+    assert b"docente@abc.gob.ar" in auth_cb(None)
+    assert b"mock_access_token" in auth_cb(None)
+
+
+def test_imap_gateway_xoauth2_token_exchange_error():
+    """Verifica manejo de error al canjear refresh token con Google OAuth2."""
+    gateway = ImapMailGateway(
+        host="imap.gmail.com",
+        port=993,
+        user="docente@abc.gob.ar",
+        oauth2_client_id="mock_client_id",
+        oauth2_client_secret="mock_client_secret",
+        oauth2_refresh_token="mock_refresh_token",
+    )
+
+    with (
+        patch("urllib.request.urlopen", side_effect=Exception("Network failure")),
+        pytest.raises(MailAuthenticationError) as exc_info,
+    ):
+        gateway._get_oauth2_access_token()
+
+    assert "Error conectando al endpoint" in exc_info.value.message

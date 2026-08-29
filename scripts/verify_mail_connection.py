@@ -28,8 +28,9 @@ def verify_account(alias: str, settings) -> bool:
         print(f"❌ \033[1;31mError:\033[0m {e.message}")
         return False
 
+    auth_mode = "OAuth2 XOAUTH2" if config.oauth2_refresh_token else "Básica (Password)"
     print(f"  • Servidor: {config.host}:{config.port} (SSL: {config.use_ssl})")
-    print(f"  • Usuario:  {config.user}")
+    print(f"  • Usuario:  {config.user} ({auth_mode})")
     print(f"  • Timeout:  {config.timeout_seconds}s")
 
     gateway = ImapMailGateway(
@@ -39,6 +40,9 @@ def verify_account(alias: str, settings) -> bool:
         password=config.password,
         use_ssl=config.use_ssl,
         timeout_seconds=config.timeout_seconds,
+        oauth2_client_id=config.oauth2_client_id,
+        oauth2_client_secret=config.oauth2_client_secret,
+        oauth2_refresh_token=config.oauth2_refresh_token,
     )
 
     t0 = time.perf_counter()

@@ -7,7 +7,7 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
 class MailAccountConfig(BaseModel):
-    """Configuración de conexión para una cuenta de correo IMAP."""
+    """Configuración de conexión para una cuenta de correo IMAP (soporta básico y OAuth2)."""
 
     host: str = "127.0.0.1"
     port: int = 993
@@ -15,6 +15,9 @@ class MailAccountConfig(BaseModel):
     password: str = ""
     use_ssl: bool = True
     timeout_seconds: int = 10
+    oauth2_client_id: str = ""
+    oauth2_client_secret: str = ""
+    oauth2_refresh_token: str = ""
 
 
 class Settings(BaseSettings):
@@ -87,12 +90,22 @@ class Settings(BaseSettings):
         """Obtiene la configuración de la cuenta solicitada con fallback seguro a la cuenta por defecto."""
         target = (account_name or self.default_mail_account).strip().lower()
 
+        config_obj: MailAccountConfig | None = None
         if target in self.mail_accounts:
-            return self.mail_accounts[target]
+            config_obj = self.mail_accounts[target].model_copy()
+        else:
+            for name, config in self.mail_accounts.items():
+                if name.lower() == target or config.user.lower() == target:
+                    config_obj = config.model_copy()
+                    break
 
-        for name, config in self.mail_accounts.items():
-            if name.lower() == target or config.user.lower() == target:
-                return config
+        if config_obj is not None:
+            if config_obj.oauth2_refresh_token:
+                if not config_obj.oauth2_client_id:
+                    config_obj.oauth2_client_id = self.google_ads_client_id
+                if not config_obj.oauth2_client_secret:
+                    config_obj.oauth2_client_secret = self.google_ads_client_secret
+            return config_obj
 
         # Fallback a las variables top-level clásicas
         if target in (

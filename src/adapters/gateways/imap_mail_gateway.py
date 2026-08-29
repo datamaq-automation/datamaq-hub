@@ -1,9 +1,13 @@
 """IMAP Mail Gateway implementing MailReaderPort using standard library imaplib and email."""
 
 import imaplib
+import json
 import logging
 import re
 import ssl
+import urllib.error
+import urllib.parse
+import urllib.request
 from email import message_from_bytes
 from email.utils import parsedate_to_datetime
 from typing import cast
@@ -44,7 +48,7 @@ def _safe_logout(client: imaplib.IMAP4) -> None:
 
 
 class ImapMailGateway(MailReaderPort):
-    """Gateway for querying IMAP servers in strict read-only mode."""
+    """Gateway for querying IMAP servers in strict read-only mode (supports basic auth & OAuth2 XOAUTH2)."""
 
     def __init__(
         self,
@@ -54,6 +58,9 @@ class ImapMailGateway(MailReaderPort):
         password: str = "",
         use_ssl: bool = True,
         timeout_seconds: int = 10,
+        oauth2_client_id: str = "",
+        oauth2_client_secret: str = "",
+        oauth2_refresh_token: str = "",
     ) -> None:
         self.host = host
         self.port = port
@@ -61,6 +68,60 @@ class ImapMailGateway(MailReaderPort):
         self.password = password
         self.use_ssl = use_ssl
         self.timeout_seconds = timeout_seconds
+        self.oauth2_client_id = oauth2_client_id
+        self.oauth2_client_secret = oauth2_client_secret
+        self.oauth2_refresh_token = oauth2_refresh_token
+
+    def _get_oauth2_access_token(self) -> str:
+        """Exchanges OAuth2 refresh token for a fresh short-lived access token."""
+        if (
+            not self.oauth2_client_id
+            or not self.oauth2_client_secret
+            or not self.oauth2_refresh_token
+        ):
+            raise MailAuthenticationError(
+                self.user or "oauth2_user",
+                "Credenciales OAuth2 incompletas (requiere oauth2_client_id, oauth2_client_secret y oauth2_refresh_token).",
+            )
+
+        token_url = "https://oauth2.googleapis.com/token"
+        payload = urllib.parse.urlencode(
+            {
+                "client_id": self.oauth2_client_id,
+                "client_secret": self.oauth2_client_secret,
+                "refresh_token": self.oauth2_refresh_token,
+                "grant_type": "refresh_token",
+            }
+        ).encode("utf-8")
+
+        req = urllib.request.Request(
+            token_url,
+            data=payload,
+            headers={"Content-Type": "application/x-www-form-urlencoded"},
+            method="POST",
+        )
+
+        try:
+            with urllib.request.urlopen(req, timeout=self.timeout_seconds) as response:
+                body = json.loads(response.read().decode("utf-8"))
+                access_token = body.get("access_token")
+                if not access_token:
+                    raise MailAuthenticationError(
+                        self.user, "Respuesta OAuth2 sin access_token."
+                    )
+                return str(access_token)
+        except urllib.error.HTTPError as e:
+            error_body = e.read().decode("utf-8", errors="ignore")
+            raise MailAuthenticationError(
+                self.user,
+                f"Error canjeando refresh_token en Google OAuth2 ({e.code}): {error_body}",
+            ) from e
+        except MailAuthenticationError:
+            raise
+        except Exception as e:
+            raise MailAuthenticationError(
+                self.user, f"Error conectando al endpoint de Google OAuth2: {e}"
+            ) from e
 
     def _create_connection(self) -> imaplib.IMAP4:
         """Establishes an authenticated IMAP client session."""
@@ -92,6 +153,22 @@ class ImapMailGateway(MailReaderPort):
                 self.host, self.port, f"Conexión rechazada: {e}"
             ) from e
 
+        # Autenticación XOAUTH2 si hay refresh_token
+        if self.oauth2_refresh_token:
+            access_token = self._get_oauth2_access_token()
+            auth_bytes = (
+                f"user={self.user}\x01auth=Bearer {access_token}\x01\x01".encode()
+            )
+            try:
+                client.authenticate("XOAUTH2", lambda _: auth_bytes)
+            except (imaplib.IMAP4.error, OSError, ValueError) as e:
+                _safe_logout(client)
+                raise MailAuthenticationError(
+                    self.user, f"Falla en autenticación XOAUTH2: {e}"
+                ) from e
+            return client
+
+        # Autenticación básica estándar (usuario / contraseña)
         if not self.user or not self.password:
             _safe_logout(client)
             raise MailAuthenticationError(
