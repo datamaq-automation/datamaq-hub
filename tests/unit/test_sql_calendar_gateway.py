@@ -7,8 +7,8 @@ from src.adapters.gateways.sql_calendar_gateway import SQLCalendarGateway
 from src.domain.calendar.entities import CalendarEvent
 
 
-def test_sql_calendar_gateway_crud_flow():
-    db_name = f"sqlite:///data/test_calendar_{uuid.uuid4().hex[:8]}.db"
+def test_sql_calendar_gateway_crud_flow(tmp_path) -> None:
+    db_name = f"sqlite:///{tmp_path}/test_calendar_{uuid.uuid4().hex[:8]}.db"
     gateway = SQLCalendarGateway(database_url=db_name)
     account = "openclaw@datamaq.com.ar"
 

@@ -6,8 +6,8 @@ from src.adapters.gateways.sql_contacts_gateway import SQLContactsGateway
 from src.domain.contacts.entities import Contact
 
 
-def test_sql_contacts_gateway_crud_flow():
-    db_name = f"sqlite:///data/test_contacts_{uuid.uuid4().hex[:8]}.db"
+def test_sql_contacts_gateway_crud_flow(tmp_path) -> None:
+    db_name = f"sqlite:///{tmp_path}/test_contacts_{uuid.uuid4().hex[:8]}.db"
     gateway = SQLContactsGateway(database_url=db_name)
     account = "openclaw@datamaq.com.ar"
 
