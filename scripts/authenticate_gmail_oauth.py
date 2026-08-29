@@ -223,82 +223,97 @@ def main():
 
     code = None
 
-    if not args.manual:
-        with TemporaryPortManager(args.port):
-            HTTPServer.allow_reuse_address = True
-            server = HTTPServer(("localhost", args.port), OAuthCallbackHandler)
+    try:
+        if not args.manual:
+            with TemporaryPortManager(args.port):
+                HTTPServer.allow_reuse_address = True
+                server = HTTPServer(("localhost", args.port), OAuthCallbackHandler)
 
-            print("1. Abriendo navegador para autorizar la cuenta...")
-            print("   (Si no abre automáticamente, ingresá a este enlace:)\n")
-            print(f"   \033[1;34m{auth_url}\033[0m\n")
-            try:
-                webbrowser.open(auth_url)
-            except (webbrowser.Error, OSError):
-                pass
+                print("1. Abriendo navegador para autorizar la cuenta...")
+                print("   (Si no abre automáticamente, ingresá a este enlace:)\n")
+                print(f"   \033[1;34m{auth_url}\033[0m\n")
+                print(
+                    "💡 \033[1;33mConsejo:\033[0m Si tu navegador abre otra cuenta de Google por defecto,"
+                )
+                print(
+                    "   copiá el enlace de arriba y abrilo en una \033[1mVentana de Incógnito\033[0m"
+                )
+                print(
+                    f"   o en el perfil donde estés logueado con \033[1m{args.email}\033[0m.\n"
+                )
 
-            print(f"2. Esperando autorización en http://localhost:{args.port}...")
-            try:
-                server.handle_request()
-            finally:
-                server.server_close()
+                try:
+                    webbrowser.open(auth_url)
+                except (webbrowser.Error, OSError):
+                    pass
 
-            code = OAuthCallbackHandler.auth_code
+                print(f"2. Esperando autorización en http://localhost:{args.port}...")
+                try:
+                    server.handle_request()
+                finally:
+                    server.server_close()
 
-        if not code:
-            print(
-                f"\n❌ Error: No se recibió el código de autorización ({OAuthCallbackHandler.error})."
-            )
-            sys.exit(1)
+                code = OAuthCallbackHandler.auth_code
 
-    if args.manual or not code:
-        print("1. Ingresá a este enlace en tu navegador:")
-        print(f"\n   \033[1;34m{auth_url}\033[0m\n")
-        raw_input = input(
-            "2. Pegá acá el código o la URL completa de la redirección: "
-        ).strip()
-        if "code=" in raw_input:
-            parsed = urllib.parse.urlparse(raw_input)
-            params = urllib.parse.parse_qs(parsed.query)
-            code = params.get("code", [raw_input])[0]
-        else:
-            code = raw_input
+            if not code:
+                print(
+                    f"\n❌ Error: No se recibió el código de autorización ({OAuthCallbackHandler.error})."
+                )
+                sys.exit(1)
 
-    print("\n⏳ Canjeando código por REFRESH_TOKEN...")
-    tokens = exchange_code_for_tokens(
-        code=code,
-        client_id=client_id,
-        client_secret=client_secret,
-        redirect_uri=redirect_uri,
-    )
+        if args.manual or not code:
+            print("1. Ingresá a este enlace en tu navegador:")
+            print(f"\n   \033[1;34m{auth_url}\033[0m\n")
+            raw_input = input(
+                "2. Pegá acá el código o la URL completa de la redirección: "
+            ).strip()
+            if "code=" in raw_input:
+                parsed = urllib.parse.urlparse(raw_input)
+                params = urllib.parse.parse_qs(parsed.query)
+                code = params.get("code", [raw_input])[0]
+            else:
+                code = raw_input
 
-    refresh_token = tokens.get("refresh_token")
-    if not refresh_token:
-        print(
-            "⚠️ Google devolvió tokens pero sin refresh_token (es posible que ya estuviera autorizada)."
+        print("\n⏳ Canjeando código por REFRESH_TOKEN...")
+        tokens = exchange_code_for_tokens(
+            code=code,
+            client_id=client_id,
+            client_secret=client_secret,
+            redirect_uri=redirect_uri,
         )
-        refresh_token = tokens.get("access_token", "")
 
-    print("\n" + "=" * 70)
-    print("✅ \033[1;32mREFRESH TOKEN OBTENIDO CON ÉXITO!\033[0m")
-    print("=" * 70)
-    config_dict = {
-        "abc": {
-            "host": "imap.gmail.com",
-            "port": 993,
-            "user": args.email,
-            "oauth2_client_id": client_id,
-            "oauth2_client_secret": client_secret,
-            "oauth2_refresh_token": refresh_token,
-            "use_ssl": True,
-            "timeout_seconds": 15,
+        refresh_token = tokens.get("refresh_token")
+        if not refresh_token:
+            print(
+                "⚠️ Google devolvió tokens pero sin refresh_token (es posible que ya estuviera autorizada)."
+            )
+            refresh_token = tokens.get("access_token", "")
+
+        print("\n" + "=" * 70)
+        print("✅ \033[1;32mREFRESH TOKEN OBTENIDO CON ÉXITO!\033[0m")
+        print("=" * 70)
+        config_dict = {
+            "abc": {
+                "host": "imap.gmail.com",
+                "port": 993,
+                "user": args.email,
+                "oauth2_client_id": client_id,
+                "oauth2_client_secret": client_secret,
+                "oauth2_refresh_token": refresh_token,
+                "use_ssl": True,
+                "timeout_seconds": 15,
+            }
         }
-    }
-    json_str = json.dumps(config_dict)
-    print(
-        "\nCopiá y pegá esta línea en tu archivo .env (tanto en local como en VPS):\n"
-    )
-    print(f"\033[1;32mMAIL_ACCOUNTS={json_str}\033[0m\n")
-    print("=" * 70)
+        json_str = json.dumps(config_dict)
+        print(
+            "\nCopiá y pegá esta línea en tu archivo .env (tanto en local como en VPS):\n"
+        )
+        print(f"\033[1;32mMAIL_ACCOUNTS={json_str}\033[0m\n")
+        print("=" * 70)
+
+    except KeyboardInterrupt:
+        print("\n\n🛑 Operación cancelada por el usuario.")
+        sys.exit(0)
 
 
 if __name__ == "__main__":
