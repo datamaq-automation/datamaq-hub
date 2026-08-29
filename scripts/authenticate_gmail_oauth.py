@@ -27,6 +27,30 @@ SCOPES = [
 ]
 
 
+def copy_to_clipboard(text: str) -> bool:
+    """Copia el texto al portapapeles del sistema operativo usando xclip, wl-copy o xsel."""
+    commands = [
+        ["xclip", "-selection", "clipboard"],
+        ["xclip", "-selection", "primary"],
+        ["wl-copy"],
+        ["xsel", "--clipboard", "--input"],
+    ]
+    for cmd in commands:
+        try:
+            p = subprocess.Popen(
+                cmd,
+                stdin=subprocess.PIPE,
+                stdout=subprocess.DEVNULL,
+                stderr=subprocess.DEVNULL,
+            )
+            p.communicate(input=text.encode("utf-8"))
+            if p.returncode == 0:
+                return True
+        except (subprocess.SubprocessError, OSError):
+            continue
+    return False
+
+
 class TemporaryPortManager:
     """Libera temporalmente el puerto especificado deteniendo el proceso que lo usa y restaurándolo al salir."""
 
@@ -67,7 +91,7 @@ class TemporaryPortManager:
                 try:
                     s = socket.socket()
                     s.settimeout(0.5)
-                    s.bind(("localhost", self.port))
+                    s.bind(("0.0.0.0", self.port))
                     s.close()
                     break
                 except OSError:
@@ -181,6 +205,22 @@ def main():
         help="Puerto local para recibir el callback (default: 8080)",
     )
     parser.add_argument(
+        "--variant",
+        choices=[
+            "localhost_slash",
+            "localhost",
+            "ip_slash",
+            "ip",
+            "playground",
+        ],
+        default="localhost_slash",
+        help="Formato exacto del Redirect URI autorizado en GCP (default: localhost_slash = http://localhost:8080/)",
+    )
+    parser.add_argument(
+        "--redirect-uri",
+        help="URL de redirección personalizada exacta registrada en GCP",
+    )
+    parser.add_argument(
         "--manual",
         action="store_true",
         help="Modo manual (copiar y pegar código desde consola)",
@@ -199,11 +239,24 @@ def main():
         print("   o pasalos con --client-id y --client-secret.")
         sys.exit(1)
 
-    redirect_uri = (
-        f"http://localhost:{args.port}"
-        if not args.manual
-        else "urn:ietf:wg:oauth:2.0:oob"
-    )
+    if args.redirect_uri:
+        redirect_uri = args.redirect_uri
+    elif args.variant == "localhost_slash":
+        redirect_uri = f"http://localhost:{args.port}/"
+    elif args.variant == "localhost":
+        redirect_uri = f"http://localhost:{args.port}"
+    elif args.variant == "ip_slash":
+        redirect_uri = f"http://127.0.0.1:{args.port}/"
+    elif args.variant == "ip":
+        redirect_uri = f"http://127.0.0.1:{args.port}"
+    elif args.variant == "playground":
+        redirect_uri = "https://developers.google.com/oauthplayground"
+        args.manual = True
+    else:
+        redirect_uri = f"http://localhost:{args.port}/"
+
+    if args.manual and not args.redirect_uri and args.variant != "playground":
+        redirect_uri = "urn:ietf:wg:oauth:2.0:oob"
 
     auth_params = {
         "client_id": client_id,
@@ -219,35 +272,39 @@ def main():
     print("\n" + "=" * 70)
     print("🔐 \033[1;36mAUTORIZACIÓN GOOGLE WORKSPACE / GMAIL (OAUTH 2.0)\033[0m")
     print("=" * 70)
-    print(f"Cuenta objetivo: \033[1;33m{args.email}\033[0m\n")
+    print(f"Cuenta objetivo: \033[1;33m{args.email}\033[0m")
+    print(f"Redirect URI:    \033[1;36m{redirect_uri}\033[0m\n")
+
+    copied = copy_to_clipboard(auth_url)
+    if copied:
+        print(
+            "📋 \033[1;32mURL de autorización copiada automáticamente al portapapeles!\033[0m"
+        )
+        print(
+            "   (Solo tenés que abrir tu ventana de incógnito y presionar \033[1mCtrl+V\033[0m).\n"
+        )
 
     code = None
 
     try:
-        if not args.manual:
+        if (
+            not args.manual
+            and "localhost" in redirect_uri
+            or "127.0.0.1" in redirect_uri
+        ):
             with TemporaryPortManager(args.port):
                 HTTPServer.allow_reuse_address = True
-                server = HTTPServer(("localhost", args.port), OAuthCallbackHandler)
+                server = HTTPServer(("0.0.0.0", args.port), OAuthCallbackHandler)
 
-                print("1. Abriendo navegador para autorizar la cuenta...")
-                print("   (Si no abre automáticamente, ingresá a este enlace:)\n")
+                print("1. Abriendo navegador...")
                 print(f"   \033[1;34m{auth_url}\033[0m\n")
-                print(
-                    "💡 \033[1;33mConsejo:\033[0m Si tu navegador abre otra cuenta de Google por defecto,"
-                )
-                print(
-                    "   copiá el enlace de arriba y abrilo en una \033[1mVentana de Incógnito\033[0m"
-                )
-                print(
-                    f"   o en el perfil donde estés logueado con \033[1m{args.email}\033[0m.\n"
-                )
 
                 try:
                     webbrowser.open(auth_url)
                 except (webbrowser.Error, OSError):
                     pass
 
-                print(f"2. Esperando autorización en http://localhost:{args.port}...")
+                print(f"2. Esperando autorización en {redirect_uri}...")
                 try:
                     server.handle_request()
                 finally:
