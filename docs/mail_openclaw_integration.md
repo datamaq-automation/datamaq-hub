@@ -2,7 +2,7 @@
 
 > **Proyecto:** DataMaq (`datamaq-hub`)  
 > **Estado:** Documento Vivo (Living SSOT de Integración de Agentes y Servicios de Correo)  
-> **Ámbito:** Acceso de sólo lectura para OpenClaw al buzón de correos electrónicos vía IMAP / Dovecot a través de Datamaq Hub API en loopback.
+> **Ámbito:** Acceso de sólo lectura para OpenClaw al buzón de correos electrónicos vía IMAP / Dovecot (cuenta corporativa) y Gmail REST API OAuth2 (cuenta docente ABC) a través de Datamaq Hub API en loopback.
 
 ---
 
@@ -59,6 +59,8 @@ El módulo `mail` de Datamaq Hub expone endpoints desacoplados bajo Clean Archit
 
 ## 3. Configuración del Entorno (`.env`)
 
+### 3.1 Cuenta Corporativa (IMAP / Dovecot Local)
+
 ```ini
 # === CONFIGURACIÓN DE CORREO IMAP (Lectura para OpenClaw) ===
 MAIL_IMAP_HOST=127.0.0.1
@@ -69,7 +71,105 @@ MAIL_IMAP_USE_SSL=true
 MAIL_IMAP_TIMEOUT_SECONDS=10
 ```
 
+La cuenta corporativa (`openclaw@datamaq.com.ar`) se resuelve contra el Dovecot local mediante IMAP con autenticación básica.
+
+### 3.2 Cuenta Docente ABC (OAuth2 / Gmail REST API)
+
+La cuenta docente (`agustinbustos@abc.gob.ar`) usa **Google OAuth2 (Gmail REST API)**. Las credenciales (`oauth2_client_id`, `oauth2_client_secret`, `oauth2_refresh_token`) se declaran bajo la clave `MAIL_ACCOUNTS` con el alias `abc`:
+
+```ini
+# === SERVIDOR DE CORREO IMAP (Cuenta Comercial - Dovecot Local) ===
+MAIL_IMAP_HOST=127.0.0.1
+MAIL_IMAP_PORT=993
+MAIL_IMAP_USER=openclaw@datamaq.com.ar
+MAIL_IMAP_PASS=TU_PASSWORD_DOVECOT_SI_APLICA
+MAIL_IMAP_USE_SSL=true
+MAIL_IMAP_TIMEOUT_SECONDS=10
+
+# === SOPORTE MULTI-CUENTA DE CORREO (Docente ABC PBA) ===
+DEFAULT_MAIL_ACCOUNT=openclaw@datamaq.com.ar
+MAIL_ACCOUNTS={"abc": {"host": "imap.gmail.com", "port": 993, "user": "agustinbustos@abc.gob.ar", "oauth2_client_id": "TU_CLIENT_ID.apps.googleusercontent.com", "oauth2_client_secret": "TU_CLIENT_SECRET", "oauth2_refresh_token": "1//TU_REFRESH_TOKEN_OFFLINE", "use_ssl": true, "timeout_seconds": 15}}
+```
+
+> [!NOTE]
+> **Estrategia de Cuenta por Defecto (`DEFAULT_MAIL_ACCOUNT`):**
+> - **Opción A (recomendada):** Mantener `DEFAULT_MAIL_ACCOUNT=openclaw@datamaq.com.ar` como buzón corporativo. OpenClaw consulta explícitamente `?account=abc` para tareas docentes y sin parámetro para la cuenta comercial.
+> - **Opción B:** Configurar `DEFAULT_MAIL_ACCOUNT=abc` si se desea que toda consulta sin parámetros apunte al correo docente ABC.
+
+> [!IMPORTANT]
+> El `refresh_token` es un token **offline permanente** de Google que ya fue generado y verificado localmente mediante el flujo OAuth2 interactivo (`scripts/authorize_gmail_oauth.py`). No es necesario repetir el consentimiento interactivo en Google Cloud: basta con replicar la entrada `MAIL_ACCOUNTS` en el `.env` del VPS.
+
+### 3.3 Medidas de Seguridad en el VPS
+
+El archivo `.env` de producción debe residir en `/var/www/datamaq-hub/.env` con permisos restrictivos:
+
+```bash
+sudo chown datamaq:datamaq /var/www/datamaq-hub/.env
+sudo chmod 600 /var/www/datamaq-hub/.env
+```
+
 ---
+
+## 3.4 Runbook de Despliegue y Diagnóstico en VPS
+
+Secuencia ordenada para aprovisionar, validar y activar las credenciales de un buzón en el VPS.
+
+### Paso 1 — Editar el `.env`
+
+```bash
+sudo -u datamaq vim /var/www/datamaq-hub/.env
+```
+
+Agregar la clave `MAIL_ACCOUNTS` con el alias y las credenciales del buzón correspondiente (ver §3.2).
+
+### Paso 2 — Diagnóstico CLI previo al reinicio
+
+```bash
+cd /var/www/datamaq-hub
+source venv/bin/activate
+python scripts/verify_mail_connection.py --account abc
+```
+
+**Resultado esperado:**
+```
+🔍 Probando conexión IMAP para la cuenta: abc
+  • API:      Gmail REST API (OAuth2)
+  • Usuario:  agustinbustos@abc.gob.ar (Google OAuth2 (Gmail REST API))
+  • Timeout:  15s
+✅ Conexión y autenticación exitosa!
+  • Total de carpetas encontradas: 13
+    - [INBOX] ...
+```
+
+### Paso 3 — Reinicio del servicio
+
+```bash
+sudo systemctl restart datamaq-hub
+sudo systemctl status datamaq-hub --no-pager
+```
+
+El daemon debe quedar en estado `active (running)` y escuchando en `127.0.0.1:8013`.
+
+### Paso 4 — Verificación HTTP en loopback
+
+```bash
+# 1. Listar carpetas de la cuenta ABC
+curl -sS "http://127.0.0.1:8013/api/v1/mail/carpetas?account=abc" | jq .
+
+# 2. Resumen de correos no leídos
+curl -sS "http://127.0.0.1:8013/api/v1/mail/inbox/sin-leer?account=abc" | jq .
+
+# 3. Listar últimos 5 correos
+curl -sS "http://127.0.0.1:8013/api/v1/mail/inbox?account=abc&limit=5" | jq .
+```
+
+### Paso 5 — Verificación end-to-end con OpenClaw
+
+Enviar al agente el mensaje *"revisá si hay novedades en el mail abc"* y confirmar que responde con el resumen de no leídos sin errores de credenciales (`MAIL_AUTHENTICATION_ERROR` / `ACCOUNT_NOT_FOUND`).
+
+---
+
+
 
 ## 4. Catálogo de Endpoints de Correo
 
@@ -77,6 +177,9 @@ Todos los endpoints están montados bajo el prefijo `/api/v1/mail`:
 
 ### 1. `GET /api/v1/mail/carpetas`
 Lista todas las carpetas IMAP disponibles en el servidor con sus estadísticas.
+
+**Parámetros Query:**
+- `account` (str, default: `DEFAULT_MAIL_ACCOUNT`): Alias de la cuenta de correo (`abc`, `datamaq`, etc.).
 
 **Ejemplo de respuesta (200 OK):**
 ```json
@@ -101,6 +204,7 @@ Lista todas las carpetas IMAP disponibles en el servidor con sus estadísticas.
 Lista correos de la bandeja de entrada o de una carpeta seleccionada.
 
 **Parámetros Query:**
+- `account` (str, default: `DEFAULT_MAIL_ACCOUNT`): Alias de la cuenta de correo (`abc`, `datamaq`, etc.).
 - `limit` (int, default: 20, max: 100): Cantidad máxima de correos a retornar.
 - `desde` (int, default: 0): Desplazamiento / offset para paginación.
 - `sin_leer` (bool, default: false): Si es `true`, filtra solo los correos no leídos.
@@ -136,6 +240,7 @@ Lista correos de la bandeja de entrada o de una carpeta seleccionada.
 Retorna rápidamente el conteo de correos no leídos y los últimos $N$ mensajes sin leer.
 
 **Parámetros Query:**
+- `account` (str, default: `DEFAULT_MAIL_ACCOUNT`): Alias de la cuenta de correo (`abc`, `datamaq`, etc.).
 - `limit` (int, default: 5): Cantidad máxima de correos no leídos recientes a incluir en la lista breve.
 - `carpeta` (str, default: "INBOX"): Nombre de la carpeta.
 
@@ -146,6 +251,7 @@ Retorna el detalle completo de un correo específico por su UID.
 - `uid` (str): Identificador único IMAP del correo.
 
 **Parámetros Query:**
+- `account` (str, default: `DEFAULT_MAIL_ACCOUNT`): Alias de la cuenta de correo (`abc`, `datamaq`, etc.).
 - `carpeta` (str, default: "INBOX"): Carpeta donde se aloja el mensaje.
 
 **Ejemplo de respuesta (200 OK):**
@@ -180,6 +286,8 @@ Retorna el detalle completo de un correo específico por su UID.
 
 OpenClaw puede consultar los endpoints mediante `curl` o mediante llamadas HTTP en sus herramientas internas:
 
+La cuenta de correo se selecciona mediante el parámetro query `?account={alias}` (`abc`, `datamaq`, etc.). Si se omite, se usa la cuenta definida en `DEFAULT_MAIL_ACCOUNT` (ver §3.2, Opción A/B).
+
 ```bash
 # Consultar resumen de no leídos (cuenta por defecto / corporativa)
 curl -sS http://127.0.0.1:8013/api/v1/mail/inbox/sin-leer
@@ -193,3 +301,7 @@ curl -sS "http://127.0.0.1:8013/api/v1/mail/inbox?account=abc&limit=5"
 # Obtener detalle de un correo específico
 curl -sS "http://127.0.0.1:8013/api/v1/mail/inbox/1052?account=abc"
 ```
+
+En los prompts a OpenClaw se debe especificar explícitamente la cuenta para tareas que no son la corporativa:
+- *"revisá si hay novedades en el mail **abc**"*  → invoca `?account=abc`.
+- *"revisá el correo comercial"* (sin parámetro)  → usa la cuenta corporativa por defecto.
