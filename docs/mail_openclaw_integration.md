@@ -305,3 +305,64 @@ curl -sS "http://127.0.0.1:8013/api/v1/mail/inbox/1052?account=abc"
 En los prompts a OpenClaw se debe especificar explícitamente la cuenta para tareas que no son la corporativa:
 - *"revisá si hay novedades en el mail **abc**"*  → invoca `?account=abc`.
 - *"revisá el correo comercial"* (sin parámetro)  → usa la cuenta corporativa por defecto.
+
+---
+
+## 6. Caché TTL y Optimización de Latencia para OpenClaw
+
+El acceso IMAP/Gmail es el cuello de botella dominante en el VPS (≈ 2.6 s por consulta).
+Para que OpenClaw responda instantáneamente al revisar el correo, las lecturas se
+envuelven en una capa de caché transparente: el patrón decorador
+`CachedMailReaderGateway` sobre el puerto `MailReaderPort`.
+
+### 6.1 Arquitectura (patrón Decorador)
+
+```
+Cliente (OpenClaw/curl)
+   │
+   ▼
+CachedMailReaderGateway  ──► ApiCachePort (ApiCacheGateway)
+   │                             ├─ L1: memoria del proceso (ultra rápida)
+   │                             └─ L2: api_cache (SQLite WAL persistente)
+   ▼
+MailReaderPort base (ImapMailGateway / GmailApiGateway)  ──► IMAP/Gmail
+```
+
+- **Fichero de implementación:** `src/adapters/gateways/cached_mail_reader_gateway.py`.
+- **Ensamblaje:** `get_configured_mail_controller` (en `mail_routes.py`) crea el lector
+  base, lo envuelve con `CachedMailReaderGateway(reader, cache, account)` y lo pasa al
+  controlador. La caché usa `resolve_database_url(settings.database_url)`: con
+  `DATABASE_URL` vacío (caso típico del VPS) cae al archivo SQLite WAL
+  `data/datamaq_hub.db` (decisión de fallback centralizada en `api_cache_gateway.py`).
+- **Serialización:** las entidades de dominio (`EmailFolder`, `UnreadSummary`,
+  `EmailSummary`) se serializan con `dataclasses.asdict` en `set` y se reconstruyen en
+  el `get`; no depende del `json.dumps(default=str)` del gateway de caché.
+
+### 6.2 Claves Canónicas & TTLs
+
+| Método cacheado | Clave | TTL |
+|---|---|---|
+| `get_unread_summary` | `mail:unread_summary:{account}:{folder}` | 60 segundos |
+| `get_folders` | `mail:folders:{account}` | 300 segundos |
+
+Los TTLs se resuelven por prefijo en `CACHE_TTL` de `api_cache_gateway.py`;
+`list_messages` y `get_message_by_uid` son **passthrough** (delegación directa): el
+contenido volátil del inbox y el detalle por UID NO se cachean para garantizar
+frescura y privacidad.
+
+### 6.3 Rendimiento verificado en VPS (donde)
+
+| Medición | Latencia |
+|---|---|
+| Primer acceso (miss → poblado de caché en SQLite WAL) | ≈ 2.5–2.8 s (IMAP) |
+| Segundo acceso consecutivo (hit) | **≈ 3–11 ms** |
+
+Reducción de latencia de **≈ 99.8 %** (de 2.587 ms a ~10.9 ms en el diagnóstico, y
+~3 ms en hits `curl` consecutivos). La caché persiste entre reinicios del servicio en
+`api_cache` (`data/datamaq_hub.db`), y expira por TTL sin purga manual.
+
+> [!NOTE]
+> **Cuenta en la clave de caché:** se usa el `account_config.user` de la cuenta
+> resuelta (el email). Así la caché se comparte entre alias semánticos de la misma
+> cuenta (`docente`, `abc.gob.ar`, `gmail` → misma `user` → misma clave), maximizando
+> la tasa de hit sin romper corrección.
