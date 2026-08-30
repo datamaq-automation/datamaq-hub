@@ -1,12 +1,12 @@
 """Use case for ingesting and auto-scheduling leads from web and advertising forms."""
 
-import logging
 import uuid
 from datetime import datetime, timedelta, timezone
 
 from src.application.dtos.leads_dto import IngestLeadDTO, IngestLeadResponseDTO
 from src.domain.calendar.entities import CalendarEvent
 from src.domain.calendar.ports import CalendarRepositoryPort
+from src.domain.common.ports import LoggerPort, NullLogger
 from src.domain.contacts.entities import Contact
 from src.domain.contacts.ports import ContactsRepositoryPort
 from src.domain.contacts.services import VCardFormatterService
@@ -14,8 +14,6 @@ from src.domain.leads.entities import Lead
 from src.domain.leads.ports import LeadNotifierPort
 from src.domain.leads.services import LeadValidationService
 from src.domain.leads.value_objects import LeadSourceInfo, LeadStatus
-
-logger = logging.getLogger(__name__)
 
 
 class IngestarLeadUseCase:
@@ -26,10 +24,12 @@ class IngestarLeadUseCase:
         contacts_repo: ContactsRepositoryPort,
         calendar_repo: CalendarRepositoryPort | None = None,
         notifier: LeadNotifierPort | None = None,
+        logger: LoggerPort | None = None,
     ) -> None:
         self._contacts_repo = contacts_repo
         self._calendar_repo = calendar_repo
         self._notifier = notifier
+        self._logger = logger or NullLogger()
 
     def execute(self, dto: IngestLeadDTO) -> IngestLeadResponseDTO:
         account = (dto.cuenta or "").strip()
@@ -118,7 +118,7 @@ class IngestarLeadUseCase:
             try:
                 self._notifier.notificar_nuevo_lead(lead)
             except (ValueError, RuntimeError, OSError, TimeoutError) as exc:
-                logger.warning(
+                self._logger.warning(
                     "Fallo al notificar nuevo lead al canal externo: %s", exc
                 )
 

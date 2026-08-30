@@ -1,10 +1,7 @@
 """Caso de uso para generar el Briefing Matutino Unificado."""
 
-import logging
 from collections.abc import Sequence
 from datetime import date, datetime, timezone
-
-logger = logging.getLogger(__name__)
 
 from src.application.dtos.briefing_dtos import (
     BriefingDiarioResponseDTO,
@@ -15,6 +12,7 @@ from src.application.dtos.briefing_dtos import (
 )
 from src.domain.calendar.exceptions import CalendarDomainException
 from src.domain.calendar.ports import CalendarRepositoryPort
+from src.domain.common.ports import LoggerPort, NullLogger
 from src.domain.horarios_docencia.ports import DesignacionDocenteRepositoryPort
 from src.domain.horarios_docencia.value_objects import (
     DiaSemana,
@@ -48,10 +46,12 @@ class ObtenerBriefingDiarioUseCase:
         designacion_repository: DesignacionDocenteRepositoryPort,
         tarea_repository: TareaRepositoryPort,
         calendar_repository: CalendarRepositoryPort | None = None,
+        logger: LoggerPort | None = None,
     ) -> None:
         self._desig_repo = designacion_repository
         self._tarea_repo = tarea_repository
         self._cal_repo = calendar_repository
+        self._logger = logger or NullLogger()
 
     def execute(
         self,
@@ -155,7 +155,7 @@ class ObtenerBriefingDiarioUseCase:
                         )
                     )
             except CalendarDomainException as e:
-                logger.error("Error al listar eventos de calendario: %s", e)
+                self._logger.error("Error al listar eventos de calendario: %s", e)
                 # Continúa sin eventos si falla la obtención del calendario.
 
         # 4. Métricas
