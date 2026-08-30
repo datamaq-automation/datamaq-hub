@@ -7,9 +7,11 @@ from src.adapters.gateways.sql_designacion_docente_gateway import (
     SQLDesignacionDocenteGateway,
 )
 from src.adapters.gateways.sql_tarea_gateway import SQLTareaGateway
+from src.adapters.gateways.sql_tarjeta_gateway import SQLTarjetaGateway
 from src.application.use_cases.obtener_briefing_diario import (
     ObtenerBriefingDiarioUseCase,
 )
+from src.domain.tarjetas.entities import ResumenTarjeta
 from src.domain.calendar.entities import CalendarEvent
 from src.domain.horarios_docencia.entities import (
     DesignacionDocente,
@@ -149,3 +151,69 @@ def test_obtener_briefing_diario_completo() -> None:
     assert "EEST N°3 Tigre" in briefing.resumen_telegram
     assert "Reclamar liquidación: Tigre LEE" in briefing.resumen_telegram
     assert "Reunión de Departamento" in briefing.resumen_telegram
+
+
+def test_obtener_briefing_diario_con_alertas_tarjetas() -> None:
+    desig_repo = SQLDesignacionDocenteGateway(database_url="sqlite:///:memory:")
+    tarea_repo = SQLTareaGateway(database_url="sqlite:///:memory:")
+    cal_repo = SQLCalendarGateway(database_url="sqlite:///:memory:")
+    tarjeta_repo = SQLTarjetaGateway("sqlite:///:memory:")
+
+    cuit = "20-36528392-4"
+    target_date = date(2026, 8, 28)
+
+    # Resumen con vencimiento cercano (debe alertar)
+    tarjeta_repo.guardar(
+        ResumenTarjeta(
+            id_resumen="bbva-visa",
+            banco="BBVA",
+            tarjeta_tipo="VISA",
+            tarjeta_categoria="GOLD",
+            numero_cuenta="1097452662",
+            fecha_cierre=date(2026, 8, 27),
+            fecha_vencimiento=date(2026, 9, 7),
+            saldo_pesos=144565.27,
+            saldo_dolares=0.0,
+            pago_minimo=82120.0,
+        )
+    )
+    # Resumen con vencimiento lejano (debe quedar filtrado)
+    tarjeta_repo.guardar(
+        ResumenTarjeta(
+            id_resumen="bapro-visa",
+            banco="BAPRO",
+            tarjeta_tipo="VISA",
+            tarjeta_categoria="CLASSIC",
+            numero_cuenta="1151377322",
+            fecha_cierre=date(2026, 8, 27),
+            fecha_vencimiento=date(2026, 10, 1),
+            saldo_pesos=277449.24,
+            saldo_dolares=55.78,
+            pago_minimo=65922.0,
+        )
+    )
+
+    use_case = ObtenerBriefingDiarioUseCase(
+        designacion_repository=desig_repo,
+        tarea_repository=tarea_repo,
+        calendar_repository=cal_repo,
+        tarjeta_repository=tarjeta_repo,
+    )
+
+    briefing = use_case.execute(docente_cuit=cuit, fecha=target_date)
+
+    # Solo el vencimiento dentro del umbral de 15 días debe alertar
+    assert len(briefing.tarjetas_vencimiento) == 1
+    alerta = briefing.tarjetas_vencimiento[0]
+    assert alerta.banco == "BBVA"
+    assert alerta.tarjeta_tipo == "VISA"
+    assert alerta.tarjeta_categoria == "GOLD"
+    assert alerta.fecha_vencimiento == date(2026, 9, 7)
+    assert alerta.saldo_pesos == 144565.27
+    assert alerta.pago_minimo == 82120.0
+
+    # El texto de Telegram incluye la sección de alertas
+    assert "Vencimientos de Tarjetas" in briefing.resumen_telegram
+    assert "07/09/2026" in briefing.resumen_telegram
+    assert "144,565.27" in briefing.resumen_telegram
+    assert "82,120.00" in briefing.resumen_telegram
