@@ -20,6 +20,7 @@
 | **[`vps_replica.md`](vps_replica.md)** | Réplica Local desde el VPS (SSOT) | **Aprobado / Implementado** | Sincronización unidireccional VPS ➔ Local con snapshot WAL-safe, backup preventivo y verificación de integridad. |
 | **[`dip_logging.md`](dip_logging.md)** | Abstracción de Logging (DIP) | **Aprobado / Implementado** | `LoggerPort` + `NullLogger` en dominio, `StandardLogger` en infraestructura y desacoplamiento de `logging` en adapters/application. |
 | **[`proyeccion_sueldo_cuit.md`](proyeccion_sueldo_cuit.md)** | Proyección Salarial por CUIT | **Aprobado / Diseñado** | Caso de uso para proyección automática basada en designaciones vigentes y extracción de antigüedad de recibos históricos. |
+| **[`credit_card_parser.md`](credit_card_parser.md)** | Procesamiento de Tarjetas de Crédito | **Aprobado / Diseñado** | Procesamiento de resúmenes de tarjetas de crédito (Visa/Mastercard de BBVA y Banco Provincia) e integración en el Briefing Diario. |
 
 ---
 
