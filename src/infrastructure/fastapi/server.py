@@ -25,6 +25,7 @@ from src.domain.leads.exceptions import LeadException
 from src.domain.liquidacion.exceptions import LiquidacionDomainException
 from src.domain.mail.exceptions import MailDomainException
 from src.domain.recibos.exceptions import DomainException
+from src.domain.tarjetas.exceptions import TarjetaException
 from src.infrastructure.fastapi.routes.agenda_routes import (
     router as agenda_router,
 )
@@ -49,6 +50,7 @@ from src.infrastructure.fastapi.routes.receipt_routes import router as receipt_r
 from src.infrastructure.fastapi.routes.simulation_routes import (
     router as simulation_router,
 )
+from src.infrastructure.fastapi.routes.tarjeta_routes import router as tarjeta_router
 from src.infrastructure.fastapi.routes.task_routes import (
     router as task_router,
 )
@@ -140,6 +142,13 @@ def create_app() -> FastAPI:
         payload, status_code = ErrorPresenter.format_domain_error(exc)
         return JSONResponse(status_code=status_code, content=payload.model_dump())
 
+    @app.exception_handler(TarjetaException)
+    async def tarjeta_exception_handler(
+        _: Request, exc: TarjetaException
+    ) -> JSONResponse:
+        payload, status_code = ErrorPresenter.format_domain_error(exc)
+        return JSONResponse(status_code=status_code, content=payload.model_dump())
+
     # Unified framework exception handlers (Standardizing all error shapes to {"success": false, "error": {...}})
     @app.exception_handler(RequestValidationError)
     async def validation_exception_handler(
@@ -206,6 +215,7 @@ def create_app() -> FastAPI:
     app.include_router(task_router, prefix="/api/v1")
     app.include_router(agenda_router, prefix="/api/v1")
     app.include_router(leads_router)
+    app.include_router(tarjeta_router, prefix="/api/v1")
 
     # Root redirect/info endpoint
     @app.get("/", include_in_schema=False)

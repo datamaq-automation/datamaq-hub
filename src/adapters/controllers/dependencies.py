@@ -9,9 +9,11 @@ from src.adapters.controllers.horarios_docencia_controller import (
 from src.adapters.controllers.mail_controller import MailController
 from src.adapters.controllers.receipt_controller import ReceiptController
 from src.adapters.controllers.simulation_controller import SimulationController
+from src.adapters.controllers.tarjeta_controller import TarjetaController
 from src.adapters.controllers.tools_controller import ToolsController
 from src.adapters.gateways.imap_mail_gateway import ImapMailGateway
 from src.adapters.gateways.paritaria_json_gateway import ParitariaJsonGateway
+from src.adapters.gateways.pdf_tarjeta_parser_gateway import PDFTarjetaParserGateway
 from src.adapters.gateways.pdfplumber_extractor_gateway import (
     PdfPlumberExtractorGateway,
 )
@@ -22,6 +24,7 @@ from src.adapters.gateways.sql_designacion_docente_gateway import (
     SQLDesignacionDocenteGateway,
 )
 from src.adapters.gateways.sql_recibo_gateway import SQLReciboGateway
+from src.adapters.gateways.sql_tarjeta_gateway import SQLTarjetaGateway
 from src.application.use_cases.actualizar_designacion import (
     ActualizarDesignacionUseCase,
 )
@@ -48,6 +51,9 @@ from src.application.use_cases.listar_designaciones import (
 from src.application.use_cases.listar_recibos import ListarRecibosUseCase
 from src.application.use_cases.obtener_recibo import ObtenerReciboUseCase
 from src.application.use_cases.parse_receipt import ParseReceiptUseCase
+from src.application.use_cases.procesar_resumen_tarjeta import (
+    ProcesarResumenTarjetaUseCase,
+)
 from src.application.use_cases.project_salary import ProjectSalaryUseCase
 from src.application.use_cases.proyectar_sueldo_docente_vigente import (
     ProyectarSueldoDocenteVigenteUseCase,
@@ -67,6 +73,7 @@ from src.domain.recibos.ports import (
     ReceiptParserRegistryPort,
     ReciboRepositoryPort,
 )
+from src.domain.tarjetas.ports import TarjetaCreditoParserPort, TarjetaRepositoryPort
 
 
 @lru_cache
@@ -82,6 +89,29 @@ def get_receipt_parser_registry_gateway() -> ReceiptParserRegistryPort:
 @lru_cache
 def get_recibo_repository_gateway() -> ReciboRepositoryPort:
     return SQLReciboGateway()
+
+
+@lru_cache
+def get_tarjeta_parser_gateway() -> TarjetaCreditoParserPort:
+    return PDFTarjetaParserGateway()
+
+
+@lru_cache
+def get_tarjeta_repository_gateway() -> TarjetaRepositoryPort:
+    return SQLTarjetaGateway()
+
+
+def get_procesar_resumen_tarjeta_use_case() -> ProcesarResumenTarjetaUseCase:
+    return ProcesarResumenTarjetaUseCase(
+        parser=get_tarjeta_parser_gateway(),
+        repository=get_tarjeta_repository_gateway(),
+    )
+
+
+def get_tarjeta_controller() -> TarjetaController:
+    return TarjetaController(
+        procesar_use_case=get_procesar_resumen_tarjeta_use_case()
+    )
 
 
 def get_parse_receipt_use_case() -> ParseReceiptUseCase:

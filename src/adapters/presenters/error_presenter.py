@@ -41,6 +41,7 @@ from src.domain.recibos.exceptions import (
     ReceiptParsingError,
     ReciboNotFoundError,
 )
+from src.domain.tarjetas.exceptions import TarjetaException, TarjetaParserException
 
 
 class ErrorPresenter:
@@ -55,7 +56,8 @@ class ErrorPresenter:
         | ContactsDomainException
         | CalendarDomainException
         | LeadException
-        | CalculadoraCosFiException,
+        | CalculadoraCosFiException
+        | TarjetaException,
         default_status_code: int = 422,
     ) -> tuple[ErrorResponseDTO, int]:
         status_code = default_status_code
@@ -135,6 +137,12 @@ class ErrorPresenter:
             status_code = 422
         elif isinstance(exc, CalculadoraCosFiException):
             code_name = "CALCULADORA_COS_FI_ERROR"
+            status_code = 422
+        elif isinstance(exc, TarjetaParserException):
+            code_name = "TARJETA_PARSING_ERROR"
+            status_code = 422
+        elif isinstance(exc, TarjetaException):
+            code_name = "TARJETA_DOMAIN_ERROR"
             status_code = 422
 
         msg = getattr(exc, "message", str(exc))
