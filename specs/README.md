@@ -18,6 +18,7 @@
 | **[`horarios_docencia.md`](horarios_docencia.md)** | Horarios de Docencia y Compatibilidad | **Aprobado / Implementado** | Auditoría estatutaria DGCyE PBA, CRUD de designaciones y proyección de clases. |
 | **[`endpoints_optimization.md`](endpoints_optimization.md)** | Optimización de Endpoints y VPS (OpenClaw) | **En Implementación** | Compresión gzip, caché SQLite WAL, modos compact/resumen y límites reducidos para ahorro de tokens. |
 | **[`vps_replica.md`](vps_replica.md)** | Réplica Local desde el VPS (SSOT) | **Aprobado / Implementado** | Sincronización unidireccional VPS ➔ Local con snapshot WAL-safe, backup preventivo y verificación de integridad. |
+| **[`dip_logging.md`](dip_logging.md)** | Abstracción de Logging (DIP) | **Aprobado / Implementado** | `LoggerPort` + `NullLogger` en dominio, `StandardLogger` en infraestructura y desacoplamiento de `logging` en adapters/application. |
 
 ---
 

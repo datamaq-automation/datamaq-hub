@@ -68,6 +68,9 @@ src/
 │       ├── services.py                          # Servicios de decodificación y saneamiento
 │       ├── ports.py                             # Interfaces (MailReaderPort)
 │       └── exceptions.py                        # Excepciones de dominio de correo
+│   └── common/                                  # Abstracciones transversales puras (DIP)
+│       ├── __init__.py                          # 0 bytes (load-bearing para pytest)
+│       └── ports.py                             # LoggerPort + NullLogger (inyección de logging)
 │
 ├── application/                                 # 2. Capa de Aplicación (Casos de Uso y DTOs)
 │   ├── use_cases/                               # Casos de uso (ParseReceiptUseCase, ListInboxMessagesUseCase, etc.)
@@ -83,6 +86,7 @@ src/
 │   ├── fastapi/                                 # Servidor FastAPI, middlewares CORS y routers HTTP
 │   │   └── routes/                              # Routers FastAPI (health, recibos, mail, simulation, analytics)
 │   ├── fastmcp/                                 # Servidores MCP (Clarity, GA4, Google Ads)
+│   ├── logging/                                 # Implementación de LoggerPort (StandardLogger sobre logging stdlib)
 │   └── pydantic/                                # Settings con pydantic-settings
 │
 └── main.py                                      # Entrypoint ASGI: app = create_app()
