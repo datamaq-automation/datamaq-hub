@@ -22,3 +22,7 @@ class NivelCargoInvalidoException(LiquidacionDomainException):
 
 class ParitariaNoEncontradaException(LiquidacionDomainException):
     """Raised when paritary rates for a given period cannot be found."""
+
+
+class DocenteSinDesignacionesException(LiquidacionDomainException):
+    """Raised when the teacher has no active designations in the requested period."""
