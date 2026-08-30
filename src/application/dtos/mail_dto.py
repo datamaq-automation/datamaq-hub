@@ -133,7 +133,9 @@ class ScanMailRequestDTO(BaseModel):
 
     cuenta: str = Field(default="datamaq", description="Cuenta de correo a escanear")
     carpeta: str = Field(default="INBOX", description="Carpeta a inspeccionar")
-    limit: int = Field(default=10, ge=1, le=50, description="Máximo de correos a escanear")
+    limit: int = Field(
+        default=10, ge=1, le=50, description="Máximo de correos a escanear"
+    )
     forzar_notificacion: bool = Field(
         default=False, description="Omite el caché de deduplicación"
     )
@@ -146,7 +148,9 @@ class ScanMailResponseDTO(BaseModel):
     """DTO de respuesta del escaneo de oportunidades sortino a notificación."""
 
     total_escaneados: int = Field(description="Correos evaluados")
-    total_oportunidades: int = Field(description="Correos clasificados como oportunidad")
+    total_oportunidades: int = Field(
+        description="Correos clasificados como oportunidad"
+    )
     alertas_enviadas: int = Field(description="Alertas Telegram entregadas")
     contactos_registrados: int = Field(description="Contactos auto-registrados")
     analisis: list[AnalisisEmailDTO] = Field(

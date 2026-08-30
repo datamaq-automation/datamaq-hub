@@ -30,6 +30,7 @@ from enum import Enum
 
 class CategoriaEmail(str, Enum):
     """Clasificación semántica determinística del correo entrante."""
+
     OPORTUNIDAD_COMERCIAL = "OPORTUNIDAD_COMERCIAL"
     DOCENCIA_OFICIAL = "DOCENCIA_OFICIAL"
     PROVEEDOR_FACTURACION = "PROVEEDOR_FACTURACION"
@@ -61,7 +62,7 @@ class AnalisisEmail:
     uid: str
     categoria: CategoriaEmail
     prioridad: NivelPrioridad
-    score: int                     # 0 a 100
+    score: int  # 0 a 100
     resumen_ejecutivo: str
     accion_sugerida: str
     entidades: EntidadesDetectadas
@@ -74,7 +75,10 @@ class AnalisisEmail:
 ```python
 class MailNotifierPort(Protocol):
     """Dispacha alertas de oportunidad de correo a canales externos (Telegram)."""
-    def notificar_oportunidad_email(self, analisis: AnalisisEmail, email: EmailDetail) -> bool:
+
+    def notificar_oportunidad_email(
+        self, analisis: AnalisisEmail, email: EmailDetail
+    ) -> bool:
         """Retorna True si la notificación fue entregada con éxito."""
         ...
 ```

@@ -146,11 +146,7 @@ class AnalizarCorreosEntrantesUseCase:
             return False
         entidades = analisis.entidades
         telefono = entidades.telefonos[0] if entidades.telefonos else ""
-        notas = (
-            f"Cargo: {entidades.contacto_cargo}"
-            if entidades.contacto_cargo
-            else ""
-        )
+        notas = f"Cargo: {entidades.contacto_cargo}" if entidades.contacto_cargo else ""
         contacto = Contact(
             id_contacto=str(uuid.uuid4()),
             nombre=nombre_contacto,

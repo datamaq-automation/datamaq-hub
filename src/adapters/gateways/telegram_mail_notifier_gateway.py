@@ -66,9 +66,7 @@ class TelegramMailNotifierGateway(MailNotifierPort):
             TimeoutError,
             OSError,
         ) as exc:
-            logger.warning(
-                "Error al enviar alerta de oportunidad a Telegram: %s", exc
-            )
+            logger.warning("Error al enviar alerta de oportunidad a Telegram: %s", exc)
             return False
 
     @staticmethod
@@ -78,9 +76,7 @@ class TelegramMailNotifierGateway(MailNotifierPort):
         empresa = ent.empresa or "No especificada"
         contacto = ent.contacto_nombre or "No especificado"
         cargo = ent.contacto_cargo or ""
-        contacto_linea = (
-            f"{contacto} ({cargo})" if cargo else contacto
-        )
+        contacto_linea = f"{contacto} ({cargo})" if cargo else contacto
         tipo = ent.tipo_proyecto or "No especificado"
 
         return (

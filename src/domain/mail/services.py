@@ -212,9 +212,11 @@ class EmailOpportunityAnalyzerService:
             categoria = CategoriaEmail.DOCENCIA_OFICIAL
         elif hay_facturacion and not (hay_proyecto or hay_energia):
             categoria = CategoriaEmail.PROVEEDOR_FACTURACION
-        elif (hay_proyecto or hay_energia) and (dominio_corporativo or rol_comprador):
-            categoria = CategoriaEmail.OPORTUNIDAD_COMERCIAL
-        elif score >= 40:
+        elif (
+            (hay_proyecto or hay_energia)
+            and (dominio_corporativo or rol_comprador)
+            or score >= 40
+        ):
             categoria = CategoriaEmail.OPORTUNIDAD_COMERCIAL
         else:
             categoria = CategoriaEmail.GENERAL_INFORMATIVO
@@ -352,15 +354,21 @@ class EmailOpportunityAnalyzerService:
             return f"Correo clasificado como {categoria.value}. No requiere seguimiento comercial."
         partes: list[str] = []
         if hay_proyecto:
-            partes.append("busca proveedores para proyecto de automatización/telemetría")
+            partes.append(
+                "busca proveedores para proyecto de automatización/telemetría"
+            )
         if hay_energia:
-            partes.append("presenta requerimiento de calidad de energía/factor de potencia")
+            partes.append(
+                "presenta requerimiento de calidad de energía/factor de potencia"
+            )
         if not partes:
             partes.append("presenta una solicitud comercial")
         return "El correo " + "; ".join(partes) + "."
 
     @staticmethod
-    def _accion_sugerida(categoria: CategoriaEmail, entidades: EntidadesDetectadas) -> str:
+    def _accion_sugerida(
+        categoria: CategoriaEmail, entidades: EntidadesDetectadas
+    ) -> str:
         if categoria != CategoriaEmail.OPORTUNIDAD_COMERCIAL:
             return "Sin acción requerida."
         destino = entidades.empresa or "el contacto"

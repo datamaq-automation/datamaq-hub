@@ -43,7 +43,10 @@ def test_caso_real_jtekt_toyota_group() -> None:
     assert resultado.prioridad == NivelPrioridad.ALTA
     assert resultado.score >= 85
     assert resultado.requiere_alerta is True
-    assert "Toyota Group" in resultado.entidades.empresa or "JTEKT" in resultado.entidades.empresa
+    assert (
+        "Toyota Group" in resultado.entidades.empresa
+        or "JTEKT" in resultado.entidades.empresa
+    )
     assert resultado.entidades.contacto_cargo == "Buyer"
     assert resultado.entidades.tipo_proyecto is not None
     assert resultado.entidades.telefonos
