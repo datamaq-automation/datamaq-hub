@@ -19,6 +19,7 @@
 | **[`endpoints_optimization.md`](endpoints_optimization.md)** | Optimización de Endpoints y VPS (OpenClaw) | **En Implementación** | Compresión gzip, caché SQLite WAL, modos compact/resumen y límites reducidos para ahorro de tokens. |
 | **[`vps_replica.md`](vps_replica.md)** | Réplica Local desde el VPS (SSOT) | **Aprobado / Implementado** | Sincronización unidireccional VPS ➔ Local con snapshot WAL-safe, backup preventivo y verificación de integridad. |
 | **[`dip_logging.md`](dip_logging.md)** | Abstracción de Logging (DIP) | **Aprobado / Implementado** | `LoggerPort` + `NullLogger` en dominio, `StandardLogger` en infraestructura y desacoplamiento de `logging` en adapters/application. |
+| **[`proyeccion_sueldo_cuit.md`](proyeccion_sueldo_cuit.md)** | Proyección Salarial por CUIT | **Aprobado / Diseñado** | Caso de uso para proyección automática basada en designaciones vigentes y extracción de antigüedad de recibos históricos. |
 
 ---
 
