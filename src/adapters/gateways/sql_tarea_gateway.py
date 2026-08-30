@@ -1,7 +1,6 @@
 """Gateway relacional SQLAlchemy para persistencia y gestión de tareas (To-Do List)."""
 
 import json
-import logging
 import os
 from datetime import date, datetime, timezone
 
@@ -23,6 +22,7 @@ from sqlalchemy.orm import (
     sessionmaker,
 )
 
+from src.domain.common.ports import LoggerPort, NullLogger
 from src.domain.tareas.entities import Tarea
 from src.domain.tareas.ports import FiltrosTarea, TareaRepositoryPort
 from src.domain.tareas.value_objects import (
@@ -30,8 +30,6 @@ from src.domain.tareas.value_objects import (
     EstadoTarea,
     PrioridadTarea,
 )
-
-logger = logging.getLogger(__name__)
 
 
 class Base(DeclarativeBase):
@@ -74,7 +72,10 @@ class TareaModel(Base):
 class SQLTareaGateway(TareaRepositoryPort):
     """Implementación de TareaRepositoryPort basada en SQLAlchemy (SQLite / MySQL)."""
 
-    def __init__(self, database_url: str | None = None) -> None:
+    def __init__(
+        self, database_url: str | None = None, logger: LoggerPort | None = None
+    ) -> None:
+        self._logger = logger or NullLogger()
         if database_url:
             self._db_url = database_url
         else:
@@ -100,8 +101,9 @@ class SQLTareaGateway(TareaRepositoryPort):
         try:
             Base.metadata.create_all(self._engine)
         except SQLAlchemyError as e:
-            logger.warning("No se pudo crear schema de tareas automáticamente: %s", e)
-
+            self._logger.warning(
+                "No se pudo crear schema de tareas automáticamente: %s", e
+            )
     def _get_session(self) -> Session:
         return self._session_factory()
 

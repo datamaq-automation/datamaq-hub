@@ -1,6 +1,5 @@
 """Gateway relacional SQLAlchemy para persistencia inmutable / temporal de designaciones docentes."""
 
-import logging
 import os
 import sqlite3
 import uuid
@@ -28,6 +27,7 @@ from sqlalchemy.orm import (
     sessionmaker,
 )
 
+from src.domain.common.ports import LoggerPort, NullLogger
 from src.domain.horarios_docencia.entities import (
     DesignacionDocente,
     HorarioBloque,
@@ -42,8 +42,6 @@ from src.domain.horarios_docencia.value_objects import (
     Turno,
     normalizar_cuit,
 )
-
-logger = logging.getLogger(__name__)
 
 
 class Base(DeclarativeBase):
@@ -114,8 +112,11 @@ class HorarioBloqueModel(Base):
     )
 
 
-def init_horarios_db(database_url: str) -> None:
+def init_horarios_db(
+    database_url: str, logger: LoggerPort | None = None
+) -> None:
     """Crea las tablas de horarios_docencia si no existen y actualiza columnas si faltan."""
+    logger = logger or NullLogger()
     try:
         engine = create_engine(database_url, pool_pre_ping=True)
         Base.metadata.create_all(engine, checkfirst=True)
@@ -164,7 +165,10 @@ from sqlalchemy.pool import StaticPool
 class SQLDesignacionDocenteGateway(DesignacionDocenteRepositoryPort):
     """Implementación del repositorio temporal de designaciones docentes usando SQLAlchemy."""
 
-    def __init__(self, database_url: str | None = None) -> None:
+    def __init__(
+        self, database_url: str | None = None, logger: LoggerPort | None = None
+    ) -> None:
+        self._logger = logger or NullLogger()
         self.database_url = database_url or os.environ.get(
             "DATABASE_URL", "sqlite:///data/leads.db"
         )
@@ -204,7 +208,7 @@ class SQLDesignacionDocenteGateway(DesignacionDocenteRepositoryPort):
                             )
                     conn.commit()
         except (SQLAlchemyError, OSError, ValueError, RuntimeError) as e:
-            logger.debug(f"Migración omitida: {e}")
+            self._logger.debug(f"Migración omitida: {e}")
 
     def _get_session(self) -> Session:
         return self._session_factory()

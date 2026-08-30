@@ -9,7 +9,6 @@ constructor desde la capa más externa (FastMCP / FastAPI startup).
 """
 
 import json
-import logging
 from datetime import datetime, timedelta, timezone
 from functools import cache
 from typing import Any
@@ -19,8 +18,7 @@ from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import DeclarativeBase, Mapped, Session, mapped_column, sessionmaker
 
 from src.domain.cache.ports import ApiCachePort
-
-logger = logging.getLogger(__name__)
+from src.domain.common.ports import LoggerPort, NullLogger
 
 # Archivo SQLite de respaldo cuando DATABASE_URL está vacío (decisión de la
 # capa gateway; evita cachear solo en memoria L1 y perder la caché entre procesos).
@@ -105,15 +103,16 @@ def get_engine(database_url: str | None) -> Engine | None:
         if database_url.startswith("sqlite") and ":memory:" not in database_url:
             _habilitar_wal(engine)
         return engine
-    except (SQLAlchemyError, OSError, ValueError, RuntimeError) as exc:
-        logger.debug("ApiCache: No se pudo crear engine para %s: %s", database_url, exc)
+    except (SQLAlchemyError, OSError, ValueError, RuntimeError):
         return None
 
 
 def get_session_factory(
     database_url: str | None,
+    logger: LoggerPort | None = None,
 ) -> sessionmaker[Session] | None:
     """Retorna la fábrica de sesiones o None si la BD no está configurada o falló."""
+    logger = logger or NullLogger()
     engine = get_engine(database_url)
     if engine is None:
         return None
@@ -124,8 +123,11 @@ def get_session_factory(
         return None
 
 
-def init_db(database_url: str | None) -> None:
+def init_db(
+    database_url: str | None, logger: LoggerPort | None = None
+) -> None:
     """Crea las tablas si no existen. Idempotente; no-op sin BD configurada o ante error de conexión."""
+    logger = logger or NullLogger()
     engine = get_engine(database_url)
     if engine is not None:
         try:
@@ -141,8 +143,10 @@ class ApiCacheGateway(ApiCachePort):
         self,
         database_url: str | None = None,
         ttl_by_prefix: dict[str, int] | None = None,
+        logger: LoggerPort | None = None,
     ) -> None:
         self._database_url = database_url
+        self._logger = logger or NullLogger()
         self._memory_cache: dict[str, tuple[datetime, Any]] = {}
         # Merge: lo configurado sobreescribe; lo ausente conserva el default aprobado.
         self._ttl_by_prefix: dict[str, int] = {
@@ -154,7 +158,7 @@ class ApiCacheGateway(ApiCachePort):
         """Recupera un valor si hay entrada vigente (BD o memoria). None en miss o expirado."""
         # 1. Intentar recuperación desde Base de Datos si está configurada
         try:
-            factory = get_session_factory(self._database_url)
+            factory = get_session_factory(self._database_url, self._logger)
             if factory is not None:
                 with factory() as session:
                     entry = session.execute(
@@ -165,7 +169,7 @@ class ApiCacheGateway(ApiCachePort):
                         return None
                     return json.loads(entry.response_json)
         except (SQLAlchemyError, OSError, ValueError, RuntimeError) as exc:
-            logger.debug("ApiCache: Error recuperando '%s' de BD: %s", key, exc)
+            self._logger.debug("ApiCache: Error recuperando '%s' de BD: %s", key, exc)
 
         # 2. Fallback / L1: recuperar de la caché en memoria del proceso
         if key in self._memory_cache:
@@ -187,7 +191,7 @@ class ApiCacheGateway(ApiCachePort):
 
         # 2. Persistir en Base de Datos si está disponible
         try:
-            factory = get_session_factory(self._database_url)
+            factory = get_session_factory(self._database_url, self._logger)
             if factory is not None:
                 serialized = json.dumps(value, ensure_ascii=False, default=str)
                 with factory() as session:
@@ -209,7 +213,9 @@ class ApiCacheGateway(ApiCachePort):
                         )
                     session.commit()
         except (SQLAlchemyError, OSError, ValueError, RuntimeError) as exc:
-            logger.debug("ApiCache: Error persistiendo '%s' en BD: %s", key, exc)
+            self._logger.debug(
+                "ApiCache: Error persistiendo '%s' en BD: %s", key, exc
+            )
 
     def _resolve_ttl(self, key: str) -> int:
         """Resuelve el TTL en segundos según el prefijo de la clave."""

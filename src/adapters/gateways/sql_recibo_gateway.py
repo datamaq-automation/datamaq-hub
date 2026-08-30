@@ -1,7 +1,6 @@
 """Gateway relacional SQLAlchemy para persistencia y consulta de recibos de sueldo."""
 
 import json
-import logging
 import os
 import uuid
 from datetime import datetime, timezone
@@ -36,10 +35,9 @@ from src.domain.recibos.entities import (
     ResumenLiquidoItem,
     TotalesConsolidados,
 )
+from src.domain.common.ports import LoggerPort, NullLogger
 from src.domain.recibos.ports import ReciboRepositoryPort
 from src.domain.recibos.value_objects import TipoRecibo
-
-logger = logging.getLogger(__name__)
 
 
 class Base(DeclarativeBase):
@@ -79,10 +77,13 @@ from sqlalchemy.pool import StaticPool
 class SQLReciboGateway(ReciboRepositoryPort):
     """Implementación SQLAlchemy del repositorio de recibos de sueldo."""
 
-    def __init__(self, database_url: str | None = None) -> None:
+    def __init__(
+        self, database_url: str | None = None, logger: LoggerPort | None = None
+    ) -> None:
         self.database_url = database_url or os.environ.get(
             "DATABASE_URL", "sqlite:///data/leads.db"
         )
+        self._logger = logger or NullLogger()
         if ":memory:" in self.database_url:
             self._engine: Engine = create_engine(
                 self.database_url,
@@ -178,7 +179,9 @@ class SQLReciboGateway(ReciboRepositoryPort):
             dto = ReceiptResponseDTO.model_validate(data)
             return self._dto_to_domain(dto, id_recibo=model.id_recibo)
         except (json.JSONDecodeError, ValueError, KeyError, TypeError) as e:
-            logger.error(f"Error deserializando recibo {model.id_recibo}: {e}")
+            self._logger.error(
+                f"Error deserializando recibo {model.id_recibo}: {e}"
+            )
             # Fallback construyendo entidad básica
             return ReciboSueldo(
                 id_recibo=model.id_recibo,
