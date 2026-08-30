@@ -299,7 +299,9 @@ class SQLContactsGateway(ContactsRepositoryPort):
                 session.refresh(model)
                 return self._to_domain(model, account)
         except SQLAlchemyError as e:
-            self._logger.error("Error al actualizar contacto %s: %s", contact.id_contacto, e)
+            self._logger.error(
+                "Error al actualizar contacto %s: %s", contact.id_contacto, e
+            )
             raise ContactsDomainException(
                 f"Error en base de datos al actualizar contacto: {e}"
             ) from e

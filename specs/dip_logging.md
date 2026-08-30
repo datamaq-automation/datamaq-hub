@@ -21,6 +21,7 @@ Desacoplar la capa de adaptadores (`src/adapters/gateways/`) y de aplicación (`
 ```python
 from typing import Protocol
 
+
 class LoggerPort(Protocol):
     """Contrato de logging puro para Clean Architecture (métodos no-op en NullLogger)."""
 
@@ -45,6 +46,7 @@ class StandardLogger(LoggerPort):
 
     def __init__(self, name: str) -> None:
         self._logger = logging.getLogger(name)
+
     # delega debug/info/warning/error/exception a self._logger
 ```
 

@@ -237,7 +237,9 @@ class ImapMailGateway(MailReaderPort):
                 unread = int(match_unseen.group(1)) if match_unseen else 0
                 return total, unread
         except (imaplib.IMAP4.error, OSError, ValueError) as e:
-            self._logger.debug("Error obteniendo status de carpeta %s: %s", folder_name, e)
+            self._logger.debug(
+                "Error obteniendo status de carpeta %s: %s", folder_name, e
+            )
         return 0, 0
 
     def list_messages(
@@ -297,7 +299,9 @@ class ImapMailGateway(MailReaderPort):
         except MailDomainException:
             raise
         except (imaplib.IMAP4.error, OSError, ValueError) as e:
-            self._logger.error("Error al listar mensajes de la carpeta %s: %s", folder, e)
+            self._logger.error(
+                "Error al listar mensajes de la carpeta %s: %s", folder, e
+            )
             raise MailDomainException(f"Error al consultar mensajes: {e}") from e
         finally:
             self._safe_close(client)

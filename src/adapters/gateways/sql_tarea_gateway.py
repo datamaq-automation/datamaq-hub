@@ -104,6 +104,7 @@ class SQLTareaGateway(TareaRepositoryPort):
             self._logger.warning(
                 "No se pudo crear schema de tareas automáticamente: %s", e
             )
+
     def _get_session(self) -> Session:
         return self._session_factory()
 

@@ -112,9 +112,7 @@ class HorarioBloqueModel(Base):
     )
 
 
-def init_horarios_db(
-    database_url: str, logger: LoggerPort | None = None
-) -> None:
+def init_horarios_db(database_url: str, logger: LoggerPort | None = None) -> None:
     """Crea las tablas de horarios_docencia si no existen y actualiza columnas si faltan."""
     logger = logger or NullLogger()
     try:

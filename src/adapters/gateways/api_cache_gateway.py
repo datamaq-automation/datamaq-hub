@@ -123,9 +123,7 @@ def get_session_factory(
         return None
 
 
-def init_db(
-    database_url: str | None, logger: LoggerPort | None = None
-) -> None:
+def init_db(database_url: str | None, logger: LoggerPort | None = None) -> None:
     """Crea las tablas si no existen. Idempotente; no-op sin BD configurada o ante error de conexión."""
     logger = logger or NullLogger()
     engine = get_engine(database_url)
@@ -213,9 +211,7 @@ class ApiCacheGateway(ApiCachePort):
                         )
                     session.commit()
         except (SQLAlchemyError, OSError, ValueError, RuntimeError) as exc:
-            self._logger.debug(
-                "ApiCache: Error persistiendo '%s' en BD: %s", key, exc
-            )
+            self._logger.debug("ApiCache: Error persistiendo '%s' en BD: %s", key, exc)
 
     def _resolve_ttl(self, key: str) -> int:
         """Resuelve el TTL en segundos según el prefijo de la clave."""

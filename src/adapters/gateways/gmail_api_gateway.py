@@ -241,7 +241,9 @@ class GmailApiGateway(MailReaderPort):
                     )
                 )
             except Exception as e:  # noqa: BLE001
-                self._logger.debug("Error obteniendo metadata de mensaje %s: %s", msg_id, e)
+                self._logger.debug(
+                    "Error obteniendo metadata de mensaje %s: %s", msg_id, e
+                )
 
         return summaries, result_estimate, total_unread
 

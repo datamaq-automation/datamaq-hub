@@ -24,6 +24,7 @@ from sqlalchemy.orm import (
 
 from src.application.dtos.receipt_dto import ReceiptResponseDTO
 from src.application.mappers.receipt_mapper import ReceiptMapper
+from src.domain.common.ports import LoggerPort, NullLogger
 from src.domain.recibos.entities import (
     Agente,
     CargoDetalle,
@@ -35,7 +36,6 @@ from src.domain.recibos.entities import (
     ResumenLiquidoItem,
     TotalesConsolidados,
 )
-from src.domain.common.ports import LoggerPort, NullLogger
 from src.domain.recibos.ports import ReciboRepositoryPort
 from src.domain.recibos.value_objects import TipoRecibo
 
@@ -179,9 +179,7 @@ class SQLReciboGateway(ReciboRepositoryPort):
             dto = ReceiptResponseDTO.model_validate(data)
             return self._dto_to_domain(dto, id_recibo=model.id_recibo)
         except (json.JSONDecodeError, ValueError, KeyError, TypeError) as e:
-            self._logger.error(
-                f"Error deserializando recibo {model.id_recibo}: {e}"
-            )
+            self._logger.error(f"Error deserializando recibo {model.id_recibo}: {e}")
             # Fallback construyendo entidad básica
             return ReciboSueldo(
                 id_recibo=model.id_recibo,
