@@ -1,6 +1,5 @@
 """SQLAlchemy Gateway implementing ContactsRepositoryPort for Roundcube/MySQL and SQLite."""
 
-import logging
 import os
 from datetime import datetime, timezone
 
@@ -25,12 +24,11 @@ from sqlalchemy.orm import (
     sessionmaker,
 )
 
+from src.domain.common.ports import LoggerPort, NullLogger
 from src.domain.contacts.entities import Contact, ContactGroup
 from src.domain.contacts.exceptions import ContactsDomainException
 from src.domain.contacts.ports import ContactsRepositoryPort
 from src.domain.contacts.services import VCardFormatterService
-
-logger = logging.getLogger(__name__)
 
 
 class ContactsBase(DeclarativeBase):
@@ -77,7 +75,10 @@ class RoundcubeContactModel(ContactsBase):
 class SQLContactsGateway(ContactsRepositoryPort):
     """Gateway for contacts storage supporting MySQL and SQLite."""
 
-    def __init__(self, database_url: str | None = None) -> None:
+    def __init__(
+        self, database_url: str | None = None, logger: LoggerPort | None = None
+    ) -> None:
+        self._logger = logger or NullLogger()
         self.database_url = database_url or os.environ.get(
             "ROUNDCUBE_DB_URL", "sqlite:///data/roundcube.db"
         )
@@ -189,7 +190,7 @@ class SQLContactsGateway(ContactsRepositoryPort):
                 return [self._to_domain(r, account) for r in rows], total
 
         except SQLAlchemyError as e:
-            logger.error("Error al listar contactos: %s", e)
+            self._logger.error("Error al listar contactos: %s", e)
             raise ContactsDomainException(
                 f"Error en base de datos al listar contactos: {e}"
             ) from e
@@ -213,7 +214,7 @@ class SQLContactsGateway(ContactsRepositoryPort):
                     return None
                 return self._to_domain(row, account)
         except SQLAlchemyError as e:
-            logger.error("Error al obtener contacto %s: %s", contact_id, e)
+            self._logger.error("Error al obtener contacto %s: %s", contact_id, e)
             raise ContactsDomainException(
                 f"Error en base de datos al obtener contacto: {e}"
             ) from e
@@ -249,7 +250,7 @@ class SQLContactsGateway(ContactsRepositoryPort):
                 session.refresh(model)
                 return self._to_domain(model, account)
         except SQLAlchemyError as e:
-            logger.error("Error al crear contacto: %s", e)
+            self._logger.error("Error al crear contacto: %s", e)
             raise ContactsDomainException(
                 f"Error en base de datos al crear contacto: {e}"
             ) from e
@@ -298,7 +299,7 @@ class SQLContactsGateway(ContactsRepositoryPort):
                 session.refresh(model)
                 return self._to_domain(model, account)
         except SQLAlchemyError as e:
-            logger.error("Error al actualizar contacto %s: %s", contact.id_contacto, e)
+            self._logger.error("Error al actualizar contacto %s: %s", contact.id_contacto, e)
             raise ContactsDomainException(
                 f"Error en base de datos al actualizar contacto: {e}"
             ) from e
@@ -326,7 +327,7 @@ class SQLContactsGateway(ContactsRepositoryPort):
                 session.commit()
                 return True
         except SQLAlchemyError as e:
-            logger.error("Error al eliminar contacto %s: %s", contact_id, e)
+            self._logger.error("Error al eliminar contacto %s: %s", contact_id, e)
             raise ContactsDomainException(
                 f"Error en base de datos al eliminar contacto: {e}"
             ) from e

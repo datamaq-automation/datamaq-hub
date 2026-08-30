@@ -1,7 +1,6 @@
 """SQLAlchemy Gateway implementing CalendarRepositoryPort for Roundcube/MySQL and SQLite."""
 
 import json
-import logging
 import os
 import uuid
 from datetime import datetime, timezone
@@ -35,8 +34,7 @@ from src.adapters.gateways.sql_contacts_gateway import (
 from src.domain.calendar.entities import Calendar, CalendarEvent
 from src.domain.calendar.exceptions import CalendarDomainException
 from src.domain.calendar.ports import CalendarRepositoryPort
-
-logger = logging.getLogger(__name__)
+from src.domain.common.ports import LoggerPort, NullLogger
 
 
 class CalendarBase(DeclarativeBase):
@@ -88,7 +86,10 @@ class RoundcubeEventModel(CalendarBase):
 class SQLCalendarGateway(CalendarRepositoryPort):
     """Gateway for calendar event storage supporting MySQL and SQLite."""
 
-    def __init__(self, database_url: str | None = None) -> None:
+    def __init__(
+        self, database_url: str | None = None, logger: LoggerPort | None = None
+    ) -> None:
+        self._logger = logger or NullLogger()
         self.database_url = database_url or os.environ.get(
             "ROUNDCUBE_DB_URL", "sqlite:///data/roundcube.db"
         )
@@ -148,7 +149,7 @@ class SQLCalendarGateway(CalendarRepositoryPort):
                     cuenta=account,
                 )
         except SQLAlchemyError as e:
-            logger.error("Error al obtener o crear calendario: %s", e)
+            self._logger.error("Error al obtener o crear calendario: %s", e)
             raise CalendarDomainException(
                 f"Error en base de datos al resolver calendario: {e}"
             ) from e
@@ -222,7 +223,7 @@ class SQLCalendarGateway(CalendarRepositoryPort):
                 return [self._to_domain(r, account) for r in rows]
 
         except SQLAlchemyError as e:
-            logger.error("Error al listar eventos de calendario: %s", e)
+            self._logger.error("Error al listar eventos de calendario: %s", e)
             raise CalendarDomainException(
                 f"Error en base de datos al listar eventos: {e}"
             ) from e
@@ -258,7 +259,7 @@ class SQLCalendarGateway(CalendarRepositoryPort):
                 return self._to_domain(row, account)
 
         except SQLAlchemyError as e:
-            logger.error("Error al obtener evento %s: %s", event_id, e)
+            self._logger.error("Error al obtener evento %s: %s", event_id, e)
             raise CalendarDomainException(
                 f"Error en base de datos al obtener evento: {e}"
             ) from e
@@ -293,7 +294,7 @@ class SQLCalendarGateway(CalendarRepositoryPort):
                 return self._to_domain(model, account)
 
         except SQLAlchemyError as e:
-            logger.error("Error al crear evento: %s", e)
+            self._logger.error("Error al crear evento: %s", e)
             raise CalendarDomainException(
                 f"Error en base de datos al crear evento: {e}"
             ) from e
@@ -335,7 +336,7 @@ class SQLCalendarGateway(CalendarRepositoryPort):
                 return self._to_domain(model, account)
 
         except SQLAlchemyError as e:
-            logger.error("Error al actualizar evento %s: %s", event.id_evento, e)
+            self._logger.error("Error al actualizar evento %s: %s", event.id_evento, e)
             raise CalendarDomainException(
                 f"Error en base de datos al actualizar evento: {e}"
             ) from e
@@ -359,7 +360,7 @@ class SQLCalendarGateway(CalendarRepositoryPort):
                 session.commit()
                 return True
         except SQLAlchemyError as e:
-            logger.error("Error al eliminar evento %s: %s", event_id, e)
+            self._logger.error("Error al eliminar evento %s: %s", event_id, e)
             raise CalendarDomainException(
                 f"Error en base de datos al eliminar evento: {e}"
             ) from e
