@@ -19,7 +19,7 @@ def test_transaccion_tarjeta_es_inmutable_y_default_cupon_vacio() -> None:
     assert transaccion.nro_cupon == ""
     assert transaccion.descripcion == "Compra supermercado"
     with pytest.raises(FrozenInstanceError):
-        setattr(transaccion, "monto_pesos", 999.0)
+        transaccion.monto_pesos = 999.0
 
 
 def test_resumen_tarjeta_consolida_campos() -> None:

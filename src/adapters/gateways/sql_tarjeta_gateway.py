@@ -4,7 +4,16 @@ import json
 import os
 from datetime import date, datetime, timezone
 
-from sqlalchemy import Date, DateTime, Engine, Float, String, Text, create_engine, select
+from sqlalchemy import (
+    Date,
+    DateTime,
+    Engine,
+    Float,
+    String,
+    Text,
+    create_engine,
+    select,
+)
 from sqlalchemy.orm import (
     DeclarativeBase,
     Mapped,
@@ -129,7 +138,7 @@ class SQLTarjetaGateway(TarjetaRepositoryPort):
 
     @staticmethod
     def _serializar_consumos(consumos: tuple[TransaccionTarjeta, ...]) -> str:
-        data = [
+        data: list[dict[str, str | float]] = [
             {
                 "fecha": c.fecha.isoformat(),
                 "descripcion": c.descripcion,
