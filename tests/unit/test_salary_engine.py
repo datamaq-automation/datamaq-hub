@@ -55,13 +55,29 @@ def test_paritaria_json_gateway():
     gateway = ParitariaJsonGateway()
     p = gateway.obtener_por_periodo("202608")
     assert p.periodo == "202608"
-    assert p.basico_por_modulo_sm == 42894.625
-    assert p.basico_por_modulo_pm == 22877.1325
+    assert p.basico_por_modulo_sm == 43752.52
+    assert p.basico_por_modulo_pm == 23334.68
     assert p.alicuota_ips == 0.16
     assert p.alicuota_ioma == 0.048
     assert p.alicuota_suteba_sindicato == 0.0155
     assert p.alicuota_suteba_os == 0.0464
     assert p.tope_bonificaciones_modulos == 30.0
+
+
+def test_paritaria_json_gateway_202607():
+    gateway = ParitariaJsonGateway()
+    p = gateway.obtener_por_periodo("202607")
+    assert p.periodo == "202607"
+    assert p.basico_por_modulo_sm == 42894.625
+    assert p.basico_por_modulo_pm == 22877.1325
+
+
+def test_paritaria_json_gateway_202606():
+    gateway = ParitariaJsonGateway()
+    p = gateway.obtener_por_periodo("202606")
+    assert p.periodo == "202606"
+    assert p.basico_por_modulo_sm == 40852.00
+    assert p.basico_por_modulo_pm == 21787.745
 
 
 def test_paritaria_json_gateway_periodo_inexistente():
