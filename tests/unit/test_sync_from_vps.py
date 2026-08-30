@@ -1,5 +1,7 @@
 """Tests unitarios para scripts/sync_from_vps.py (réplica VPS → Local SSOT)."""
 
+import shlex
+
 from scripts.sync_from_vps import (
     BASE_DE_DATOS,
     PATRONES_EXCLUIDOS,
@@ -50,9 +52,10 @@ def test_construir_script_snapshot_respeta_lista_custom() -> None:
 
 
 def test_construir_comando_ssh() -> None:
-    """R-S5: el comando SSH se arma con python3 -c."""
-    comando = construir_comando_ssh("vps", "print('hola')")
-    assert comando == ["ssh", "vps", "python3", "-c", "print('hola')"]
+    """R-S5: el script remoto se envuelve con shlex.quote para shell remoto."""
+    script = "import sqlite3; print('hola')"
+    comando = construir_comando_ssh("vps", script)
+    assert comando == ["ssh", "vps", f"python3 -c {shlex.quote(script)}"]
 
 
 def test_construir_comando_rsync_incluye_host_y_origen() -> None:
