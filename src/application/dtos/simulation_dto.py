@@ -141,3 +141,30 @@ class SimulacionSueldoResponseDTO(BaseModel):
     total_liquido: float
     total_liquido_regular: float
     total_liquido_retroactivos: float
+
+
+class ProyeccionEscenarioDTO(BaseModel):
+    """Scenario details containing totals."""
+
+    model_config = ConfigDict(extra="ignore")
+
+    total_haberes: float
+    total_descuentos: float
+    total_liquido: float
+
+
+class SimulacionSueldoCuitResponseDTO(BaseModel):
+    """Consolidated response for CUIT salary projection with regular vs devengado scenarios."""
+
+    model_config = ConfigDict(extra="ignore")
+
+    cuit: str
+    docente_nombre: str
+    periodo_proyectado: str
+    anios_antiguedad: int
+    modulos_totales: float
+    escenario_base_asegurado: ProyeccionEscenarioDTO
+    escenario_devengado_total: ProyeccionEscenarioDTO
+    retroactivo_estimado: float
+    cargos_liquidados: list[CargoLiquidadoDTO]
+
