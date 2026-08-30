@@ -50,18 +50,19 @@ class ProyeccionEscenarioDTO(BaseModel):
     total_descuentos: float
     total_liquido: float
 
+
 class SimulacionSueldoCuitResponseDTO(BaseModel):
     cuit: str
     docente_nombre: str
     periodo_proyectado: str
     anios_antiguedad: int
     modulos_totales: float
-    
+
     # Los 3 escenarios de la proyección
     escenario_base_asegurado: ProyeccionEscenarioDTO
     escenario_devengado_total: ProyeccionEscenarioDTO
     retroactivo_estimado: float
-    
+
     # Desglose de cargos liquidados en el devengado total
     cargos_liquidados: list[CargoLiquidadoDTO]
 ```

@@ -97,14 +97,9 @@ def test_simulation_controller_invalid_period_format(client: TestClient):
 
 
 def test_simulation_by_cuit_success(client: TestClient):
-    import uuid
-    from datetime import date
-    from src.adapters.controllers.dependencies import get_designacion_docente_repository_gateway
-    from src.domain.horarios_docencia.entities import DesignacionDocente
-    from src.domain.horarios_docencia.value_objects import (
-        PeriodoVigencia,
-        SituacionRevista as RevistaHoraria,
-    )
+    # Generar CUIT único para aislar esta prueba (solo dígitos)
+    import random
+
     from src.adapters.gateways.sql_recibo_gateway import SQLReciboGateway
     from src.domain.recibos.entities import (
         Agente,
@@ -116,11 +111,6 @@ def test_simulation_by_cuit_success(client: TestClient):
     )
     from src.domain.recibos.value_objects import TipoRecibo
 
-    # 1. Recuperar el repository de la app (que es el en-memoria mockeado)
-    repo = client.app.dependency_overrides[get_designacion_docente_repository_gateway]()
-
-    # Generar CUIT único para aislar esta prueba (solo dígitos)
-    import random
     test_suffix = "".join(str(random.randint(0, 9)) for _ in range(8))
     test_cuit = f"20{test_suffix}4"
     test_cuit_formatted = f"20-{test_suffix}-4"
@@ -187,5 +177,3 @@ def test_simulation_by_cuit_success(client: TestClient):
 
     # Clean up recibo from DB
     recibo_repo.eliminar("rec-cuit-test-01")
-
-

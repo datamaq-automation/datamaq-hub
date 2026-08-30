@@ -11,6 +11,8 @@ from src.application.use_cases.proyectar_sueldo_docente_vigente import (
 from src.domain.horarios_docencia.entities import DesignacionDocente
 from src.domain.horarios_docencia.value_objects import (
     PeriodoVigencia,
+)
+from src.domain.horarios_docencia.value_objects import (
     SituacionRevista as RevistaHoraria,
 )
 from src.domain.liquidacion.exceptions import DocenteSinDesignacionesException

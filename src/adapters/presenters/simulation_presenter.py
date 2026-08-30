@@ -29,4 +29,3 @@ class SimulationPresenter:
             success=True,
             data=dto,
         )
-

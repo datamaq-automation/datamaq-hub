@@ -35,4 +35,3 @@ class SimulationController:
         """Execute salary projection based on active positions by CUIT."""
         resultado_dto = self._project_by_cuit_use_case.execute(cuit, periodo)
         return SimulationPresenter.present_cuit(resultado_dto)
-

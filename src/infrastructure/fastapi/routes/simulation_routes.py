@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Annotated
 
 from fastapi import APIRouter, Depends
@@ -53,6 +53,5 @@ async def project_salary_by_cuit(
 ) -> APIResponseDTO[SimulacionSueldoCuitResponseDTO]:
     """Calculate projected teacher salary by CUIT."""
     if periodo is None:
-        periodo = datetime.now().strftime("%Y%m")
+        periodo = datetime.now(timezone.utc).strftime("%Y%m")
     return controller.project_by_cuit(cuit, periodo)
-

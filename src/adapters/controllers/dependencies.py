@@ -157,7 +157,9 @@ def get_receipt_controller() -> ReceiptController:
     )
 
 
-def get_proyectar_sueldo_docente_vigente_use_case() -> ProyectarSueldoDocenteVigenteUseCase:
+def get_proyectar_sueldo_docente_vigente_use_case() -> (
+    ProyectarSueldoDocenteVigenteUseCase
+):
     designacion_repo = get_designacion_docente_repository_gateway()
     recibo_repo = get_recibo_repository_gateway()
     paritaria_repo = get_paritaria_repository_gateway()

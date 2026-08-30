@@ -12,6 +12,9 @@ from src.application.mappers.simulation_mapper import SimulationMapper
 from src.domain.common.ports import LoggerPort, NullLogger
 from src.domain.horarios_docencia.ports import DesignacionDocenteRepositoryPort
 from src.domain.horarios_docencia.value_objects import normalizar_cuit
+from src.domain.liquidacion.entities import (
+    DesignacionDocente as LiquidacionDesignacion,
+)
 from src.domain.liquidacion.exceptions import DocenteSinDesignacionesException
 from src.domain.liquidacion.ports import ParitariaRepositoryPort
 from src.domain.liquidacion.services import MotorLiquidacionDocenteService
@@ -53,7 +56,7 @@ class ProyectarSueldoDocenteVigenteUseCase:
         historial = self._designacion_repository.obtener_historial(clean_cuit)
 
         # 3. Filtrar las designaciones activas/vigentes en el período solicitado
-        cargos_activos_dominio = []
+        cargos_activos_dominio: list[LiquidacionDesignacion] = []
         for desig in historial:
             f_desde = desig.vigencia.fecha_desde
             f_hasta = desig.vigencia.fecha_hasta
@@ -87,7 +90,11 @@ class ProyectarSueldoDocenteVigenteUseCase:
             docente_nombre = ultimo.agente.nombre_completo
             anios_antiguedad = 0
             for liq in ultimo.liquidaciones:
-                if liq.cargo and liq.cargo.antiguedad_anios > anios_antiguedad:
+                if (
+                    liq.cargo
+                    and liq.cargo.antiguedad_anios is not None
+                    and liq.cargo.antiguedad_anios > anios_antiguedad
+                ):
                     anios_antiguedad = liq.cargo.antiguedad_anios
         else:
             docente_nombre = f"Docente CUIT {clean_cuit}"

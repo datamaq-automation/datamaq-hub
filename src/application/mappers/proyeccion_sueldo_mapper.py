@@ -32,7 +32,11 @@ def calcular_dias_trabajados(
             DIAS_MES_COMERCIAL,
             max(0.0, DIAS_MES_COMERCIAL - fecha_desde.day + 1),
         )
-    if fecha_hasta is not None and fecha_hasta.year == anio and fecha_hasta.month == mes:
+    if (
+        fecha_hasta is not None
+        and fecha_hasta.year == anio
+        and fecha_hasta.month == mes
+    ):
         return min(DIAS_MES_COMERCIAL, max(0.0, float(fecha_hasta.day)))
     return DIAS_MES_COMERCIAL
 

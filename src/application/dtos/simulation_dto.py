@@ -167,4 +167,3 @@ class SimulacionSueldoCuitResponseDTO(BaseModel):
     escenario_devengado_total: ProyeccionEscenarioDTO
     retroactivo_estimado: float
     cargos_liquidados: list[CargoLiquidadoDTO]
-

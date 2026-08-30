@@ -11,6 +11,8 @@ from src.application.mappers.proyeccion_sueldo_mapper import (
 from src.domain.horarios_docencia.entities import DesignacionDocente
 from src.domain.horarios_docencia.value_objects import (
     PeriodoVigencia,
+)
+from src.domain.horarios_docencia.value_objects import (
     SituacionRevista as RevistaHoraria,
 )
 from src.domain.liquidacion.value_objects import NivelCargo, SituacionRevista
@@ -18,16 +20,13 @@ from src.domain.liquidacion.value_objects import NivelCargo, SituacionRevista
 
 def test_calcular_dias_trabajados_alta_mid_mes():
     """PSC-2: alta el 2026-08-13 -> 18 días proporcionales."""
-    assert (
-        calcular_dias_trabajados(date(2026, 8, 13), None, 2026, 8) == 18.0
-    )
+    assert calcular_dias_trabajados(date(2026, 8, 13), None, 2026, 8) == 18.0
 
 
 def test_calcular_dias_trabajados_baja_mid_mes():
     """PSC-3: baja el 2026-08-10 -> 10 días proporcionales."""
     assert (
-        calcular_dias_trabajados(date(2026, 7, 1), date(2026, 8, 10), 2026, 8)
-        == 10.0
+        calcular_dias_trabajados(date(2026, 7, 1), date(2026, 8, 10), 2026, 8) == 10.0
     )
 
 
@@ -38,17 +37,13 @@ def test_calcular_dias_trabajados_mes_completo():
 
 
 def test_inferir_nivel_cargo_superior():
-    assert (
-        inferir_nivel_cargo("Tigre (ISFDyT N199)", "Matemática", "")
-        == NivelCargo.SM
-    )
+    assert inferir_nivel_cargo("Tigre (ISFDyT N199)", "Matemática", "") == NivelCargo.SM
     assert inferir_nivel_cargo("ISFT 199", "", "") == NivelCargo.SM
 
 
 def test_inferir_nivel_cargo_secundario_tecnico():
     assert (
-        inferir_nivel_cargo("Escobar (Tecnica 1)", "Electrónica", "")
-        == NivelCargo.PM
+        inferir_nivel_cargo("Escobar (Tecnica 1)", "Electrónica", "") == NivelCargo.PM
     )
     assert inferir_nivel_cargo("", "", "05-TIGRE MT-0001") == NivelCargo.PM
 
@@ -68,9 +63,7 @@ def test_designacion_a_dominio():
         cargo_asignatura="Matemática",
         revista=RevistaHoraria.PROVISIONAL,
         modulos=4,
-        vigencia=PeriodoVigencia(
-            fecha_desde=date(2026, 8, 13), fecha_hasta=None
-        ),
+        vigencia=PeriodoVigencia(fecha_desde=date(2026, 8, 13), fecha_hasta=None),
         secuencia=16,
         escuela_numero="",
     )
