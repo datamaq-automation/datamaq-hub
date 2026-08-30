@@ -2,12 +2,12 @@
 
 import base64
 import json
-import logging
 import urllib.error
 import urllib.parse
 import urllib.request
 from typing import Any, cast
 
+from src.domain.common.ports import LoggerPort, NullLogger
 from src.domain.mail.entities import (
     EmailAttachmentMetadata,
     EmailDetail,
@@ -22,8 +22,6 @@ from src.domain.mail.exceptions import (
 )
 from src.domain.mail.ports import MailReaderPort
 
-logger = logging.getLogger(__name__)
-
 
 class GmailApiGateway(MailReaderPort):
     """Gateway that queries the Gmail REST API for Google Workspace and Gmail accounts."""
@@ -35,12 +33,14 @@ class GmailApiGateway(MailReaderPort):
         refresh_token: str,
         user_email: str = "me",
         timeout_seconds: int = 15,
+        logger: LoggerPort | None = None,
     ) -> None:
         self.client_id = client_id
         self.client_secret = client_secret
         self.refresh_token = refresh_token
         self.user_email = user_email
         self.timeout_seconds = timeout_seconds
+        self._logger = logger or NullLogger()
         self._cached_token: str | None = None
 
     def _get_access_token(self) -> str:
@@ -148,7 +148,7 @@ class GmailApiGateway(MailReaderPort):
                     )
                 )
             except Exception as e:  # noqa: BLE001
-                logger.debug("Error obteniendo label %s: %s", label_id, e)
+                self._logger.debug("Error obteniendo label %s: %s", label_id, e)
                 folders.append(EmailFolder(nombre=name, total_mensajes=0, no_leidos=0))
 
         folders.sort(key=lambda f: (0 if f.nombre.upper() == "INBOX" else 1, f.nombre))
@@ -241,7 +241,7 @@ class GmailApiGateway(MailReaderPort):
                     )
                 )
             except Exception as e:  # noqa: BLE001
-                logger.debug("Error obteniendo metadata de mensaje %s: %s", msg_id, e)
+                self._logger.debug("Error obteniendo metadata de mensaje %s: %s", msg_id, e)
 
         return summaries, result_estimate, total_unread
 

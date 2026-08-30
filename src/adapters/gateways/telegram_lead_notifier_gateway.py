@@ -1,28 +1,30 @@
 """Gateway implementation for dispatching lead notifications to Telegram."""
 
 import json
-import logging
 import urllib.error
 import urllib.request
 
+from src.domain.common.ports import LoggerPort, NullLogger
 from src.domain.leads.entities import Lead
 from src.domain.leads.ports import LeadNotifierPort
-
-logger = logging.getLogger(__name__)
 
 
 class TelegramLeadNotifierGateway(LeadNotifierPort):
     """Dispatches instant notifications to a Telegram chat or channel via Bot API."""
 
     def __init__(
-        self, bot_token: str | None = None, chat_id: str | None = None
+        self,
+        bot_token: str | None = None,
+        chat_id: str | None = None,
+        logger: LoggerPort | None = None,
     ) -> None:
         self._bot_token = (bot_token or "").strip()
         self._chat_id = (chat_id or "").strip()
+        self._logger = logger or NullLogger()
 
     def notificar_nuevo_lead(self, lead: Lead) -> bool:
         if not self._bot_token or not self._chat_id:
-            logger.info(
+            self._logger.info(
                 "Telegram bot token o chat_id no configurado. Notificación omitida."
             )
             return True
@@ -63,5 +65,7 @@ class TelegramLeadNotifierGateway(LeadNotifierPort):
             TimeoutError,
             OSError,
         ) as exc:
-            logger.warning("Error al enviar notificación de lead a Telegram: %s", exc)
+            self._logger.warning(
+                "Error al enviar notificación de lead a Telegram: %s", exc
+            )
             return False

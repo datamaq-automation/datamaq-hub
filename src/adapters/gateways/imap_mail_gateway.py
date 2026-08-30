@@ -2,7 +2,6 @@
 
 import imaplib
 import json
-import logging
 import re
 import ssl
 import urllib.error
@@ -12,6 +11,7 @@ from email import message_from_bytes
 from email.utils import parsedate_to_datetime
 from typing import cast
 
+from src.domain.common.ports import LoggerPort, NullLogger
 from src.domain.mail.entities import (
     EmailAttachmentMetadata,
     EmailDetail,
@@ -28,24 +28,6 @@ from src.domain.mail.exceptions import (
 from src.domain.mail.ports import MailReaderPort
 from src.domain.mail.services import MailDecoderService
 
-logger = logging.getLogger(__name__)
-
-
-def _safe_close(client: imaplib.IMAP4) -> None:
-    """Closes IMAP mailbox without raising exceptions."""
-    try:
-        client.close()
-    except (imaplib.IMAP4.error, OSError) as e:
-        logger.debug("Error cerrando mailbox IMAP: %s", e)
-
-
-def _safe_logout(client: imaplib.IMAP4) -> None:
-    """Logs out IMAP client session without raising exceptions."""
-    try:
-        client.logout()
-    except (imaplib.IMAP4.error, OSError) as e:
-        logger.debug("Error en logout IMAP: %s", e)
-
 
 class ImapMailGateway(MailReaderPort):
     """Gateway for querying IMAP servers in strict read-only mode (supports basic auth & OAuth2 XOAUTH2)."""
@@ -61,6 +43,7 @@ class ImapMailGateway(MailReaderPort):
         oauth2_client_id: str = "",
         oauth2_client_secret: str = "",
         oauth2_refresh_token: str = "",
+        logger: LoggerPort | None = None,
     ) -> None:
         self.host = host
         self.port = port
@@ -71,6 +54,21 @@ class ImapMailGateway(MailReaderPort):
         self.oauth2_client_id = oauth2_client_id
         self.oauth2_client_secret = oauth2_client_secret
         self.oauth2_refresh_token = oauth2_refresh_token
+        self._logger = logger or NullLogger()
+
+    def _safe_close(self, client: imaplib.IMAP4) -> None:
+        """Closes IMAP mailbox without raising exceptions."""
+        try:
+            client.close()
+        except (imaplib.IMAP4.error, OSError) as e:
+            self._logger.debug("Error cerrando mailbox IMAP: %s", e)
+
+    def _safe_logout(self, client: imaplib.IMAP4) -> None:
+        """Logs out IMAP client session without raising exceptions."""
+        try:
+            client.logout()
+        except (imaplib.IMAP4.error, OSError) as e:
+            self._logger.debug("Error en logout IMAP: %s", e)
 
     def _get_oauth2_access_token(self) -> str:
         """Exchanges OAuth2 refresh token for a fresh short-lived access token."""
@@ -162,7 +160,7 @@ class ImapMailGateway(MailReaderPort):
             try:
                 client.authenticate("XOAUTH2", lambda _: auth_bytes)
             except (imaplib.IMAP4.error, OSError, ValueError) as e:
-                _safe_logout(client)
+                self._safe_logout(client)
                 raise MailAuthenticationError(
                     self.user, f"Falla en autenticación XOAUTH2: {e}"
                 ) from e
@@ -170,7 +168,7 @@ class ImapMailGateway(MailReaderPort):
 
         # Autenticación básica estándar (usuario / contraseña)
         if not self.user or not self.password:
-            _safe_logout(client)
+            self._safe_logout(client)
             raise MailAuthenticationError(
                 self.user or "no_configurado",
                 "Credenciales IMAP no configuradas (usuario o contraseña vacíos). Verifique la configuración de la cuenta en .env.",
@@ -179,7 +177,7 @@ class ImapMailGateway(MailReaderPort):
         try:
             client.login(self.user, self.password)
         except (imaplib.IMAP4.error, OSError, ValueError) as e:
-            _safe_logout(client)
+            self._safe_logout(client)
             raise MailAuthenticationError(self.user, str(e)) from e
 
         return client
@@ -218,10 +216,10 @@ class ImapMailGateway(MailReaderPort):
         except MailDomainException:
             raise
         except (imaplib.IMAP4.error, OSError, ValueError) as e:
-            logger.error("Error al listar carpetas IMAP: %s", e)
+            self._logger.error("Error al listar carpetas IMAP: %s", e)
             raise MailDomainException(f"Error al listar carpetas IMAP: {e}") from e
         finally:
-            _safe_logout(client)
+            self._safe_logout(client)
 
         return folders
 
@@ -239,7 +237,7 @@ class ImapMailGateway(MailReaderPort):
                 unread = int(match_unseen.group(1)) if match_unseen else 0
                 return total, unread
         except (imaplib.IMAP4.error, OSError, ValueError) as e:
-            logger.debug("Error obteniendo status de carpeta %s: %s", folder_name, e)
+            self._logger.debug("Error obteniendo status de carpeta %s: %s", folder_name, e)
         return 0, 0
 
     def list_messages(
@@ -299,11 +297,11 @@ class ImapMailGateway(MailReaderPort):
         except MailDomainException:
             raise
         except (imaplib.IMAP4.error, OSError, ValueError) as e:
-            logger.error("Error al listar mensajes de la carpeta %s: %s", folder, e)
+            self._logger.error("Error al listar mensajes de la carpeta %s: %s", folder, e)
             raise MailDomainException(f"Error al consultar mensajes: {e}") from e
         finally:
-            _safe_close(client)
-            _safe_logout(client)
+            self._safe_close(client)
+            self._safe_logout(client)
 
         return messages, total_messages, total_unread
 
@@ -333,13 +331,13 @@ class ImapMailGateway(MailReaderPort):
         except MailDomainException:
             raise
         except (imaplib.IMAP4.error, OSError, ValueError) as e:
-            logger.error("Error al obtener mensaje %s de %s: %s", uid, folder, e)
+            self._logger.error("Error al obtener mensaje %s de %s: %s", uid, folder, e)
             raise MailDomainException(
                 f"Error al obtener detalle del correo: {e}"
             ) from e
         finally:
-            _safe_close(client)
-            _safe_logout(client)
+            self._safe_close(client)
+            self._safe_logout(client)
 
     def get_unread_summary(
         self, folder: str = "INBOX", limit: int = 5, q: str | None = None

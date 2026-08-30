@@ -5,15 +5,13 @@ Implementa MailNotifierPort usando la Bot API de Telegram con urllib.request
 """
 
 import json
-import logging
 import urllib.error
 import urllib.request
 
+from src.domain.common.ports import LoggerPort, NullLogger
 from src.domain.mail.entities import AnalisisEmail, EmailDetail
 from src.domain.mail.ports import MailNotifierPort
 from src.domain.mail.value_objects import NivelPrioridad
-
-logger = logging.getLogger(__name__)
 
 _BADGES: dict[NivelPrioridad, str] = {
     NivelPrioridad.ALTA: "🟢",
@@ -26,16 +24,20 @@ class TelegramMailNotifierGateway(MailNotifierPort):
     """Despacha alertas enriquecidas de oportunidad B2B a Telegram."""
 
     def __init__(
-        self, bot_token: str | None = None, chat_id: str | None = None
+        self,
+        bot_token: str | None = None,
+        chat_id: str | None = None,
+        logger: LoggerPort | None = None,
     ) -> None:
         self._bot_token = (bot_token or "").strip()
         self._chat_id = (chat_id or "").strip()
+        self._logger = logger or NullLogger()
 
     def notificar_oportunidad_email(
         self, analisis: AnalisisEmail, email: EmailDetail
     ) -> bool:
         if not self._bot_token or not self._chat_id:
-            logger.info(
+            self._logger.info(
                 "Telegram bot token o chat_id no configurado. Alerta de oportunidad omitida."
             )
             return False
@@ -66,7 +68,9 @@ class TelegramMailNotifierGateway(MailNotifierPort):
             TimeoutError,
             OSError,
         ) as exc:
-            logger.warning("Error al enviar alerta de oportunidad a Telegram: %s", exc)
+            self._logger.warning(
+                "Error al enviar alerta de oportunidad a Telegram: %s", exc
+            )
             return False
 
     @staticmethod
