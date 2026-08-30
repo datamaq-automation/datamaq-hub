@@ -79,6 +79,20 @@ class ResumenMetricasDTO(BaseModel):
     mensajes_no_leidos: int = Field(default=0, description="Total de correos no leídos")
 
 
+class TarjetaVencimientoBriefingDTO(BaseModel):
+    """Representa una alerta de vencimiento de tarjeta para el briefing."""
+
+    model_config = ConfigDict(frozen=True)
+
+    banco: str = Field(description="Banco emisor (ej. BBVA, BAPRO)")
+    tarjeta_tipo: str = Field(description="Tipo de tarjeta (ej. VISA, MASTERCARD)")
+    tarjeta_categoria: str = Field(description="Categoría (ej. GOLD, CLASSIC)")
+    fecha_vencimiento: date = Field(description="Fecha de vencimiento de la tarjeta")
+    saldo_pesos: float = Field(description="Saldo en pesos")
+    saldo_dolares: float = Field(description="Saldo en dólares")
+    pago_minimo: float = Field(description="Pago mínimo requerido")
+
+
 class BriefingDiarioResponseDTO(BaseModel):
     """Respuesta consolidada del Briefing Matutino para OpenClaw y la UI."""
 
@@ -101,6 +115,10 @@ class BriefingDiarioResponseDTO(BaseModel):
     eventos_hoy: list[EventoBriefingDTO] = Field(
         default_factory=list[EventoBriefingDTO],
         description="Reuniones y eventos agendados",
+    )
+    tarjetas_vencimiento: list[TarjetaVencimientoBriefingDTO] = Field(
+        default_factory=list[TarjetaVencimientoBriefingDTO],
+        description="Alertas de vencimientos de tarjetas de crédito próximas",
     )
     resumen_telegram: str = Field(
         description="Texto enriquecido en Markdown con formato y emojis optimizado para Telegram"

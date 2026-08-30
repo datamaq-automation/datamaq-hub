@@ -459,10 +459,12 @@ def get_agenda_controller() -> AgendaController:
     d_repo = get_designacion_docente_repository_gateway()
     t_repo = get_default_tarea_gateway()
     c_repo = get_default_calendar_gateway()
+    card_repo = get_tarjeta_repository_gateway()
     use_case = ObtenerBriefingDiarioUseCase(
         designacion_repository=d_repo,
         tarea_repository=t_repo,
         calendar_repository=c_repo,
+        tarjeta_repository=card_repo,
     )
     return AgendaController(obtener_briefing_use_case=use_case)
 

@@ -9,6 +9,7 @@ from src.application.dtos.briefing_dtos import (
     EventoBriefingDTO,
     ResumenMetricasDTO,
     TareaBriefingDTO,
+    TarjetaVencimientoBriefingDTO,
 )
 from src.domain.calendar.exceptions import CalendarDomainException
 from src.domain.calendar.ports import CalendarRepositoryPort
@@ -20,6 +21,7 @@ from src.domain.horarios_docencia.value_objects import (
 )
 from src.domain.tareas.ports import FiltrosTarea, TareaRepositoryPort
 from src.domain.tareas.value_objects import EstadoTarea, PrioridadTarea
+from src.domain.tarjetas.ports import TarjetaRepositoryPort
 
 _DIAS_MAP = {
     0: DiaSemana.LUNES,
@@ -47,11 +49,13 @@ class ObtenerBriefingDiarioUseCase:
         tarea_repository: TareaRepositoryPort,
         calendar_repository: CalendarRepositoryPort | None = None,
         logger: LoggerPort | None = None,
+        tarjeta_repository: TarjetaRepositoryPort | None = None,
     ) -> None:
         self._desig_repo = designacion_repository
         self._tarea_repo = tarea_repository
         self._cal_repo = calendar_repository
         self._logger = logger or NullLogger()
+        self._tarjeta_repo = tarjeta_repository
 
     def execute(
         self,
@@ -158,6 +162,28 @@ class ObtenerBriefingDiarioUseCase:
                 self._logger.error("Error al listar eventos de calendario: %s", e)
                 # Continúa sin eventos si falla la obtención del calendario.
 
+        # 3b. Alertas de vencimientos de tarjetas de crédito próximos
+        tarjetas_vto_dto: list[TarjetaVencimientoBriefingDTO] = []
+        if self._tarjeta_repo:
+            resumenes = self._tarjeta_repo.obtener_resumenes_vencimiento_cercano(
+                target_date
+            )
+            resumenes.sort(key=lambda r: (r.fecha_vencimiento, r.banco))
+            for r in resumenes:
+                dias_restantes = (r.fecha_vencimiento - target_date).days
+                if -5 <= dias_restantes <= 15:
+                    tarjetas_vto_dto.append(
+                        TarjetaVencimientoBriefingDTO(
+                            banco=r.banco,
+                            tarjeta_tipo=r.tarjeta_tipo,
+                            tarjeta_categoria=r.tarjeta_categoria,
+                            fecha_vencimiento=r.fecha_vencimiento,
+                            saldo_pesos=r.saldo_pesos,
+                            saldo_dolares=r.saldo_dolares,
+                            pago_minimo=r.pago_minimo,
+                        )
+                    )
+
         # 4. Métricas
         metricas = ResumenMetricasDTO(
             total_horas_clase=total_modulos_dia,
@@ -176,6 +202,7 @@ class ObtenerBriefingDiarioUseCase:
             tareas=tareas_dto,
             eventos=eventos_dto,
             metricas=metricas,
+            tarjetas=tarjetas_vto_dto,
         )
 
         return BriefingDiarioResponseDTO(
@@ -186,6 +213,7 @@ class ObtenerBriefingDiarioUseCase:
             clases_hoy=clases_hoy,
             tareas_hoy=tareas_dto,
             eventos_hoy=eventos_dto,
+            tarjetas_vencimiento=tarjetas_vto_dto,
             resumen_telegram=resumen_telegram,
         )
 
@@ -197,6 +225,7 @@ class ObtenerBriefingDiarioUseCase:
         tareas: Sequence[TareaBriefingDTO],
         eventos: Sequence[EventoBriefingDTO],
         metricas: ResumenMetricasDTO,
+        tarjetas: Sequence[TarjetaVencimientoBriefingDTO] = (),
     ) -> str:
         fecha_str = fecha.strftime("%d/%m/%Y")
         dia_cap = dia_nombre.capitalize()
@@ -241,6 +270,26 @@ class ObtenerBriefingDiarioUseCase:
                 h_fin = ev.fin.strftime("%H:%M")
                 ub = f" ({ev.ubicacion})" if ev.ubicacion else ""
                 lines.append(f"• `{h_ini} - {h_fin}` | {ev.titulo}{ub}")
+            lines.append("")
+
+        # Sección Tarjetas
+        if tarjetas:
+            grupos: dict[date, list[TarjetaVencimientoBriefingDTO]] = {}
+            for t in tarjetas:
+                grupos.setdefault(t.fecha_vencimiento, []).append(t)
+
+            lines.append("💳 *Vencimientos de Tarjetas:*")
+            for vto_date, list_t in sorted(grupos.items()):
+                vto_str = vto_date.strftime("%d/%m/%Y")
+                total_pesos = sum(t.saldo_pesos for t in list_t)
+                total_usd = sum(t.saldo_dolares for t in list_t)
+                total_min = sum(t.pago_minimo for t in list_t)
+
+                usd_str = f" + U$S {total_usd:,.2f}" if total_usd > 0 else ""
+                lines.append(
+                    f"• ⚠️ *Alerta {vto_str}:* Total `${total_pesos:,.2f}`{usd_str} "
+                    f"_(Pago Mínimo: `${total_min:,.2f}`)_"
+                )
             lines.append("")
 
         return "\n".join(lines).strip()
