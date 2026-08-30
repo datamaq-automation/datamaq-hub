@@ -69,8 +69,8 @@ def construir_script_snapshot(
 
 
 def construir_comando_ssh(host: str, script: str) -> list[str]:
-    """Arma el comando SSH que ejecuta `script` en el host remoto."""
-    return ["ssh", host, "python3", "-c", script]
+    """Arma el comando SSH que ejecuta `script` en el host remoto de forma segura."""
+    return ["ssh", host, f"python3 -c {shlex.quote(script)}"]
 
 
 def construir_comando_rsync(host: str, origen: str, destino: str) -> list[str]:
