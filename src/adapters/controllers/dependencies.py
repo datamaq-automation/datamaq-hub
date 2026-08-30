@@ -109,9 +109,7 @@ def get_procesar_resumen_tarjeta_use_case() -> ProcesarResumenTarjetaUseCase:
 
 
 def get_tarjeta_controller() -> TarjetaController:
-    return TarjetaController(
-        procesar_use_case=get_procesar_resumen_tarjeta_use_case()
-    )
+    return TarjetaController(procesar_use_case=get_procesar_resumen_tarjeta_use_case())
 
 
 def get_parse_receipt_use_case() -> ParseReceiptUseCase:

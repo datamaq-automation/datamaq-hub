@@ -59,9 +59,7 @@ class FakeTarjetaRepository(TarjetaRepositoryPort):
 def test_procesar_resumen_mapea_a_dto_y_persiste() -> None:
     parser = FakeTarjetaParser()
     repository = FakeTarjetaRepository()
-    use_case = ProcesarResumenTarjetaUseCase(
-        parser=parser, repository=repository
-    )
+    use_case = ProcesarResumenTarjetaUseCase(parser=parser, repository=repository)
 
     resultado = use_case.execute(b"pdf-falso")
 
