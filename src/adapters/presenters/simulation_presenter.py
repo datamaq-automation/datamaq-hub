@@ -1,7 +1,10 @@
 """Presenter for formatting salary simulation output responses."""
 
 from src.application.dtos.common_dto import APIResponseDTO
-from src.application.dtos.simulation_dto import SimulacionSueldoResponseDTO
+from src.application.dtos.simulation_dto import (
+    SimulacionSueldoCuitResponseDTO,
+    SimulacionSueldoResponseDTO,
+)
 
 
 class SimulationPresenter:
@@ -16,3 +19,14 @@ class SimulationPresenter:
             success=True,
             data=dto,
         )
+
+    @staticmethod
+    def present_cuit(
+        dto: SimulacionSueldoCuitResponseDTO,
+    ) -> APIResponseDTO[SimulacionSueldoCuitResponseDTO]:
+        """Wrap CUIT simulation DTO into API response envelope."""
+        return APIResponseDTO(
+            success=True,
+            data=dto,
+        )
+

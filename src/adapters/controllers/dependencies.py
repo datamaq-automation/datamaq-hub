@@ -49,6 +49,9 @@ from src.application.use_cases.listar_recibos import ListarRecibosUseCase
 from src.application.use_cases.obtener_recibo import ObtenerReciboUseCase
 from src.application.use_cases.parse_receipt import ParseReceiptUseCase
 from src.application.use_cases.project_salary import ProjectSalaryUseCase
+from src.application.use_cases.proyectar_sueldo_docente_vigente import (
+    ProyectarSueldoDocenteVigenteUseCase,
+)
 from src.application.use_cases.registrar_designacion import (
     RegistrarDesignacionUseCase,
 )
@@ -154,9 +157,26 @@ def get_receipt_controller() -> ReceiptController:
     )
 
 
+def get_proyectar_sueldo_docente_vigente_use_case() -> ProyectarSueldoDocenteVigenteUseCase:
+    designacion_repo = get_designacion_docente_repository_gateway()
+    recibo_repo = get_recibo_repository_gateway()
+    paritaria_repo = get_paritaria_repository_gateway()
+    motor = get_motor_liquidacion_service()
+    return ProyectarSueldoDocenteVigenteUseCase(
+        designacion_repository=designacion_repo,
+        recibo_repository=recibo_repo,
+        paritaria_repo=paritaria_repo,
+        motor=motor,
+    )
+
+
 def get_simulation_controller() -> SimulationController:
     use_case = get_project_salary_use_case()
-    return SimulationController(project_use_case=use_case)
+    cuit_use_case = get_proyectar_sueldo_docente_vigente_use_case()
+    return SimulationController(
+        project_use_case=use_case,
+        project_by_cuit_use_case=cuit_use_case,
+    )
 
 
 def get_validar_horarios_use_case() -> ValidarHorariosDocenciaUseCase:
