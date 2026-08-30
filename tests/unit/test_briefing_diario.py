@@ -11,7 +11,6 @@ from src.adapters.gateways.sql_tarjeta_gateway import SQLTarjetaGateway
 from src.application.use_cases.obtener_briefing_diario import (
     ObtenerBriefingDiarioUseCase,
 )
-from src.domain.tarjetas.entities import ResumenTarjeta
 from src.domain.calendar.entities import CalendarEvent
 from src.domain.horarios_docencia.entities import (
     DesignacionDocente,
@@ -29,6 +28,7 @@ from src.domain.tareas.value_objects import (
     CategoriaTarea,
     PrioridadTarea,
 )
+from src.domain.tarjetas.entities import ResumenTarjeta
 
 
 def test_obtener_briefing_diario_completo() -> None:
