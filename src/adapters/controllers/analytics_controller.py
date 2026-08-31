@@ -142,9 +142,7 @@ class AnalyticsController:
                 deepseek=DeepSeekUsageDTO(
                     is_available=False, balance=0.0, currency="USD"
                 ),
-                agy=TokenUsageDTO(
-                    input_tokens=0, output_tokens=0, cached_tokens=0
-                ),
+                agy=TokenUsageDTO(input_tokens=0, output_tokens=0, cached_tokens=0),
             )
         data = self._api_usage_gateway.obtener_usage_consolidado()
         return UsageResponseDTO.model_validate(data)
