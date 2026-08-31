@@ -21,6 +21,7 @@
 | **[`dip_logging.md`](dip_logging.md)** | Abstracción de Logging (DIP) | **Aprobado / Implementado** | `LoggerPort` + `NullLogger` en dominio, `StandardLogger` en infraestructura y desacoplamiento de `logging` en adapters/application. |
 | **[`proyeccion_sueldo_cuit.md`](proyeccion_sueldo_cuit.md)** | Proyección Salarial por CUIT | **Aprobado / Diseñado** | Caso de uso para proyección automática basada en designaciones vigentes y extracción de antigüedad de recibos históricos. |
 | **[`credit_card_parser.md`](credit_card_parser.md)** | Procesamiento de Tarjetas de Crédito | **Aprobado / Diseñado** | Procesamiento de resúmenes de tarjetas de crédito (Visa/Mastercard de BBVA y Banco Provincia) e integración en el Briefing Diario. |
+| **[`usage_api.md`](usage_api.md)** | Consulta de Usage de APIs | **Aprobado / Diseñado** | Monitoreo y consolidación de saldo/tokens de DeepSeek API y Antigravity (AGY) CLI. |
 
 ---
 
