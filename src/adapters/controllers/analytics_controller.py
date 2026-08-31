@@ -8,6 +8,7 @@ from src.adapters.gateways.google_ads_gateway import GoogleAdsGateway
 from src.application.dtos.analytics_dtos import (
     AnalyticsDigestResponseDTO,
     DeepSeekUsageDTO,
+    LocalUsageRequestDTO,
     MarketingActionRequestDTO,
     MarketingActionValidationDTO,
     TokenUsageDTO,
@@ -146,3 +147,12 @@ class AnalyticsController:
             )
         data = self._api_usage_gateway.obtener_usage_consolidado()
         return UsageResponseDTO.model_validate(data)
+
+    def guardar_usage_local(self, request: LocalUsageRequestDTO) -> None:
+        """Sincroniza y guarda el consumo local de tokens en el gateway."""
+        if self._api_usage_gateway is not None:
+            self._api_usage_gateway.guardar_usage_local(
+                input_tokens=request.input_tokens,
+                output_tokens=request.output_tokens,
+                cached_tokens=request.cached_tokens,
+            )

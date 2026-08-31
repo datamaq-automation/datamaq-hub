@@ -49,3 +49,7 @@ class APIUsagePort(Protocol):
     """Puerto para la obtención de métricas y saldos de APIs de LLMs."""
 
     def obtener_usage_consolidado(self) -> dict[str, Any]: ...
+
+    def guardar_usage_local(
+        self, input_tokens: int, output_tokens: int, cached_tokens: int
+    ) -> None: ...

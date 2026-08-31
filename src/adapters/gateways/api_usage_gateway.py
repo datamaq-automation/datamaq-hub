@@ -7,6 +7,7 @@ import re
 import urllib.request
 from typing import Any
 
+from src.adapters.gateways.api_cache_gateway import ApiCacheGateway
 from src.domain.analytics.ports import APIUsagePort
 from src.domain.common.ports import LoggerPort, NullLogger
 
@@ -42,15 +43,54 @@ class APIUsageGateway(APIUsagePort):
         self,
         deepseek_api_key: str | None = None,
         logger: LoggerPort | None = None,
+        cache: ApiCacheGateway | None = None,
     ) -> None:
         self._deepseek_api_key = deepseek_api_key
         self._logger = logger or NullLogger()
+        self._cache = cache
+
+    def guardar_usage_local(
+        self, input_tokens: int, output_tokens: int, cached_tokens: int
+    ) -> None:
+        """Guarda en la caché persistente el consumo de tokens locales."""
+        if self._cache:
+            data = {
+                "input_tokens": input_tokens,
+                "output_tokens": output_tokens,
+                "cached_tokens": cached_tokens,
+            }
+            self._cache.set("agy_local_usage", data, ttl_seconds=None)
 
     def obtener_usage_consolidado(self) -> dict[str, Any]:
         """Consolida el balance de DeepSeek y el consumo acumulado de AGY."""
+        local_usage: dict[str, int] = {
+            "input_tokens": 0,
+            "output_tokens": 0,
+            "cached_tokens": 0,
+        }
+        if self._cache:
+            cached = self._cache.get("agy_local_usage")
+            if isinstance(cached, dict):
+                local_usage = {
+                    "input_tokens": int(cached.get("input_tokens", 0)),
+                    "output_tokens": int(cached.get("output_tokens", 0)),
+                    "cached_tokens": int(cached.get("cached_tokens", 0)),
+                }
+
+        # 2. Obtener logs físicos del VPS
+        vps_usage = self._obtener_uso_agy()
+
+        # 3. Consolidar acumulado
         return {
             "deepseek": self._obtener_balance_deepseek(),
-            "agy": self._obtener_uso_agy(),
+            "agy": {
+                "input_tokens": vps_usage["input_tokens"]
+                + local_usage.get("input_tokens", 0),
+                "output_tokens": vps_usage["output_tokens"]
+                + local_usage.get("output_tokens", 0),
+                "cached_tokens": vps_usage["cached_tokens"]
+                + local_usage.get("cached_tokens", 0),
+            },
         }
 
     def _obtener_balance_deepseek(self) -> dict[str, Any]:

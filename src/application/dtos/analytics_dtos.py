@@ -199,3 +199,13 @@ class UsageResponseDTO(BaseModel):
     agy: TokenUsageDTO = Field(
         description="Consumo acumulado de tokens de Antigravity CLI"
     )
+
+
+class LocalUsageRequestDTO(BaseModel):
+    """Petición para sincronizar el uso acumulado local de tokens AGY."""
+
+    model_config = ConfigDict(frozen=True)
+
+    input_tokens: int = Field(ge=0, description="Tokens de entrada acumulados")
+    output_tokens: int = Field(ge=0, description="Tokens de salida acumulados")
+    cached_tokens: int = Field(ge=0, description="Tokens de caché acumulados")

@@ -26,3 +26,31 @@ def test_api_usage_gateway_deepseek_missing_key() -> None:
     assert data["agy"]["input_tokens"] >= 0
     assert data["agy"]["output_tokens"] >= 0
     assert data["agy"]["cached_tokens"] >= 0
+
+
+class MockCache:
+    """Mock simple para ApiCacheGateway."""
+
+    def __init__(self) -> None:
+        self.store = {}
+
+    def get(self, key: str):
+        return self.store.get(key)
+
+    def set(self, key: str, value: any, ttl_seconds: int | None = None) -> None:
+        self.store[key] = value
+
+
+def test_api_usage_gateway_cache_consolidation() -> None:
+    """Valida que los tokens locales guardados en cache se sumen al consolidado."""
+    mock_cache = MockCache()
+    gateway = APIUsageGateway(deepseek_api_key=None, cache=mock_cache)
+
+    gateway.guardar_usage_local(
+        input_tokens=1000, output_tokens=200, cached_tokens=5000
+    )
+    data = gateway.obtener_usage_consolidado()
+
+    assert data["agy"]["input_tokens"] >= 1000
+    assert data["agy"]["output_tokens"] >= 200
+    assert data["agy"]["cached_tokens"] >= 5000

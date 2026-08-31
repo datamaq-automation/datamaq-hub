@@ -13,6 +13,7 @@ from src.adapters.gateways.ga4_gateway import GA4Gateway
 from src.adapters.gateways.google_ads_gateway import GoogleAdsGateway
 from src.application.dtos.analytics_dtos import (
     AnalyticsDigestResponseDTO,
+    LocalUsageRequestDTO,
     MarketingActionRequestDTO,
     MarketingActionValidationDTO,
     UsageResponseDTO,
@@ -51,6 +52,7 @@ def get_analytics_controller() -> AnalyticsController:
     )
     api_usage_gateway = APIUsageGateway(
         deepseek_api_key=settings.deepseek_api_key,
+        cache=cache,
     )
     return AnalyticsController(
         google_ads_gateway=ads_gateway,
@@ -203,3 +205,18 @@ async def get_api_usage(
     """Retorna el consumo consolidado de las APIs de LLM."""
     result = controller.get_api_usage()
     return APIResponseDTO[UsageResponseDTO](success=True, data=result)
+
+
+@router.post(
+    "/usage/local",
+    response_model=APIResponseDTO[dict[str, str]],
+    summary="Sincronizar Uso Local de AGY",
+    description="Permite que el entorno local envíe su uso acumulado de tokens para consolidarlo en la VPS.",
+)
+async def post_local_usage(
+    request: LocalUsageRequestDTO,
+    controller: Annotated[AnalyticsController, Depends(get_analytics_controller)],
+) -> APIResponseDTO[dict[str, str]]:
+    """Guarda el consumo de tokens locales en la caché persistente."""
+    controller.guardar_usage_local(request)
+    return APIResponseDTO[dict[str, str]](success=True, data={"status": "sincronizado"})

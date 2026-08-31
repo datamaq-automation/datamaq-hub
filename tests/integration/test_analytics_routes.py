@@ -165,3 +165,20 @@ def test_get_analytics_usage_envelope(client: TestClient) -> None:
     assert json_data["data"]["deepseek"]["is_available"] is True
     assert json_data["data"]["deepseek"]["balance"] == 25.5
     assert json_data["data"]["agy"]["input_tokens"] == 72000
+
+
+def test_post_analytics_usage_local_envelope(
+    client: TestClient, mock_analytics_controller: MagicMock
+) -> None:
+    """Verifica que /analytics/usage/local llama al controlador con los datos correctos."""
+    payload = {
+        "input_tokens": 1000,
+        "output_tokens": 200,
+        "cached_tokens": 5000,
+    }
+    resp = client.post("/api/v1/analytics/usage/local", json=payload)
+    assert resp.status_code == 200
+    json_data = resp.json()
+    assert json_data["success"] is True
+    assert json_data["data"]["status"] == "sincronizado"
+    mock_analytics_controller.guardar_usage_local.assert_called_once()
