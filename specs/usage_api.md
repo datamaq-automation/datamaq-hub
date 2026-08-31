@@ -15,19 +15,26 @@ Proveer un endpoint centralizado en la API del Hub (`GET /api/v1/analytics/usage
 ```python
 from pydantic import BaseModel, Field
 
+
 class TokenUsageDTO(BaseModel):
     input_tokens: int = Field(description="Total de tokens de entrada consumidos")
     output_tokens: int = Field(description="Total de tokens de salida consumidos")
     cached_tokens: int = Field(description="Total de tokens de caché consumidos")
 
+
 class DeepSeekUsageDTO(BaseModel):
-    is_available: bool = Field(description="Indica si la API de DeepSeek está disponible/configurada")
+    is_available: bool = Field(
+        description="Indica si la API de DeepSeek está disponible/configurada"
+    )
     balance: float = Field(description="Saldo disponible en la cuenta")
     currency: str = Field(description="Moneda del saldo (usualmente USD)")
 
+
 class UsageResponseDTO(BaseModel):
     deepseek: DeepSeekUsageDTO = Field(description="Uso y balance de DeepSeek API")
-    agy: TokenUsageDTO = Field(description="Consumo acumulado de tokens de Antigravity CLI")
+    agy: TokenUsageDTO = Field(
+        description="Consumo acumulado de tokens de Antigravity CLI"
+    )
 ```
 
 ---
@@ -39,6 +46,7 @@ Se definirá un puerto para la obtención de métricas de APIs:
 ```python
 from abc import ABC, abstractmethod
 from src.application.dtos.analytics_dtos import UsageResponseDTO
+
 
 class APIUsageRepositoryPort(ABC):
     @abstractmethod
