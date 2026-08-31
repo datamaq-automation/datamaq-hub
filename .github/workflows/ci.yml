@@ -53,6 +53,9 @@ jobs:
           key: ${{ secrets.VPS_SSH_KEY }}
           port: ${{ secrets.VPS_PORT }}
           script: |
+            git -C /var/www/datamaq-hub restore data/paritarias/*.json || true
+            git -C /var/www/datamaq-hub clean -df -e .venv/ -e data/
+            git -C /var/www/datamaq-hub pull origin main
             chmod +x /var/www/datamaq-hub/scripts/deploy.sh
             /var/www/datamaq-hub/scripts/deploy.sh
 
