@@ -9,7 +9,10 @@ from src.adapters.controllers.analytics_controller import AnalyticsController
 from src.application.dtos.analytics_dtos import (
     AnalyticsDigestResponseDTO,
     CalculatedKpisDTO,
+    DeepSeekUsageDTO,
     MarketingActionValidationDTO,
+    TokenUsageDTO,
+    UsageResponseDTO,
 )
 from src.infrastructure.fastapi.routes.analytics_routes import (
     get_analytics_controller,
@@ -73,6 +76,10 @@ def mock_analytics_controller() -> MagicMock:
         "status": "success",
         "project_id": "wx5hfvmv5y",
     }
+    mock_ctrl.get_api_usage.return_value = UsageResponseDTO(
+        deepseek=DeepSeekUsageDTO(is_available=True, balance=25.5, currency="USD"),
+        agy=TokenUsageDTO(input_tokens=72000, output_tokens=15000, cached_tokens=3000),
+    )
     return mock_ctrl
 
 
@@ -147,3 +154,14 @@ def test_get_analytics_ga4_and_clarity_envelope(client: TestClient) -> None:
     assert resp_clarity.status_code == 200
     assert resp_clarity.json()["success"] is True
     assert resp_clarity.json()["data"]["project_id"] == "wx5hfvmv5y"
+
+
+def test_get_analytics_usage_envelope(client: TestClient) -> None:
+    """Verifica que /analytics/usage retorna el envelope estándar APIResponseDTO."""
+    resp = client.get("/api/v1/analytics/usage")
+    assert resp.status_code == 200
+    json_data = resp.json()
+    assert json_data["success"] is True
+    assert json_data["data"]["deepseek"]["is_available"] is True
+    assert json_data["data"]["deepseek"]["balance"] == 25.5
+    assert json_data["data"]["agy"]["input_tokens"] == 72000
