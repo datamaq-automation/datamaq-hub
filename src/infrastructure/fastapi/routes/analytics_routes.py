@@ -7,6 +7,7 @@ from fastapi import APIRouter, Depends, Query
 
 from src.adapters.controllers.analytics_controller import AnalyticsController
 from src.adapters.gateways.api_cache_gateway import ApiCacheGateway
+from src.adapters.gateways.api_usage_gateway import APIUsageGateway
 from src.adapters.gateways.clarity_gateway import ClarityGateway
 from src.adapters.gateways.ga4_gateway import GA4Gateway
 from src.adapters.gateways.google_ads_gateway import GoogleAdsGateway
@@ -14,6 +15,7 @@ from src.application.dtos.analytics_dtos import (
     AnalyticsDigestResponseDTO,
     MarketingActionRequestDTO,
     MarketingActionValidationDTO,
+    UsageResponseDTO,
 )
 from src.application.dtos.common_dto import APIResponseDTO
 from src.infrastructure.pydantic.config import get_settings
@@ -47,11 +49,15 @@ def get_analytics_controller() -> AnalyticsController:
         clarity_api_token=settings.clarity_api_token,
         cache=cache,
     )
+    api_usage_gateway = APIUsageGateway(
+        deepseek_api_key=settings.deepseek_api_key,
+    )
     return AnalyticsController(
         google_ads_gateway=ads_gateway,
         ga4_gateway=ga4_gateway,
         clarity_gateway=clarity_gateway,
         budget_limit_ars=1500.0,
+        api_usage_gateway=api_usage_gateway,
     )
 
 
@@ -180,3 +186,20 @@ async def get_clarity_live_insights(
     """Retorna enlaces directos a grabaciones de UX."""
     result = controller.get_clarity_insights()
     return APIResponseDTO[dict[str, Any]](success=True, data=result)
+
+
+@router.get(
+    "/usage",
+    response_model=APIResponseDTO[UsageResponseDTO],
+    summary="Consumo de APIs de LLM",
+    description=(
+        "Retorna el balance actual de la API de DeepSeek y el uso acumulado de "
+        "tokens de Antigravity CLI (AGY) parseado de los logs locales."
+    ),
+)
+async def get_api_usage(
+    controller: Annotated[AnalyticsController, Depends(get_analytics_controller)],
+) -> APIResponseDTO[UsageResponseDTO]:
+    """Retorna el consumo consolidado de las APIs de LLM."""
+    result = controller.get_api_usage()
+    return APIResponseDTO[UsageResponseDTO](success=True, data=result)

@@ -7,8 +7,11 @@ from src.adapters.gateways.ga4_gateway import GA4Gateway
 from src.adapters.gateways.google_ads_gateway import GoogleAdsGateway
 from src.application.dtos.analytics_dtos import (
     AnalyticsDigestResponseDTO,
+    DeepSeekUsageDTO,
     MarketingActionRequestDTO,
     MarketingActionValidationDTO,
+    TokenUsageDTO,
+    UsageResponseDTO,
 )
 from src.application.use_cases.generar_analytics_digest import (
     GenerarAnalyticsDigestUseCase,
@@ -16,6 +19,7 @@ from src.application.use_cases.generar_analytics_digest import (
 from src.application.use_cases.validar_accion_marketing import (
     ValidarAccionMarketingUseCase,
 )
+from src.domain.analytics.ports import APIUsagePort
 
 
 class AnalyticsController:
@@ -27,11 +31,13 @@ class AnalyticsController:
         ga4_gateway: GA4Gateway,
         clarity_gateway: ClarityGateway,
         budget_limit_ars: float = 1500.0,
+        api_usage_gateway: APIUsagePort | None = None,
     ) -> None:
         self._ads_gateway = google_ads_gateway
         self._ga4_gateway = ga4_gateway
         self._clarity_gateway = clarity_gateway
         self._budget_limit_ars = budget_limit_ars
+        self._api_usage_gateway = api_usage_gateway
         self._digest_use_case = GenerarAnalyticsDigestUseCase(
             google_ads_port=google_ads_gateway,
             ga4_port=ga4_gateway,
@@ -128,3 +134,17 @@ class AnalyticsController:
             "project_id": self._clarity_gateway.clarity_id,
             "intent_recording_urls": self._clarity_gateway.get_intent_recording_urls(),
         }
+
+    def get_api_usage(self) -> UsageResponseDTO:
+        """Obtiene el balance de DeepSeek y el consumo acumulado de tokens de AGY."""
+        if self._api_usage_gateway is None:
+            return UsageResponseDTO(
+                deepseek=DeepSeekUsageDTO(
+                    is_available=False, balance=0.0, currency="USD"
+                ),
+                agy=TokenUsageDTO(
+                    input_tokens=0, output_tokens=0, cached_tokens=0
+                ),
+            )
+        data = self._api_usage_gateway.obtener_usage_consolidado()
+        return UsageResponseDTO.model_validate(data)

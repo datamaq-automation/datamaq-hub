@@ -43,3 +43,9 @@ class ClarityDataSourcePort(Protocol):
     def get_live_insights(self) -> dict[str, Any]: ...
 
     def get_dashboard_insights(self, num_of_days: int = 3) -> dict[str, Any]: ...
+
+
+class APIUsagePort(Protocol):
+    """Puerto para la obtención de métricas y saldos de APIs de LLMs."""
+
+    def obtener_usage_consolidado(self) -> dict[str, Any]: ...

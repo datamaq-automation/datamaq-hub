@@ -166,3 +166,36 @@ class MarketingActionValidationDTO(BaseModel):
         default_factory=dict[str, Any],
         description="Parámetros normalizados",
     )
+
+
+class TokenUsageDTO(BaseModel):
+    """Consumo acumulado de tokens de un proveedor de LLM."""
+
+    model_config = ConfigDict(frozen=True)
+
+    input_tokens: int = Field(description="Total de tokens de entrada consumidos")
+    output_tokens: int = Field(description="Total de tokens de salida consumidos")
+    cached_tokens: int = Field(description="Total de tokens de caché consumidos")
+
+
+class DeepSeekUsageDTO(BaseModel):
+    """Balance y disponibilidad de la API de DeepSeek."""
+
+    model_config = ConfigDict(frozen=True)
+
+    is_available: bool = Field(
+        description="Indica si la API de DeepSeek está disponible y configurada"
+    )
+    balance: float = Field(description="Saldo disponible en la cuenta")
+    currency: str = Field(description="Moneda del saldo (usualmente USD)")
+
+
+class UsageResponseDTO(BaseModel):
+    """Respuesta consolidada de consumo y balance de APIs de LLM."""
+
+    model_config = ConfigDict(frozen=True)
+
+    deepseek: DeepSeekUsageDTO = Field(description="Uso y balance de DeepSeek API")
+    agy: TokenUsageDTO = Field(
+        description="Consumo acumulado de tokens de Antigravity CLI"
+    )
