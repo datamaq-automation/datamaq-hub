@@ -8,6 +8,11 @@ REPO_ROOT="$(cd "${SCRIPT_DIR}/.." && pwd)"
 
 cd "${REPO_ROOT}"
 
+PYTHON_BIN="python3"
+if [ -x "${REPO_ROOT}/venv/bin/python" ]; then
+    PYTHON_BIN="${REPO_ROOT}/venv/bin/python"
+fi
+
 "${PYTHON_BIN}" "${SCRIPT_DIR}/sync_from_vps.py" "$@"
 
 # Sincronizar consumo de tokens locales hacia la VPS
