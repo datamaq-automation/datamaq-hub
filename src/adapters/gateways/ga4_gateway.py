@@ -30,7 +30,7 @@ def _run_ga4_report(
         return {
             "status": "missing_credentials",
             "message": "GA4_PROPERTY_ID o GOOGLE_APPLICATION_CREDENTIALS no están configurados válidamente en .env.",
-            "setup_guide": "Consultar docs/analytics_and_ads.md Sección 4 para configurar la Cuenta de Servicio en GCP.",
+            "setup_guide": "Consultar docs/credenciales_entornos.md Sección 4 (diagnóstico y reposición de la credencial) y docs/analytics_and_ads.md Sección 2 (mapa de variables).",
         }
 
     try:

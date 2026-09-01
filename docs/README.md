@@ -19,8 +19,12 @@ docs/
 ├── 🤖 Agentes IA & Integraciones
 │   └── mail_openclaw_integration.md           # SSOT: Integración OpenClaw y endpoints de sólo lectura de correo
 │
-└── 📊 Analítica, FastMCP & Telemetría
-    └── analytics_and_ads.md                   # SSOT unificado: Google Ads (Basic Access Aprobado), GA4, Clarity, Watchdog y Atribución
+├── 📊 Analítica, FastMCP & Telemetría
+│   └── analytics_and_ads.md                   # SSOT unificado: Google Ads (Basic Access Aprobado), GA4, Clarity, Watchdog y Atribución
+│
+└── 🔐 Operaciones & Despliegue
+    ├── credenciales_entornos.md               # Runbook: sincronización de .env local ↔ VPS, rotación de tokens OAuth
+    └── vps_replica_runbook.md                 # Runbook: réplica de datos VPS (SSOT) ➔ local
 ```
 
 ---
@@ -35,6 +39,8 @@ docs/
 | **[`contacts_calendar_openclaw.md`](contacts_calendar_openclaw.md)** | Libreta de contactos y eventos para OpenClaw. | **SSOT Activo** |
 | **[`analytics_and_ads.md`](analytics_and_ads.md)** | Guía integral de cuentas Google, Google Ads (**Basic Access Aprobado**), GA4, Clarity, Watchdog y gobernanza de atribución B2B. | **SSOT Activo** |
 | **[`oportunidades_de_mejora.md`](oportunidades_de_mejora.md)** | Hoja de ruta estratégica y oportunidades de alto impacto en automatización, leads y FastMCP. | **Vigente** |
+| **[`credenciales_entornos.md`](credenciales_entornos.md)** | Runbook operativo: qué variables sincronizar entre local y VPS (y cuál **no**), auditoría de drift sin exponer secretos, y rotación del `GOOGLE_ADS_REFRESH_TOKEN` y la credencial GA4. | **SSOT Activo** |
+| **[`vps_replica_runbook.md`](vps_replica_runbook.md)** | Runbook de sincronización unidireccional de datos persistentes desde el VPS (SSOT) hacia la réplica local. | **SSOT Activo** |
 
 ---
 

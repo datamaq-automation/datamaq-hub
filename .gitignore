@@ -8,6 +8,7 @@ __pycache__/
 venv/
 *.pyc
 .env
+.env.bak.*
 
 .aider*
 docs/estrategia_inversion_2026/
