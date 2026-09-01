@@ -16,10 +16,10 @@ from src.domain.mail.exceptions import (
     MailConnectionError,
     MailDomainException,
 )
-from src.infrastructure.pydantic.config import get_settings
+from src.infrastructure.pydantic.config import Settings, get_settings
 
 
-def verify_account(alias: str, settings) -> bool:
+def verify_account(alias: str, settings: Settings) -> bool:
     """Tests IMAP connectivity for a single account alias."""
     print(f"\n🔍 Probando conexión IMAP para la cuenta: \033[1;36m{alias}\033[0m")
     try:

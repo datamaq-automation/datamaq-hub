@@ -40,7 +40,7 @@ def parse_tokens(token_str: str) -> int:
 def calcular_uso_local() -> dict[str, int]:
     """Suma los tokens acumulados parseando los logs locales de Antigravity CLI."""
     agy_data = {"input_tokens": 0, "output_tokens": 0, "cached_tokens": 0}
-    parsed_files = set()
+    parsed_files: set[str] = set()
     for pattern in _AGY_LOG_PATTERNS:
         for path in glob.glob(pattern):
             if path in parsed_files:
@@ -82,7 +82,7 @@ def main() -> None:
 
     payload = json.dumps(uso)
     # Ejecutar curl en la VPS mediante SSH para registrar el uso local
-    ssh_cmd = [
+    ssh_cmd: list[str] = [
         "ssh",
         args.host,
         f"curl -sS -X POST -H 'Content-Type: application/json' -d {payload!r} http://127.0.0.1:8013/api/v1/analytics/usage/local",

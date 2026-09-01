@@ -15,7 +15,7 @@ Exit code: 0 si todos los servicios responden sin ``status == "error"``;
 import json
 import os
 import sys
-from typing import Any
+from typing import Any, cast
 
 from src.infrastructure.fastmcp import clarity, ga4, google_ads
 from src.infrastructure.pydantic.config import get_settings
@@ -56,9 +56,11 @@ def _has_error(payload: Any, depth: int = 0) -> bool:
     if isinstance(payload, dict):
         if payload.get("status") == "error":
             return True
-        return any(_has_error(value, depth + 1) for value in payload.values())
+        values = cast(dict[str, Any], payload).values()
+        return any(_has_error(value, depth + 1) for value in values)
     if isinstance(payload, list):
-        return any(_has_error(item, depth + 1) for item in payload)
+        items = cast(list[Any], payload)
+        return any(_has_error(item, depth + 1) for item in items)
     return False
 
 

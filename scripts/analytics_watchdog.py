@@ -18,6 +18,7 @@ import argparse
 import json
 import os
 import sys
+import urllib.error
 import urllib.parse
 import urllib.request
 from typing import Any
@@ -39,7 +40,7 @@ def send_telegram_alert(text: str, bot_token: str, chat_id: str) -> bool:
         return False
 
     url = f"https://api.telegram.org/bot{bot_token}/sendMessage"
-    payload = {
+    payload: dict[str, Any] = {
         "chat_id": chat_id,
         "text": text,
         "parse_mode": "Markdown",

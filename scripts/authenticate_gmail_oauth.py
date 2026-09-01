@@ -15,6 +15,7 @@ import urllib.request
 import webbrowser
 from http.server import BaseHTTPRequestHandler, HTTPServer
 from pathlib import Path
+from typing import Any
 
 # Ensure project root is in sys.path
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
@@ -27,6 +28,36 @@ SCOPES = [
     "https://mail.google.com/",
     "https://www.googleapis.com/auth/userinfo.email",
 ]
+
+# Scopes de la Google Ads API. El refresh_token de Ads es independiente del de
+# Gmail: se emite por scope, por lo que reautenticar Ads no invalida el buzón.
+ADS_SCOPES = [
+    "https://www.googleapis.com/auth/adwords",
+]
+
+SCOPE_PRESETS = {
+    "gmail": SCOPES,
+    "ads": ADS_SCOPES,
+}
+
+
+class Args(argparse.Namespace):
+    """Namespace tipado de la CLI.
+
+    `argparse.Namespace` devuelve `Any` en el acceso a atributos, y un solo valor
+    `Any` vuelve `Unknown` el tipo de cualquier dict que lo contenga (pyright
+    `reportUnknownVariableType`, activado en pyrightconfig.json). Declarar los
+    campos y pasarlos vía `parse_args(namespace=Args())` conserva los tipos.
+    """
+
+    email: str
+    client_id: str | None
+    client_secret: str | None
+    port: int
+    variant: str
+    redirect_uri: str | None
+    manual: bool
+    scopes: str
 
 
 def extract_auth_code(raw_input: str) -> str:
@@ -165,7 +196,7 @@ class OAuthCallbackHandler(BaseHTTPRequestHandler):
 
 def exchange_code_for_tokens(
     code: str, client_id: str, client_secret: str, redirect_uri: str
-) -> dict:
+) -> dict[str, Any]:
     """Canjea el código de autorización por tokens de acceso y actualización."""
     token_url = "https://oauth2.googleapis.com/token"
     payload = urllib.parse.urlencode(
@@ -239,7 +270,16 @@ def main():
         action="store_true",
         help="Modo manual (copiar y pegar código desde consola)",
     )
-    args = parser.parse_args()
+    parser.add_argument(
+        "--scopes",
+        choices=sorted(SCOPE_PRESETS),
+        default="gmail",
+        help="Conjunto de scopes a autorizar: 'gmail' (buzones IMAP/OpenClaw) o "
+        "'ads' (Google Ads API, para regenerar GOOGLE_ADS_REFRESH_TOKEN). Default: gmail",
+    )
+    args = parser.parse_args(namespace=Args())
+
+    scopes = SCOPE_PRESETS[args.scopes]
 
     settings = get_settings()
     client_id = args.client_id or settings.google_ads_client_id
@@ -276,7 +316,7 @@ def main():
         "client_id": client_id,
         "redirect_uri": redirect_uri,
         "response_type": "code",
-        "scope": " ".join(SCOPES),
+        "scope": " ".join(scopes),
         "access_type": "offline",
         "prompt": "select_account consent",
         "login_hint": args.email,
@@ -348,7 +388,7 @@ def main():
             redirect_uri=redirect_uri,
         )
 
-        refresh_token = tokens.get("refresh_token")
+        refresh_token: str = tokens.get("refresh_token", "")
         if not refresh_token:
             print(
                 "⚠️ Google devolvió tokens pero sin refresh_token (es posible que ya estuviera autorizada)."
@@ -358,7 +398,7 @@ def main():
         print("\n" + "=" * 70)
         print("✅ \033[1;32mREFRESH TOKEN OBTENIDO CON ÉXITO!\033[0m")
         print("=" * 70)
-        config_dict = {
+        config_dict: dict[str, dict[str, Any]] = {
             "abc": {
                 "host": "imap.gmail.com",
                 "port": 993,
