@@ -15,7 +15,7 @@ import urllib.request
 import webbrowser
 from http.server import BaseHTTPRequestHandler, HTTPServer
 from pathlib import Path
-from typing import Any
+from typing import Any, ClassVar
 
 # Ensure project root is in sys.path
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
@@ -34,6 +34,8 @@ SCOPES = [
 ADS_SCOPES = [
     "https://www.googleapis.com/auth/adwords",
 ]
+
+CALLBACK_TIMEOUT_SECONDS = 180
 
 SCOPE_PRESETS = {
     "gmail": SCOPES,
@@ -70,6 +72,43 @@ def extract_auth_code(raw_input: str) -> str:
     if match_code:
         return match_code.group(1)
     return raw
+
+
+def looks_like_auth_code(candidate: str) -> bool:
+    """Valida el formato de un código de autorización de Google (`4/...`)."""
+    return bool(re.fullmatch(r"4/[A-Za-z0-9_\-]+", candidate))
+
+
+def prompt_for_auth_code(auth_url: str, attempts: int = 3) -> str:
+    """Pide el código por consola y valida el formato antes de canjearlo.
+
+    Sin esta validación, cualquier línea pegada por error (una orden del shell,
+    por ejemplo) viajaba tal cual a Google y volvía como un confuso
+    `invalid_grant: Malformed auth code`.
+    """
+    print("1. Ingresá a este enlace en tu navegador:")
+    print(f"\n   \033[1;34m{auth_url}\033[0m\n")
+    for intento in range(1, attempts + 1):
+        raw = input(
+            "2. Pegá acá el código o la URL completa de la redirección: "
+        ).strip()
+        if not raw:
+            print("   ⚠️ Entrada vacía.")
+        else:
+            candidate = extract_auth_code(raw)
+            if looks_like_auth_code(candidate):
+                return candidate
+            print(
+                f"   ⚠️ Eso no parece un código de Google (se espera «4/...»);"
+                f" recibido: {candidate[:40]!r}"
+            )
+            print(
+                "      Copiá la URL COMPLETA de la barra de direcciones tras autorizar."
+            )
+        if intento < attempts:
+            print(f"      Reintento {intento + 1} de {attempts}.\n")
+    print("\n❌ No se obtuvo un código válido. Volvé a ejecutar el script.")
+    sys.exit(1)
 
 
 def copy_to_clipboard(text: str) -> bool:
@@ -165,6 +204,7 @@ class OAuthCallbackHandler(BaseHTTPRequestHandler):
 
     auth_code: str | None = None
     error: str | None = None
+    ignored: ClassVar[list[str]] = []
 
     def do_GET(self):
         parsed = urllib.parse.urlparse(self.path)
@@ -187,6 +227,9 @@ class OAuthCallbackHandler(BaseHTTPRequestHandler):
                 f"<h1>Error de Autorizacion: {OAuthCallbackHandler.error}</h1>".encode()
             )
         else:
+            # Sondas del navegador (/favicon.ico, preconnect). Se registran para
+            # poder explicar por qué la espera no recibió el callback.
+            OAuthCallbackHandler.ignored.append(parsed.path or "/")
             self.send_response(404)
             self.end_headers()
 
@@ -341,10 +384,8 @@ def main():
     code = None
 
     try:
-        if (
-            not args.manual
-            and "localhost" in redirect_uri
-            or "127.0.0.1" in redirect_uri
+        if not args.manual and (
+            "localhost" in redirect_uri or "127.0.0.1" in redirect_uri
         ):
             with TemporaryPortManager(args.port):
                 HTTPServer.allow_reuse_address = True
@@ -359,26 +400,45 @@ def main():
                     pass
 
                 print(f"2. Esperando autorización en {redirect_uri}...")
+                print(
+                    f"   (hasta {CALLBACK_TIMEOUT_SECONDS}s; Ctrl+C para pasar a modo manual)"
+                )
+                server.timeout = 5
+                deadline = time.monotonic() + CALLBACK_TIMEOUT_SECONDS
                 try:
-                    server.handle_request()
+                    # handle_request() atiende UNA sola petición y el navegador
+                    # suele mandar sondas (/favicon.ico, preconnect) antes del
+                    # callback: hay que seguir escuchando hasta el ?code= real.
+                    while (
+                        OAuthCallbackHandler.auth_code is None
+                        and OAuthCallbackHandler.error is None
+                        and time.monotonic() < deadline
+                    ):
+                        server.handle_request()
+                except KeyboardInterrupt:
+                    print("\n   Interrumpido: se continúa en modo manual.")
                 finally:
                     server.server_close()
 
                 code = OAuthCallbackHandler.auth_code
 
             if not code:
-                print(
-                    f"\n❌ Error: No se recibió el código de autorización ({OAuthCallbackHandler.error})."
+                detalle = (
+                    OAuthCallbackHandler.error or "no llegó ninguna petición con ?code="
                 )
-                sys.exit(1)
+                print(f"\n⚠️ El servidor local no recibió el código ({detalle}).")
+                if OAuthCallbackHandler.ignored:
+                    print(
+                        f"   Peticiones ignoradas: {', '.join(OAuthCallbackHandler.ignored)}"
+                    )
+                print(
+                    "   Autorizá en el navegador; cuando la pestaña quede en «no se puede\n"
+                    "   acceder al sitio», copiá la URL completa de la barra de direcciones\n"
+                    "   (contiene ?code=...) y pegala acá abajo."
+                )
 
         if args.manual or not code:
-            print("1. Ingresá a este enlace en tu navegador:")
-            print(f"\n   \033[1;34m{auth_url}\033[0m\n")
-            raw_input = input(
-                "2. Pegá acá el código o la URL completa de la redirección: "
-            ).strip()
-            code = extract_auth_code(raw_input)
+            code = prompt_for_auth_code(auth_url)
 
         print("\n⏳ Canjeando código por REFRESH_TOKEN...")
         tokens = exchange_code_for_tokens(
@@ -398,23 +458,34 @@ def main():
         print("\n" + "=" * 70)
         print("✅ \033[1;32mREFRESH TOKEN OBTENIDO CON ÉXITO!\033[0m")
         print("=" * 70)
-        config_dict: dict[str, dict[str, Any]] = {
-            "abc": {
-                "host": "imap.gmail.com",
-                "port": 993,
-                "user": args.email,
-                "oauth2_client_id": client_id,
-                "oauth2_client_secret": client_secret,
-                "oauth2_refresh_token": refresh_token,
-                "use_ssl": True,
-                "timeout_seconds": 15,
-            }
-        }
-        json_str = json.dumps(config_dict)
         print(
             "\nCopiá y pegá esta línea en tu archivo .env (tanto en local como en VPS):\n"
         )
-        print(f"\033[1;32mMAIL_ACCOUNTS={json_str}\033[0m\n")
+
+        if args.scopes == "ads":
+            # El token tiene scope `adwords`: pertenece a GOOGLE_ADS_REFRESH_TOKEN.
+            # Pegarlo en MAIL_ACCOUNTS rompería el buzón IMAP, que necesita un
+            # token con scope de Gmail.
+            print(f"\033[1;32mGOOGLE_ADS_REFRESH_TOKEN={refresh_token}\033[0m\n")
+            print(
+                "⚠️  NO lo pegues en MAIL_ACCOUNTS: este token autoriza la Google Ads\n"
+                "    API, no el buzón de correo."
+            )
+        else:
+            config_dict: dict[str, dict[str, Any]] = {
+                "abc": {
+                    "host": "imap.gmail.com",
+                    "port": 993,
+                    "user": args.email,
+                    "oauth2_client_id": client_id,
+                    "oauth2_client_secret": client_secret,
+                    "oauth2_refresh_token": refresh_token,
+                    "use_ssl": True,
+                    "timeout_seconds": 15,
+                }
+            }
+            print(f"\033[1;32mMAIL_ACCOUNTS={json.dumps(config_dict)}\033[0m\n")
+
         print("=" * 70)
 
     except KeyboardInterrupt:
