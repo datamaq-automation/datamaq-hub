@@ -241,3 +241,86 @@ pyright scripts/          # debe dar 0 errores
 > 4"* (que trata sobre Servidores FastMCP & Watchdog) para configurar la cuenta de
 > servicio. Corregido: ahora apunta a la Sección 4 de este runbook y a la Sección 2
 > de `analytics_and_ads.md`, que es donde está el mapa de variables.
+
+---
+
+## 7. Credenciales de Google Business Profile (`GBP_*`)
+
+> **Estado al 2026-09-02:** sin configurar. No hay ficha creada ni acceso a la API
+> aprobado. Contexto completo y runbook de habilitación en
+> [`gbp_ficha_google.md`](gbp_ficha_google.md).
+
+### Mapa de variables
+
+| Variable | Obligatoria | Notas |
+|---|---|---|
+| `GBP_CLIENT_ID` | No | Vacía ⇒ cae a `GOOGLE_ADS_CLIENT_ID`. El cliente OAuth es compartido en este repo |
+| `GBP_CLIENT_SECRET` | No | Vacía ⇒ cae a `GOOGLE_ADS_CLIENT_SECRET` |
+| `GBP_REFRESH_TOKEN` | **Sí** | Propio: los refresh tokens se emiten **por scope** |
+| `GBP_ACCOUNT_ID` | Sí para la API v4 | Acepta `123` o `accounts/123` |
+| `GBP_LOCATION_ID` | **Sí** | Acepta `456` o `locations/456` |
+
+Las cinco se sincronizan entre local y VPS, igual que el resto de los secretos
+(§1). Ninguna es una ruta de archivo, así que **no** son excepción como
+`GOOGLE_APPLICATION_CREDENTIALS`.
+
+### Obtener o regenerar el `GBP_REFRESH_TOKEN`
+
+**Síntoma de token caído:** `/analytics/gbp/*` devuelve `"status": "auth_error"`
+con `invalid_grant`.
+
+El scope es `https://www.googleapis.com/auth/business.manage`. Como en el caso de
+Ads, el paso de autorización **no puede ejecutarse por SSH**: el VPS no tiene
+navegador y el redirect apunta a `localhost`.
+
+```bash
+./venv/bin/python scripts/authenticate_gmail_oauth.py \
+    --scopes gbp \
+    --email <propietario-de-la-ficha>
+```
+
+> **Cuenta a usar:** una que figure como **propietaria o administradora de la
+> ficha**, que no es necesariamente la misma que administra el MCC de Ads.
+>
+> El token de `business.manage` es independiente de los de Gmail y Ads:
+> reautorizar GBP no invalida el buzón IMAP ni la Google Ads API.
+
+Escribir el valor en ambos entornos:
+
+```bash
+# Local
+sed -i "s|^GBP_REFRESH_TOKEN=.*|GBP_REFRESH_TOKEN=NUEVO_TOKEN|" .env
+
+# VPS (con backup previo)
+ssh vps 'cd /var/www/datamaq-hub && cp -a .env .env.bak.$(date +%Y%m%d_%H%M%S) && \
+  sed -i "s|^GBP_REFRESH_TOKEN=.*|GBP_REFRESH_TOKEN=NUEVO_TOKEN|" .env'
+```
+
+### Resolver `GBP_ACCOUNT_ID` y `GBP_LOCATION_ID`
+
+Una vez cargado el refresh token:
+
+```bash
+./venv/bin/python -c "from src.infrastructure.fastmcp.gbp import get_gbp_status; print(get_gbp_status())"
+```
+
+Devuelve `cuentas_disponibles` con los nombres de recurso. Volcar los valores en
+ambos `.env` y reiniciar el servicio.
+
+### Verificar
+
+```bash
+ssh vps 'systemctl restart datamaq-hub.service'
+sleep 10
+ssh vps 'curl -s http://127.0.0.1:8013/api/v1/analytics/gbp/performance | head -c 300'
+```
+
+Interpretación de la respuesta:
+
+| `status` | Significa |
+|---|---|
+| `success` | Todo OK |
+| `missing_credentials` | Falta alguna de las tres variables OAuth |
+| `missing_location` / `missing_account` | Falta el identificador correspondiente |
+| `api_not_approved` | HTTP 429 — el proyecto de GCP sigue con quota 0 QPM |
+| `auth_error` | HTTP 401/403 — scope insuficiente o la cuenta no administra la ficha |

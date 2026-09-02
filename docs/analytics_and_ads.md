@@ -257,6 +257,15 @@ Presupuesto Total: $1.500 ARS/día (Límite Inviolable)
 
 ## 4. Servidores FastMCP & Watchdog en `datamaq-hub`
 
+> **Cuarta fuente:** desde el 2026-09-02 existe además un servidor FastMCP de
+> **Google Business Profile** (ficha de Maps), que aporta `ficha_resumen`,
+> `ficha_resenas`, `ficha_terminos` y anomalías `FICHA_*` al digest. Es opcional:
+> el digest funciona igual sin ficha configurada, y hoy está **inactivo** por falta
+> de ficha y de acceso a la API. Estado y runbook en
+> [`gbp_ficha_google.md`](gbp_ficha_google.md); spec en
+> [`specs/gbp_mcp.md`](../specs/gbp_mcp.md). El diagrama de abajo describe la
+> tríada original.
+
 El Hub expone 3 servidores FastMCP modulares con caché persistente y fallback automático en memoria:
 
 ```
