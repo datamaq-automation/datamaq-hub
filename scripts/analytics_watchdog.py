@@ -26,6 +26,7 @@ from typing import Any
 from src.adapters.gateways.api_cache_gateway import ApiCacheGateway
 from src.adapters.gateways.clarity_gateway import ClarityGateway
 from src.adapters.gateways.ga4_gateway import GA4Gateway
+from src.adapters.gateways.gbp_gateway import GoogleBusinessProfileGateway
 from src.adapters.gateways.google_ads_gateway import GoogleAdsGateway
 from src.application.use_cases.generar_analytics_digest import (
     DEFAULT_BUDGET_LIMIT_ARS,
@@ -98,11 +99,21 @@ def run_watchdog(
         cache=cache,
     )
 
+    gbp_gw = GoogleBusinessProfileGateway(
+        client_id=settings.gbp_oauth_client_id,
+        client_secret=settings.gbp_oauth_client_secret,
+        refresh_token=settings.gbp_refresh_token,
+        account_id=settings.gbp_account_id,
+        location_id=settings.gbp_location_id,
+        cache=cache,
+    )
+
     use_case = GenerarAnalyticsDigestUseCase(
         google_ads_port=ads_gw,
         ga4_port=ga4_gw,
         clarity_port=clarity_gw,
         budget_limit_ars=budget_limit_ars,
+        gbp_port=gbp_gw,
     )
 
     digest_dto = use_case.execute(days=1)

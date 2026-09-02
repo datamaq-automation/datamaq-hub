@@ -4,6 +4,7 @@ from typing import Any
 
 from src.adapters.gateways.clarity_gateway import ClarityGateway
 from src.adapters.gateways.ga4_gateway import GA4Gateway
+from src.adapters.gateways.gbp_gateway import GoogleBusinessProfileGateway
 from src.adapters.gateways.google_ads_gateway import GoogleAdsGateway
 from src.application.dtos.analytics_dtos import (
     AnalyticsDigestResponseDTO,
@@ -33,17 +34,20 @@ class AnalyticsController:
         clarity_gateway: ClarityGateway,
         budget_limit_ars: float = 1500.0,
         api_usage_gateway: APIUsagePort | None = None,
+        gbp_gateway: GoogleBusinessProfileGateway | None = None,
     ) -> None:
         self._ads_gateway = google_ads_gateway
         self._ga4_gateway = ga4_gateway
         self._clarity_gateway = clarity_gateway
         self._budget_limit_ars = budget_limit_ars
         self._api_usage_gateway = api_usage_gateway
+        self._gbp_gateway = gbp_gateway
         self._digest_use_case = GenerarAnalyticsDigestUseCase(
             google_ads_port=google_ads_gateway,
             ga4_port=ga4_gateway,
             clarity_port=clarity_gateway,
             budget_limit_ars=budget_limit_ars,
+            gbp_port=gbp_gateway,
         )
         self._action_validator_use_case = ValidarAccionMarketingUseCase(
             max_daily_budget_ars=budget_limit_ars,
@@ -135,6 +139,24 @@ class AnalyticsController:
             "project_id": self._clarity_gateway.clarity_id,
             "intent_recording_urls": self._clarity_gateway.get_intent_recording_urls(),
         }
+
+    def get_gbp_performance(self, days: int = 30) -> dict[str, Any]:
+        """Obtiene las métricas de la ficha de Google Business Profile."""
+        if self._gbp_gateway is None:
+            return {
+                "status": "not_configured",
+                "message": "El gateway de Google Business Profile no está configurado.",
+            }
+        return self._gbp_gateway.get_performance(days=days)
+
+    def get_gbp_reviews(self, limit: int = 20) -> dict[str, Any]:
+        """Obtiene las reseñas de la ficha con su estado de respuesta."""
+        if self._gbp_gateway is None:
+            return {
+                "status": "not_configured",
+                "message": "El gateway de Google Business Profile no está configurado.",
+            }
+        return self._gbp_gateway.get_reviews(limit=limit)
 
     def get_api_usage(self) -> UsageResponseDTO:
         """Obtiene el balance de DeepSeek y el consumo acumulado de tokens de AGY."""

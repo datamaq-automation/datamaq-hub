@@ -136,6 +136,84 @@ class ChannelAttributionDTO(BaseModel):
     total_sessions: int = Field(description="Total de sesiones en el período")
 
 
+class ResumenFichaDTO(BaseModel):
+    """Totales de la ficha de Google Business Profile en el período analizado."""
+
+    model_config = ConfigDict(frozen=True)
+
+    dias_analizados: int = Field(description="Cantidad de días del período")
+    impresiones_maps: int = Field(description="Impresiones en Google Maps")
+    impresiones_search: int = Field(description="Impresiones en Google Search")
+    impresiones_totales: int = Field(description="Suma de impresiones Maps + Search")
+    clics_sitio: int = Field(description="Clics al sitio web desde la ficha")
+    llamadas: int = Field(description="Clics en el botón de llamar")
+    solicitudes_indicaciones: int = Field(description="Solicitudes de indicaciones")
+    conversaciones: int = Field(description="Conversaciones de mensajería iniciadas")
+    impresiones_periodo_previo: int = Field(
+        description="Impresiones totales del período inmediatamente anterior"
+    )
+    variacion_impresiones_percent: float = Field(
+        description="Variación porcentual de impresiones contra el período previo"
+    )
+
+
+class ResenaFichaDTO(BaseModel):
+    """Reseña publicada por un cliente en la ficha de Google Business Profile."""
+
+    model_config = ConfigDict(frozen=True)
+
+    review_id: str = Field(description="Identificador de la reseña en la API v4")
+    autor: str = Field(description="Nombre visible de quien dejó la reseña")
+    estrellas: int = Field(description="Puntuación de 1 a 5")
+    comentario: str = Field(description="Texto de la reseña")
+    fecha_utc: str = Field(description="Fecha de última actualización en UTC")
+    tiene_respuesta: bool = Field(description="True si el negocio ya respondió")
+
+
+class TerminoBusquedaFichaDTO(BaseModel):
+    """Término con el que un usuario encontró la ficha en Search o Maps."""
+
+    model_config = ConfigDict(frozen=True)
+
+    termino: str = Field(description="Texto de la búsqueda")
+    impresiones: int = Field(description="Impresiones atribuidas al término")
+    es_de_marca: bool = Field(
+        description="True si el término menciona la marca; False si es de descubrimiento"
+    )
+
+
+class GbpPostRequestDTO(BaseModel):
+    """Publicación propuesta para la ficha de Google Business Profile."""
+
+    model_config = ConfigDict(frozen=True)
+
+    summary: str = Field(description="Texto de la publicación (máximo 1500 caracteres)")
+    cta_url: str = Field(
+        description="Enlace de la llamada a la acción; debe apuntar al sitio con utm_campaign=gbp"
+    )
+    cta_type: str = Field(
+        default="LEARN_MORE",
+        description="Tipo de CTA (BOOK, ORDER, SHOP, LEARN_MORE, SIGN_UP, CALL)",
+    )
+    schedule_time: str | None = Field(
+        default=None,
+        description="Momento de publicación en formato RFC3339; None publica de inmediato",
+    )
+
+
+class GbpReviewReplyRequestDTO(BaseModel):
+    """Respuesta propuesta a una reseña de la ficha."""
+
+    model_config = ConfigDict(frozen=True)
+
+    review_id: str = Field(description="Identificador de la reseña a responder")
+    comment: str = Field(description="Texto de la respuesta (máximo 4096 caracteres)")
+    overwrite: bool = Field(
+        default=False,
+        description="True para reemplazar una respuesta ya publicada",
+    )
+
+
 class AnalyticsDigestResponseDTO(BaseModel):
     """Resumen consolidado y pre-procesado listo para OpenClaw, Telegram y UI."""
 
@@ -181,6 +259,18 @@ class AnalyticsDigestResponseDTO(BaseModel):
     channel_attribution: ChannelAttributionDTO | None = Field(
         default=None,
         description="Atribución porcentual de canales (SEO/SEM/Directo/Referral)",
+    )
+    ficha_resumen: ResumenFichaDTO | None = Field(
+        default=None,
+        description="Totales de la ficha de Google Business Profile (paquete local de Maps)",
+    )
+    ficha_resenas: list[ResenaFichaDTO] = Field(
+        default_factory=list[ResenaFichaDTO],
+        description="Reseñas recientes de la ficha con su estado de respuesta",
+    )
+    ficha_terminos: list[TerminoBusquedaFichaDTO] = Field(
+        default_factory=list[TerminoBusquedaFichaDTO],
+        description="Términos de búsqueda con los que aparece la ficha",
     )
     resumen_markdown: str = Field(
         default="",

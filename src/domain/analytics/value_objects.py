@@ -25,6 +25,11 @@ class AnomalyType(str, Enum):
     TRAFICO_FUERA_ZONA = "trafico_fuera_zona"
     DEPENDENCIA_SEM = "dependencia_sem"
     SUB_ENTREGA_SEM = "sub_entrega_sem"
+    FICHA_IMPRESIONES_EN_CAIDA = "ficha_impresiones_en_caida"
+    FICHA_RESENA_SIN_RESPONDER = "ficha_resena_sin_responder"
+    FICHA_SIN_PUBLICACIONES = "ficha_sin_publicaciones"
+    FICHA_RATING_BAJO = "ficha_rating_bajo"
+    FICHA_POCAS_RESENAS = "ficha_pocas_resenas"
 
 
 class AnomalySeverity(str, Enum):
@@ -43,6 +48,8 @@ class MarketingActionType(str, Enum):
     ADD_NEGATIVE_KEYWORD = "add_negative_keyword"
     ADJUST_BUDGET = "adjust_budget"
     ADJUST_BID = "adjust_bid"
+    GBP_CREATE_POST = "gbp_create_post"
+    GBP_REPLY_REVIEW = "gbp_reply_review"
 
 
 @dataclass(frozen=True)
@@ -57,6 +64,22 @@ class CalculatedKpis:
     budget_limit_ars: float
     spent_today_ars: float
     projected_daily_spend_ars: float
+
+
+@dataclass(frozen=True)
+class ResumenFicha:
+    """Totales agregados de la ficha de Google Business Profile en el período analizado."""
+
+    dias_analizados: int
+    impresiones_maps: int
+    impresiones_search: int
+    impresiones_totales: int
+    clics_sitio: int
+    llamadas: int
+    solicitudes_indicaciones: int
+    conversaciones: int
+    impresiones_periodo_previo: int
+    variacion_impresiones_percent: float
 
 
 @dataclass(frozen=True)

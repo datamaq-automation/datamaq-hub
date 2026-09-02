@@ -11,14 +11,21 @@ from src.application.dtos.analytics_dtos import (
     ChannelAttributionDTO,
     ConversionInsightDTO,
     GeoTrafficInsightDTO,
+    ResenaFichaDTO,
+    ResumenFichaDTO,
     SearchTermInsightDTO,
+    TerminoBusquedaFichaDTO,
     TrafficInsightDTO,
     TrafficSourceInsightDTO,
 )
 from src.domain.analytics.entities import (
+    AnomalyAlert,
     CampaignMetric,
     ConversionInsight,
     GeoTrafficInsight,
+    MetricaFicha,
+    ResenaFicha,
+    TerminoBusquedaFicha,
     TrafficInsight,
     TrafficSourceInsight,
 )
@@ -26,18 +33,25 @@ from src.domain.analytics.ports import (
     ClarityDataSourcePort,
     GA4DataSourcePort,
     GoogleAdsDataSourcePort,
+    GoogleBusinessProfileDataSourcePort,
 )
 from src.domain.analytics.services import (
     TARGET_CITIES,
     AnomalyDetectionService,
     BudgetPacingCalculatorService,
+    FichaLocalAnalysisService,
     GeoAnalysisService,
     MetricCalculatorService,
     SearchTermEvaluatorService,
     TrafficAttributionService,
 )
+from src.domain.analytics.value_objects import ResumenFicha
 
 DEFAULT_BUDGET_LIMIT_ARS = 1500.0
+
+# La Business Profile API entrega la serie diaria con retraso y el digest suele
+# pedirse con days=1, así que la ficha se lee siempre sobre una ventana mensual.
+FICHA_DIAS_MINIMOS = 28
 
 
 class GenerarAnalyticsDigestUseCase:
@@ -49,11 +63,14 @@ class GenerarAnalyticsDigestUseCase:
         ga4_port: GA4DataSourcePort,
         clarity_port: ClarityDataSourcePort,
         budget_limit_ars: float = DEFAULT_BUDGET_LIMIT_ARS,
+        gbp_port: GoogleBusinessProfileDataSourcePort | None = None,
     ) -> None:
         self._ads_port = google_ads_port
         self._ga4_port = ga4_port
         self._clarity_port = clarity_port
         self._budget_limit_ars = budget_limit_ars
+        # Opcional: el digest sigue funcionando sin ficha configurada.
+        self._gbp_port = gbp_port
 
     def execute(
         self,
@@ -167,6 +184,14 @@ class GenerarAnalyticsDigestUseCase:
         # 3e. Análisis geográfico
         _, _, geo_out_pct = GeoAnalysisService.classify_geo(geo_entities)
 
+        # 3f. Ingesta de la ficha de Google Business Profile (paquete local de Maps)
+        (
+            ficha_resumen,
+            ficha_resenas_entities,
+            ficha_terminos_entities,
+            ficha_anomalies,
+        ) = self._ingestar_ficha(days=days)
+
         # 4. Agregación matemática de métricas
         total_impressions = sum(c.impressions for c in campaigns_entities)
         total_clicks = sum(c.clicks for c in campaigns_entities)
@@ -215,11 +240,13 @@ class GenerarAnalyticsDigestUseCase:
             pacing_severity=pacing_severity.value,
             campaigns=campaigns_entities,
             conversions=conversions_entities,
-            anomalies=anomalies_entities,
+            anomalies=[*anomalies_entities, *ficha_anomalies],
             intent_urls=clarity_urls,
             channel_attribution=channel_attribution,
             geo_insights=geo_entities,
             geo_out_of_zone_percent=geo_out_pct,
+            ficha_resumen=ficha_resumen,
+            ficha_terminos=ficha_terminos_entities,
         )
 
         # 7. Construcción de DTOs de salida
@@ -277,7 +304,7 @@ class GenerarAnalyticsDigestUseCase:
                     metrica_observada=a.metrica_observada,
                     recomendacion=a.recomendacion,
                 )
-                for a in anomalies_entities
+                for a in [*anomalies_entities, *ficha_anomalies]
             ],
             search_terms=[
                 SearchTermInsightDTO(
@@ -321,8 +348,115 @@ class GenerarAnalyticsDigestUseCase:
                 other_percent=channel_attribution.other_percent,
                 total_sessions=channel_attribution.total_sessions,
             ),
+            ficha_resumen=(
+                ResumenFichaDTO(
+                    dias_analizados=ficha_resumen.dias_analizados,
+                    impresiones_maps=ficha_resumen.impresiones_maps,
+                    impresiones_search=ficha_resumen.impresiones_search,
+                    impresiones_totales=ficha_resumen.impresiones_totales,
+                    clics_sitio=ficha_resumen.clics_sitio,
+                    llamadas=ficha_resumen.llamadas,
+                    solicitudes_indicaciones=ficha_resumen.solicitudes_indicaciones,
+                    conversaciones=ficha_resumen.conversaciones,
+                    impresiones_periodo_previo=ficha_resumen.impresiones_periodo_previo,
+                    variacion_impresiones_percent=ficha_resumen.variacion_impresiones_percent,
+                )
+                if ficha_resumen is not None
+                else None
+            ),
+            ficha_resenas=[
+                ResenaFichaDTO(
+                    review_id=r.review_id,
+                    autor=r.autor,
+                    estrellas=r.estrellas,
+                    comentario=r.comentario,
+                    fecha_utc=r.fecha_utc,
+                    tiene_respuesta=r.tiene_respuesta,
+                )
+                for r in ficha_resenas_entities
+            ],
+            ficha_terminos=[
+                TerminoBusquedaFichaDTO(
+                    termino=t.termino,
+                    impresiones=t.impresiones,
+                    es_de_marca=t.es_de_marca,
+                )
+                for t in ficha_terminos_entities
+            ],
             resumen_markdown=resumen_md,
         )
+
+    def _ingestar_ficha(
+        self, days: int
+    ) -> tuple[
+        ResumenFicha | None,
+        list[ResenaFicha],
+        list[TerminoBusquedaFicha],
+        list[AnomalyAlert],
+    ]:
+        """Lee la ficha de Google, la mapea a dominio y detecta sus anomalías.
+
+        Degrada a vacío ante cualquier estado que no sea ``success``: sin
+        credenciales, sin ficha configurada o con la API todavía sin aprobar.
+        """
+        if self._gbp_port is None:
+            return None, [], [], []
+
+        dias_ficha = max(days, FICHA_DIAS_MINIMOS)
+        perf = self._gbp_port.get_performance(days=dias_ficha)
+        reviews = self._gbp_port.get_reviews(limit=20)
+        keywords = self._gbp_port.get_search_keywords(months=1, limit=25)
+
+        resumen: ResumenFicha | None = None
+        if perf.get("status") == "success":
+            metricas = [
+                MetricaFicha(
+                    fecha=str(m.get("fecha", "")),
+                    metrica=str(m.get("metrica", "")),
+                    valor=int(m.get("valor", 0)),
+                )
+                for m in perf.get("metricas", [])
+            ]
+            metricas_previas = [
+                MetricaFicha(
+                    fecha=str(m.get("fecha", "")),
+                    metrica=str(m.get("metrica", "")),
+                    valor=int(m.get("valor", 0)),
+                )
+                for m in perf.get("metricas_periodo_previo", [])
+            ]
+            resumen = FichaLocalAnalysisService.resumir_metricas(
+                metricas=metricas,
+                dias_analizados=int(perf.get("dias_analizados", dias_ficha)),
+                metricas_periodo_previo=metricas_previas,
+            )
+
+        resenas: list[ResenaFicha] = []
+        if reviews.get("status") == "success":
+            resenas = [
+                ResenaFicha(
+                    review_id=str(r.get("review_id", "")),
+                    autor=str(r.get("autor", "")),
+                    estrellas=int(r.get("estrellas", 0)),
+                    comentario=str(r.get("comentario", "")),
+                    fecha_utc=str(r.get("fecha_utc", "")),
+                    tiene_respuesta=bool(r.get("tiene_respuesta", False)),
+                )
+                for r in reviews.get("resenas", [])
+            ]
+
+        terminos: list[TerminoBusquedaFicha] = []
+        if keywords.get("status") == "success":
+            terminos = FichaLocalAnalysisService.clasificar_terminos(
+                keywords.get("terminos", [])
+            )
+
+        anomalias = FichaLocalAnalysisService.detectar_anomalias(
+            resumen=resumen,
+            resenas=resenas,
+        )
+
+        return resumen, resenas, terminos, anomalias
 
     def _build_markdown_summary(
         self,
@@ -337,6 +471,8 @@ class GenerarAnalyticsDigestUseCase:
         channel_attribution: Any | None = None,
         geo_insights: list[GeoTrafficInsight] | None = None,
         geo_out_of_zone_percent: float = 0.0,
+        ficha_resumen: ResumenFicha | None = None,
+        ficha_terminos: list[TerminoBusquedaFicha] | None = None,
     ) -> str:
         """Construye un resumen Markdown ultra-compacto listo para consumo."""
         lines: list[str] = [
@@ -380,6 +516,43 @@ class GenerarAnalyticsDigestUseCase:
                 lines.append(
                     f"  Fuera de zona objetivo: {geo_out_of_zone_percent:.1f}%"
                 )
+
+        # Sección de la ficha de Google (paquete local de Maps)
+        if ficha_resumen is not None and ficha_resumen.impresiones_totales > 0:
+            lines.append("")
+            lines.append(
+                f"🗺️ *Ficha de Google ({ficha_resumen.dias_analizados}d):* "
+                f"{ficha_resumen.impresiones_totales} impresiones "
+                f"({ficha_resumen.variacion_impresiones_percent:+.1f}% vs. período previo)"
+            )
+            lines.append(
+                f"  Maps: {ficha_resumen.impresiones_maps} "
+                f"| Search: {ficha_resumen.impresiones_search} "
+                f"| Clics al sitio: {ficha_resumen.clics_sitio} "
+                f"| Llamadas: {ficha_resumen.llamadas} "
+                f"| Indicaciones: {ficha_resumen.solicitudes_indicaciones}"
+            )
+
+            if ficha_terminos:
+                descubrimiento = [t for t in ficha_terminos if not t.es_de_marca]
+                impresiones_marca = sum(
+                    t.impresiones for t in ficha_terminos if t.es_de_marca
+                )
+                impresiones_desc = sum(t.impresiones for t in descubrimiento)
+                total_terminos = impresiones_marca + impresiones_desc
+                if total_terminos > 0:
+                    pct_desc = round(impresiones_desc / total_terminos * 100, 1)
+                    lines.append(
+                        f"  Descubrimiento: {pct_desc:.1f}% | Marca: {100 - pct_desc:.1f}%"
+                    )
+                top_desc = sorted(
+                    descubrimiento, key=lambda t: t.impresiones, reverse=True
+                )[:3]
+                if top_desc:
+                    detalle = ", ".join(
+                        f"`{t.termino}` ({t.impresiones})" for t in top_desc
+                    )
+                    lines.append(f"  Top descubrimiento: {detalle}")
 
         if anomalies:
             lines.append("\n⚠️ *Alertas & Anomalías:*")

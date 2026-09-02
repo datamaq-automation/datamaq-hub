@@ -53,6 +53,16 @@ class Settings(BaseSettings):
     google_ads_refresh_token: str = ""
     google_ads_login_customer_id: str = ""
 
+    # === GOOGLE BUSINESS PROFILE (ficha de Maps / paquete local) ===
+    # client_id y client_secret caen al cliente OAuth compartido de Google Ads si
+    # se dejan vacíos; el refresh_token es propio porque se emite por scope
+    # (https://www.googleapis.com/auth/business.manage).
+    gbp_client_id: str = ""
+    gbp_client_secret: str = ""
+    gbp_refresh_token: str = ""
+    gbp_account_id: str = ""
+    gbp_location_id: str = ""
+
     # === LLM APIs (DeepSeek) ===
     deepseek_api_key: str = ""
 
@@ -158,6 +168,16 @@ class Settings(BaseSettings):
             if not config.oauth2_client_secret:
                 config.oauth2_client_secret = self.google_ads_client_secret
         return config
+
+    @property
+    def gbp_oauth_client_id(self) -> str:
+        """Client ID para Business Profile; cae al cliente OAuth compartido del repo."""
+        return self.gbp_client_id or self.google_ads_client_id
+
+    @property
+    def gbp_oauth_client_secret(self) -> str:
+        """Client secret para Business Profile; cae al cliente OAuth compartido del repo."""
+        return self.gbp_client_secret or self.google_ads_client_secret
 
 
 @lru_cache

@@ -12,6 +12,7 @@
 | **[`receipt_parser.md`](receipt_parser.md)** | Motor de Recibos y Liquidación | **Aprobado / Implementado** | Contratos de dominio, parsers DGCyE/Genérico, DTOs y casos de uso. |
 | **[`api_cache.md`](api_cache.md)** | Capa de Caché Persistente e In-Memory | **Aprobado / Implementado** | Gateway SQLAlchemy + fallback en memoria con TTL por endpoint para MCPs. |
 | **[`analytics_mcp.md`](analytics_mcp.md)** | Servidores FastMCP & Watchdog | **Aprobado / Implementado** | Integración de Google Ads API (Basic Access), GA4, Microsoft Clarity y Alertas. |
+| **[`gbp_mcp.md`](gbp_mcp.md)** | Servidor FastMCP de Google Business Profile | **Implementado / Pendiente de habilitación** | Ficha de Maps: métricas, términos de búsqueda, reseñas y publicaciones con guardrails. Requiere Basic API Access aprobado. |
 | **[`mail_reader.md`](mail_reader.md)** | Subsistema de Lectura de Correo (OpenClaw) | **Aprobado / En Implementación** | Contratos de dominio, gateway IMAP read-only, DTOs y endpoints de correo. |
 | **[`contacts_manager.md`](contacts_manager.md)** | Módulo de Libreta de Contactos | **En Desarrollo** | Libreta de direcciones corporativa sincronizada con Roundcube. |
 | **[`calendar_manager.md`](calendar_manager.md)** | Módulo de Calendario y Eventos | **Aprobado / Implementado** | Gestión de eventos, citas y disponibilidad horaria. |

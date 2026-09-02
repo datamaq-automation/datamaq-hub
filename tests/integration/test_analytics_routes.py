@@ -46,6 +46,18 @@ def mock_analytics_controller() -> MagicMock:
         intent_recording_urls={"whatsapp_click": "https://clarity.microsoft.com/rec"},
         resumen_markdown="Resumen mock",
     )
+    mock_ctrl.get_gbp_performance.return_value = {
+        "status": "success",
+        "location": "locations/456",
+        "dias_analizados": 30,
+        "metricas": [],
+    }
+    mock_ctrl.get_gbp_reviews.return_value = {
+        "status": "success",
+        "rating_promedio": 4.8,
+        "total_resenas": 6,
+        "resenas": [],
+    }
     mock_ctrl.validate_marketing_action.return_value = MarketingActionValidationDTO(
         valid=True,
         action_type="adjust_budget",
@@ -195,3 +207,27 @@ def test_post_analytics_usage_local_envelope(
     assert json_data["success"] is True
     assert json_data["data"]["status"] == "sincronizado"
     mock_analytics_controller.guardar_usage_local.assert_called_once()
+
+
+def test_get_gbp_performance_envelope(client: TestClient) -> None:
+    """Verifica que /analytics/gbp/performance retorna el envelope estándar."""
+    resp = client.get("/api/v1/analytics/gbp/performance?days=30")
+    assert resp.status_code == 200
+    json_data = resp.json()
+    assert json_data["success"] is True
+    assert json_data["data"]["dias_analizados"] == 30
+
+
+def test_get_gbp_reviews_envelope(client: TestClient) -> None:
+    """Verifica que /analytics/gbp/reviews retorna el envelope estándar."""
+    resp = client.get("/api/v1/analytics/gbp/reviews?limit=20")
+    assert resp.status_code == 200
+    json_data = resp.json()
+    assert json_data["success"] is True
+    assert json_data["data"]["rating_promedio"] == 4.8
+
+
+def test_gbp_performance_valida_rango_de_dias(client: TestClient) -> None:
+    """La ruta rechaza ventanas fuera del rango soportado por la API."""
+    assert client.get("/api/v1/analytics/gbp/performance?days=0").status_code == 422
+    assert client.get("/api/v1/analytics/gbp/performance?days=541").status_code == 422

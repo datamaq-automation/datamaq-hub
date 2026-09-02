@@ -7,6 +7,7 @@ from src.domain.analytics.value_objects import (
     AnomalyType,
     CalculatedKpis,
     PacingSeverity,
+    ResumenFicha,
 )
 
 
@@ -57,6 +58,36 @@ class SearchTermInsight:
 
 
 @dataclass(frozen=True)
+class MetricaFicha:
+    """Valor diario de una métrica de la ficha de Google Business Profile."""
+
+    fecha: str
+    metrica: str
+    valor: int
+
+
+@dataclass(frozen=True)
+class ResenaFicha:
+    """Reseña publicada por un cliente en la ficha de Google Business Profile."""
+
+    review_id: str
+    autor: str
+    estrellas: int
+    comentario: str
+    fecha_utc: str
+    tiene_respuesta: bool
+
+
+@dataclass(frozen=True)
+class TerminoBusquedaFicha:
+    """Término con el que un usuario encontró la ficha en Search o Maps."""
+
+    termino: str
+    impresiones: int
+    es_de_marca: bool
+
+
+@dataclass(frozen=True)
 class AnomalyAlert:
     """Anomalía detectada por reglas determinísticas de negocio."""
 
@@ -86,6 +117,12 @@ class MarketingSnapshot:
         default_factory=list[SearchTermInsight]
     )
     intent_recording_urls: dict[str, str] = field(default_factory=dict[str, str])
+    ficha_resumen: ResumenFicha | None = None
+    ficha_metricas: list[MetricaFicha] = field(default_factory=list[MetricaFicha])
+    ficha_resenas: list[ResenaFicha] = field(default_factory=list[ResenaFicha])
+    ficha_terminos: list[TerminoBusquedaFicha] = field(
+        default_factory=list[TerminoBusquedaFicha]
+    )
 
 
 @dataclass(frozen=True)

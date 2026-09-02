@@ -6,16 +6,21 @@ from src.domain.analytics.entities import (
     CampaignMetric,
     ConversionInsight,
     GeoTrafficInsight,
+    MetricaFicha,
+    ResenaFicha,
     SearchTermInsight,
     TrafficSourceInsight,
 )
 from src.domain.analytics.exceptions import (
     BudgetLimitViolationException,
     InvalidMarketingActionException,
+    PublicacionFichaInvalidaException,
+    RespuestaResenaInvalidaException,
 )
 from src.domain.analytics.services import (
     AnomalyDetectionService,
     BudgetPacingCalculatorService,
+    FichaLocalAnalysisService,
     GeoAnalysisService,
     MarketingActionGuardrailService,
     MetricCalculatorService,
@@ -23,6 +28,7 @@ from src.domain.analytics.services import (
     TrafficAttributionService,
 )
 from src.domain.analytics.value_objects import (
+    AnomalySeverity,
     AnomalyType,
     CalculatedKpis,
     ChannelAttribution,
@@ -470,3 +476,221 @@ def test_negative_pattern_capacitaciones() -> None:
     assert insights[1].is_negative_candidate is True
     assert "taller" in insights[1].reason
     assert insights[2].is_negative_candidate is False
+
+
+# ==================== Ficha de Google Business Profile ====================
+
+
+class TestFichaLocalAnalysisService:
+    """Reglas de salud de la ficha derivadas de los §8 a §10 del plan de Fase 4."""
+
+    @staticmethod
+    def _metricas(valores: dict[str, int]) -> list[MetricaFicha]:
+        return [
+            MetricaFicha(fecha="2026-08-01", metrica=nombre, valor=valor)
+            for nombre, valor in valores.items()
+        ]
+
+    def test_resumir_metricas_agrupa_por_eje(self) -> None:
+        resumen = FichaLocalAnalysisService.resumir_metricas(
+            metricas=self._metricas(
+                {
+                    "BUSINESS_IMPRESSIONS_DESKTOP_MAPS": 10,
+                    "BUSINESS_IMPRESSIONS_MOBILE_MAPS": 20,
+                    "BUSINESS_IMPRESSIONS_MOBILE_SEARCH": 40,
+                    "WEBSITE_CLICKS": 7,
+                    "CALL_CLICKS": 3,
+                }
+            ),
+            dias_analizados=28,
+        )
+        assert resumen.impresiones_maps == 30
+        assert resumen.impresiones_search == 40
+        assert resumen.impresiones_totales == 70
+        assert resumen.clics_sitio == 7
+        assert resumen.llamadas == 3
+        # Sin período previo la variación es 0, no una división por cero.
+        assert resumen.variacion_impresiones_percent == 0.0
+
+    def test_variacion_contra_periodo_previo(self) -> None:
+        resumen = FichaLocalAnalysisService.resumir_metricas(
+            metricas=self._metricas({"BUSINESS_IMPRESSIONS_MOBILE_MAPS": 75}),
+            dias_analizados=28,
+            metricas_periodo_previo=self._metricas(
+                {"BUSINESS_IMPRESSIONS_MOBILE_MAPS": 100}
+            ),
+        )
+        assert resumen.impresiones_periodo_previo == 100
+        assert resumen.variacion_impresiones_percent == -25.0
+
+    def test_clasifica_terminos_de_marca_y_descubrimiento(self) -> None:
+        terminos = FichaLocalAnalysisService.clasificar_terminos(
+            [
+                {"termino": "DataMaq Garín", "impresiones": 12},
+                {
+                    "termino": "medicion de energia parque industrial pilar",
+                    "impresiones": 40,
+                },
+                {"termino": "", "impresiones": 5},
+            ]
+        )
+        assert len(terminos) == 2
+        assert terminos[0].es_de_marca is True
+        assert terminos[1].es_de_marca is False
+
+    def test_detecta_caida_de_impresiones(self) -> None:
+        resumen = FichaLocalAnalysisService.resumir_metricas(
+            metricas=self._metricas({"BUSINESS_IMPRESSIONS_MOBILE_MAPS": 50}),
+            dias_analizados=28,
+            metricas_periodo_previo=self._metricas(
+                {"BUSINESS_IMPRESSIONS_MOBILE_MAPS": 100}
+            ),
+        )
+        anomalias = FichaLocalAnalysisService.detectar_anomalias(
+            resumen=resumen, resenas=[]
+        )
+        tipos = [a.anomaly_type for a in anomalias]
+        assert AnomalyType.FICHA_IMPRESIONES_EN_CAIDA in tipos
+
+    def test_detecta_resenas_sin_responder_y_pocas_resenas(self) -> None:
+        resenas = [
+            ResenaFicha(
+                review_id="r1",
+                autor="Planta A",
+                estrellas=5,
+                comentario="Muy bien",
+                fecha_utc="2026-08-01T00:00:00Z",
+                tiene_respuesta=False,
+            )
+        ]
+        anomalias = FichaLocalAnalysisService.detectar_anomalias(
+            resumen=None, resenas=resenas
+        )
+        tipos = [a.anomaly_type for a in anomalias]
+        assert AnomalyType.FICHA_RESENA_SIN_RESPONDER in tipos
+        assert AnomalyType.FICHA_POCAS_RESENAS in tipos
+
+    def test_detecta_rating_bajo(self) -> None:
+        resenas = [
+            ResenaFicha(
+                review_id=f"r{i}",
+                autor="Planta",
+                estrellas=2,
+                comentario="",
+                fecha_utc="2026-08-01T00:00:00Z",
+                tiene_respuesta=True,
+            )
+            for i in range(6)
+        ]
+        anomalias = FichaLocalAnalysisService.detectar_anomalias(
+            resumen=None, resenas=resenas
+        )
+        criticas = [a for a in anomalias if a.severity == AnomalySeverity.CRITICAL]
+        assert any(a.anomaly_type == AnomalyType.FICHA_RATING_BAJO for a in criticas)
+
+    def test_detecta_inactividad_de_publicaciones(self) -> None:
+        anomalias = FichaLocalAnalysisService.detectar_anomalias(
+            resumen=None, resenas=[], dias_desde_ultima_publicacion=30
+        )
+        assert [a.anomaly_type for a in anomalias] == [
+            AnomalyType.FICHA_SIN_PUBLICACIONES
+        ]
+
+    def test_ficha_sana_no_genera_anomalias(self) -> None:
+        resenas = [
+            ResenaFicha(
+                review_id=f"r{i}",
+                autor="Planta",
+                estrellas=5,
+                comentario="",
+                fecha_utc="2026-08-01T00:00:00Z",
+                tiene_respuesta=True,
+            )
+            for i in range(6)
+        ]
+        anomalias = FichaLocalAnalysisService.detectar_anomalias(
+            resumen=None, resenas=resenas, dias_desde_ultima_publicacion=3
+        )
+        assert anomalias == []
+
+
+class TestGuardrailsFichaGoogle:
+    """Guardrails de escritura sobre la ficha."""
+
+    URL_OK = "https://datamaq.com.ar/guias/x?utm_source=google&utm_campaign=gbp"
+
+    def test_publicacion_valida_no_lanza(self) -> None:
+        MarketingActionGuardrailService.validate_action(
+            action_type=MarketingActionType.GBP_CREATE_POST,
+            params={"summary": "Nota técnica", "cta_url": self.URL_OK},
+        )
+
+    def test_publicacion_vacia_es_rechazada(self) -> None:
+        with pytest.raises(PublicacionFichaInvalidaException):
+            MarketingActionGuardrailService.validate_action(
+                action_type=MarketingActionType.GBP_CREATE_POST,
+                params={"summary": "   ", "cta_url": self.URL_OK},
+            )
+
+    def test_publicacion_demasiado_larga_es_rechazada(self) -> None:
+        with pytest.raises(PublicacionFichaInvalidaException):
+            MarketingActionGuardrailService.validate_action(
+                action_type=MarketingActionType.GBP_CREATE_POST,
+                params={"summary": "x" * 1501, "cta_url": self.URL_OK},
+            )
+
+    def test_publicacion_con_http_es_rechazada(self) -> None:
+        with pytest.raises(PublicacionFichaInvalidaException):
+            MarketingActionGuardrailService.validate_action(
+                action_type=MarketingActionType.GBP_CREATE_POST,
+                params={
+                    "summary": "Nota",
+                    "cta_url": "http://datamaq.com.ar/x?utm_campaign=gbp",
+                },
+            )
+
+    def test_publicacion_con_cta_invalido_es_rechazada(self) -> None:
+        with pytest.raises(PublicacionFichaInvalidaException):
+            MarketingActionGuardrailService.validate_action(
+                action_type=MarketingActionType.GBP_CREATE_POST,
+                params={
+                    "summary": "Nota",
+                    "cta_url": self.URL_OK,
+                    "cta_type": "COMPRAR_YA",
+                },
+            )
+
+    def test_schedule_time_debe_ser_rfc3339(self) -> None:
+        with pytest.raises(PublicacionFichaInvalidaException):
+            MarketingActionGuardrailService.validate_action(
+                action_type=MarketingActionType.GBP_CREATE_POST,
+                params={
+                    "summary": "Nota",
+                    "cta_url": self.URL_OK,
+                    "schedule_time": "15/09/2026 09:00",
+                },
+            )
+
+    def test_respuesta_a_resena_valida_no_lanza(self) -> None:
+        MarketingActionGuardrailService.validate_action(
+            action_type=MarketingActionType.GBP_REPLY_REVIEW,
+            params={"review_id": "r1", "comment": "Gracias por el comentario."},
+        )
+
+    def test_respuesta_vacia_es_rechazada(self) -> None:
+        with pytest.raises(RespuestaResenaInvalidaException):
+            MarketingActionGuardrailService.validate_action(
+                action_type=MarketingActionType.GBP_REPLY_REVIEW,
+                params={"review_id": "r1", "comment": ""},
+            )
+
+    def test_no_pisa_respuesta_existente_sin_overwrite(self) -> None:
+        with pytest.raises(RespuestaResenaInvalidaException):
+            MarketingActionGuardrailService.validate_action(
+                action_type=MarketingActionType.GBP_REPLY_REVIEW,
+                params={
+                    "review_id": "r1",
+                    "comment": "Gracias",
+                    "tiene_respuesta": True,
+                },
+            )

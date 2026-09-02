@@ -27,6 +27,7 @@ El repositorio cuenta con una jerarquía de documentación técnica viva (SSOT) 
 * **[`specs/receipt_parser.md`](specs/receipt_parser.md)**: Especificación formal del motor de parseo y liquidación de haberes (Clean Architecture & DDD).
 * **[`specs/api_cache.md`](specs/api_cache.md)**: Especificación de la capa de caché persistente (SQLAlchemy + MySQL) y fallback en memoria.
 * **[`specs/analytics_mcp.md`](specs/analytics_mcp.md)**: Especificación de servidores FastMCP (Google Ads, GA4, Clarity) y Watchdog de alertas.
+* **[`specs/gbp_mcp.md`](specs/gbp_mcp.md)**: Especificación del servidor FastMCP de Google Business Profile (ficha de Maps): métricas, reseñas y publicaciones con guardrails.
 * **[`specs/mail_reader.md`](specs/mail_reader.md)**: Especificación técnica del motor de lectura de correos electrónicos vía IMAP para OpenClaw.
 * **[`specs/contacts_manager.md`](specs/contacts_manager.md)**: Especificación de libreta de contactos corporativa sincronizada con Roundcube.
 * **[`specs/calendar_manager.md`](specs/calendar_manager.md)**: Especificación de calendario, eventos y disponibilidad horaria.

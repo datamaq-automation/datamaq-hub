@@ -35,11 +35,19 @@ ADS_SCOPES = [
     "https://www.googleapis.com/auth/adwords",
 ]
 
+# Scope de las APIs de Google Business Profile (ficha de Maps). Requiere que la
+# cuenta autorizada sea propietaria o administradora de la ficha, y que el
+# proyecto de Google Cloud tenga aprobado el Basic API Access.
+GBP_SCOPES = [
+    "https://www.googleapis.com/auth/business.manage",
+]
+
 CALLBACK_TIMEOUT_SECONDS = 180
 
 SCOPE_PRESETS = {
     "gmail": SCOPES,
     "ads": ADS_SCOPES,
+    "gbp": GBP_SCOPES,
 }
 
 
@@ -317,8 +325,9 @@ def main():
         "--scopes",
         choices=sorted(SCOPE_PRESETS),
         default="gmail",
-        help="Conjunto de scopes a autorizar: 'gmail' (buzones IMAP/OpenClaw) o "
-        "'ads' (Google Ads API, para regenerar GOOGLE_ADS_REFRESH_TOKEN). Default: gmail",
+        help="Conjunto de scopes a autorizar: 'gmail' (buzones IMAP/OpenClaw), "
+        "'ads' (Google Ads API, para regenerar GOOGLE_ADS_REFRESH_TOKEN) o "
+        "'gbp' (Google Business Profile, para GBP_REFRESH_TOKEN). Default: gmail",
     )
     args = parser.parse_args(namespace=Args())
 
@@ -470,6 +479,17 @@ def main():
             print(
                 "⚠️  NO lo pegues en MAIL_ACCOUNTS: este token autoriza la Google Ads\n"
                 "    API, no el buzón de correo."
+            )
+        elif args.scopes == "gbp":
+            # El token tiene scope `business.manage`: pertenece a GBP_REFRESH_TOKEN.
+            print(f"\033[1;32mGBP_REFRESH_TOKEN={refresh_token}\033[0m\n")
+            print(
+                "⚠️  NO lo pegues en MAIL_ACCOUNTS ni en GOOGLE_ADS_REFRESH_TOKEN: este\n"
+                "    token autoriza las APIs de Google Business Profile.\n"
+                "\n"
+                "Siguiente paso: ejecutá get_gbp_status() para resolver GBP_ACCOUNT_ID y\n"
+                "GBP_LOCATION_ID. Si devuelve 429, el proyecto todavía no tiene aprobado\n"
+                "el Basic API Access de Business Profile (quota 0 QPM)."
             )
         else:
             config_dict: dict[str, dict[str, Any]] = {

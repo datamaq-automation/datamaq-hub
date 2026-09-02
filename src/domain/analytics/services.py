@@ -1,19 +1,26 @@
 """Servicios de dominio puros para cálculo de métricas, anomalías y guardrails."""
 
+import re
 from collections.abc import Sequence
 from typing import Any
+from urllib.parse import parse_qs, urlparse
 
 from src.domain.analytics.entities import (
     AnomalyAlert,
     CampaignMetric,
     ConversionInsight,
     GeoTrafficInsight,
+    MetricaFicha,
+    ResenaFicha,
     SearchTermInsight,
+    TerminoBusquedaFicha,
     TrafficSourceInsight,
 )
 from src.domain.analytics.exceptions import (
     BudgetLimitViolationException,
     InvalidMarketingActionException,
+    PublicacionFichaInvalidaException,
+    RespuestaResenaInvalidaException,
 )
 from src.domain.analytics.value_objects import (
     AnomalySeverity,
@@ -22,6 +29,7 @@ from src.domain.analytics.value_objects import (
     ChannelAttribution,
     MarketingActionType,
     PacingSeverity,
+    ResumenFicha,
 )
 
 DEFAULT_NEGATIVE_PATTERNS: tuple[str, ...] = (
@@ -73,6 +81,43 @@ TARGET_CITIES: frozenset[str] = frozenset(
         "grand bourg",
         "buenos aires",
     }
+)
+
+
+# Métricas diarias de la Business Profile Performance API agrupadas por eje de lectura
+FICHA_METRICAS_MAPS: tuple[str, ...] = (
+    "BUSINESS_IMPRESSIONS_DESKTOP_MAPS",
+    "BUSINESS_IMPRESSIONS_MOBILE_MAPS",
+)
+FICHA_METRICAS_SEARCH: tuple[str, ...] = (
+    "BUSINESS_IMPRESSIONS_DESKTOP_SEARCH",
+    "BUSINESS_IMPRESSIONS_MOBILE_SEARCH",
+)
+FICHA_METRICA_CLICS_SITIO = "WEBSITE_CLICKS"
+FICHA_METRICA_LLAMADAS = "CALL_CLICKS"
+FICHA_METRICA_INDICACIONES = "BUSINESS_DIRECTION_REQUESTS"
+FICHA_METRICA_CONVERSACIONES = "BUSINESS_CONVERSATIONS"
+
+# Tokens que identifican una búsqueda de marca frente a una de descubrimiento.
+# La API ya no expone el corte marca/descubrimiento (murió con la Insights API v4),
+# por lo que se aproxima sobre el texto del término.
+FICHA_TOKENS_DE_MARCA: tuple[str, ...] = ("datamaq", "data maq")
+
+# Límites duros impuestos por la API de Google, no política de negocio.
+FICHA_MAX_CHARS_PUBLICACION = 1500
+FICHA_MAX_CHARS_RESPUESTA = 4096
+FICHA_CTA_TYPES_VALIDOS: frozenset[str] = frozenset(
+    {"BOOK", "ORDER", "SHOP", "LEARN_MORE", "SIGN_UP", "CALL"}
+)
+
+# El §7 del plan de Fase 4 exige que el enlace de la ficha apunte al sitio con UTM propio.
+FICHA_HOSTS_PERMITIDOS: frozenset[str] = frozenset(
+    {"datamaq.com.ar", "www.datamaq.com.ar"}
+)
+FICHA_UTM_CAMPAIGN_ESPERADA = "gbp"
+
+RFC3339_REGEX = re.compile(
+    r"^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(\.\d+)?(Z|[+-]\d{2}:\d{2})$"
 )
 
 
@@ -430,6 +475,178 @@ class GeoAnalysisService:
         return in_zone, out_zone, pct_out
 
 
+class FichaLocalAnalysisService:
+    """Análisis determinístico de la ficha de Google Business Profile (paquete local de Maps)."""
+
+    @staticmethod
+    def resumir_metricas(
+        metricas: Sequence[MetricaFicha],
+        dias_analizados: int,
+        metricas_periodo_previo: Sequence[MetricaFicha] = (),
+    ) -> ResumenFicha:
+        """Agrega las series diarias en totales por eje y calcula la variación contra el período previo."""
+
+        def _total(serie: Sequence[MetricaFicha], nombres: Sequence[str]) -> int:
+            return sum(m.valor for m in serie if m.metrica in nombres)
+
+        impresiones_maps = _total(metricas, FICHA_METRICAS_MAPS)
+        impresiones_search = _total(metricas, FICHA_METRICAS_SEARCH)
+        impresiones_totales = impresiones_maps + impresiones_search
+
+        previas = _total(
+            metricas_periodo_previo, FICHA_METRICAS_MAPS + FICHA_METRICAS_SEARCH
+        )
+        if previas > 0:
+            variacion = round((impresiones_totales - previas) / previas * 100.0, 1)
+        else:
+            variacion = 0.0
+
+        return ResumenFicha(
+            dias_analizados=dias_analizados,
+            impresiones_maps=impresiones_maps,
+            impresiones_search=impresiones_search,
+            impresiones_totales=impresiones_totales,
+            clics_sitio=_total(metricas, (FICHA_METRICA_CLICS_SITIO,)),
+            llamadas=_total(metricas, (FICHA_METRICA_LLAMADAS,)),
+            solicitudes_indicaciones=_total(metricas, (FICHA_METRICA_INDICACIONES,)),
+            conversaciones=_total(metricas, (FICHA_METRICA_CONVERSACIONES,)),
+            impresiones_periodo_previo=previas,
+            variacion_impresiones_percent=variacion,
+        )
+
+    @staticmethod
+    def clasificar_terminos(
+        raw_terms: Sequence[dict[str, Any]],
+    ) -> list[TerminoBusquedaFicha]:
+        """Separa términos de marca de términos de descubrimiento, que son los que traen clientes nuevos."""
+        terminos: list[TerminoBusquedaFicha] = []
+        for item in raw_terms:
+            termino = str(item.get("termino", item.get("searchKeyword", ""))).strip()
+            if not termino:
+                continue
+            termino_lower = termino.lower()
+            terminos.append(
+                TerminoBusquedaFicha(
+                    termino=termino,
+                    impresiones=int(item.get("impresiones", 0)),
+                    es_de_marca=any(
+                        token in termino_lower for token in FICHA_TOKENS_DE_MARCA
+                    ),
+                )
+            )
+        return terminos
+
+    @staticmethod
+    def detectar_anomalias(
+        resumen: ResumenFicha | None,
+        resenas: Sequence[ResenaFicha],
+        dias_desde_ultima_publicacion: int | None = None,
+        umbral_caida_impresiones_percent: float = -25.0,
+        min_resenas_competitivo: int = 5,
+        umbral_rating_bajo: float = 4.0,
+        max_dias_sin_publicar: int = 14,
+    ) -> list[AnomalyAlert]:
+        """Aplica las reglas de salud de la ficha derivadas de los §8 a §10 del plan de Fase 4."""
+        anomalias: list[AnomalyAlert] = []
+
+        # 1. Caída de impresiones respecto del período previo
+        if (
+            resumen is not None
+            and resumen.impresiones_periodo_previo > 0
+            and resumen.variacion_impresiones_percent
+            <= umbral_caida_impresiones_percent
+        ):
+            anomalias.append(
+                AnomalyAlert(
+                    anomaly_type=AnomalyType.FICHA_IMPRESIONES_EN_CAIDA,
+                    severity=AnomalySeverity.WARNING,
+                    titulo="Caída de Impresiones en la Ficha de Google",
+                    descripcion=(
+                        f"Las impresiones cayeron {abs(resumen.variacion_impresiones_percent):.1f}% "
+                        f"respecto del período previo ({resumen.impresiones_totales} contra "
+                        f"{resumen.impresiones_periodo_previo})."
+                    ),
+                    metrica_observada=(
+                        f"Impresiones: {resumen.impresiones_totales} "
+                        f"({resumen.variacion_impresiones_percent:+.1f}%)"
+                    ),
+                    recomendacion="Verificar que la ficha siga activa y publicar contenido nuevo.",
+                )
+            )
+
+        # 2. Reseñas sin responder — la tasa de respuesta es en sí misma señal de ranking (§8)
+        sin_responder = [r for r in resenas if not r.tiene_respuesta]
+        if sin_responder:
+            anomalias.append(
+                AnomalyAlert(
+                    anomaly_type=AnomalyType.FICHA_RESENA_SIN_RESPONDER,
+                    severity=AnomalySeverity.WARNING,
+                    titulo=f"{len(sin_responder)} reseña(s) sin responder",
+                    descripcion=(
+                        "Hay reseñas sin respuesta en la ficha. Contestar todas, incluidas las "
+                        "negativas, en tono técnico y sin defensividad."
+                    ),
+                    metrica_observada=f"{len(sin_responder)} de {len(resenas)} sin responder",
+                    recomendacion="Responder con reply_to_gbp_review antes del próximo ciclo semanal.",
+                )
+            )
+
+        # 3. Volumen de reseñas por debajo del piso competitivo del paquete local (§8)
+        if resenas and len(resenas) < min_resenas_competitivo:
+            anomalias.append(
+                AnomalyAlert(
+                    anomaly_type=AnomalyType.FICHA_POCAS_RESENAS,
+                    severity=AnomalySeverity.INFO,
+                    titulo="Volumen de Reseñas Insuficiente",
+                    descripcion=(
+                        f"La ficha tiene {len(resenas)} reseñas. Por debajo de "
+                        f"{min_resenas_competitivo} compite en desventaja en el paquete local."
+                    ),
+                    metrica_observada=f"{len(resenas)} reseñas",
+                    recomendacion="Pedir reseña al cierre de obra, cuando el ahorro ya se ve en la factura.",
+                )
+            )
+
+        # 4. Rating promedio bajo
+        if resenas:
+            promedio = round(sum(r.estrellas for r in resenas) / len(resenas), 2)
+            if promedio < umbral_rating_bajo:
+                anomalias.append(
+                    AnomalyAlert(
+                        anomaly_type=AnomalyType.FICHA_RATING_BAJO,
+                        severity=AnomalySeverity.CRITICAL,
+                        titulo="Rating Promedio Bajo",
+                        descripcion=(
+                            f"El promedio de la ficha es {promedio} estrellas sobre "
+                            f"{len(resenas)} reseñas."
+                        ),
+                        metrica_observada=f"{promedio} estrellas",
+                        recomendacion="Revisar las reseñas negativas y responderlas en tono técnico.",
+                    )
+                )
+
+        # 5. Inactividad: las publicaciones caducan y la inactividad es señal negativa (§10)
+        if (
+            dias_desde_ultima_publicacion is not None
+            and dias_desde_ultima_publicacion > max_dias_sin_publicar
+        ):
+            anomalias.append(
+                AnomalyAlert(
+                    anomaly_type=AnomalyType.FICHA_SIN_PUBLICACIONES,
+                    severity=AnomalySeverity.WARNING,
+                    titulo="Ficha sin Publicaciones Recientes",
+                    descripcion=(
+                        f"Pasaron {dias_desde_ultima_publicacion} días desde la última publicación. "
+                        f"Las publicaciones caducan y la inactividad es una señal negativa."
+                    ),
+                    metrica_observada=f"{dias_desde_ultima_publicacion} días sin publicar",
+                    recomendacion="Publicar la siguiente guía del calendario semanal de la Fase 3.",
+                )
+            )
+
+        return anomalias
+
+
 class MarketingActionGuardrailService:
     """Guardrails determinísticos de post-procesamiento para validar acciones de agentes."""
 
@@ -481,3 +698,89 @@ class MarketingActionGuardrailService:
                 raise InvalidMarketingActionException(
                     "El ID de campaña es obligatorio."
                 )
+
+        elif action_type == MarketingActionType.GBP_CREATE_POST:
+            MarketingActionGuardrailService._validar_publicacion_ficha(params)
+
+        elif action_type == MarketingActionType.GBP_REPLY_REVIEW:
+            MarketingActionGuardrailService._validar_respuesta_resena(params)
+
+    @staticmethod
+    def _validar_publicacion_ficha(params: dict[str, Any]) -> None:
+        """Valida una publicación propuesta para la ficha contra los límites de la API y del §7."""
+        summary = str(params.get("summary", "")).strip()
+        if not summary:
+            raise PublicacionFichaInvalidaException(
+                "El texto de la publicación no puede estar vacío."
+            )
+        if len(summary) > FICHA_MAX_CHARS_PUBLICACION:
+            raise PublicacionFichaInvalidaException(
+                f"La publicación tiene {len(summary)} caracteres y el máximo es "
+                f"{FICHA_MAX_CHARS_PUBLICACION}."
+            )
+
+        cta_type = str(params.get("cta_type", "LEARN_MORE")).strip().upper()
+        if cta_type not in FICHA_CTA_TYPES_VALIDOS:
+            raise PublicacionFichaInvalidaException(
+                f"El tipo de llamada a la acción '{cta_type}' no es válido. "
+                f"Válidos: {', '.join(sorted(FICHA_CTA_TYPES_VALIDOS))}."
+            )
+
+        cta_url = str(params.get("cta_url", "")).strip()
+        if not cta_url:
+            raise PublicacionFichaInvalidaException(
+                "La publicación debe enlazar al sitio; cta_url es obligatoria."
+            )
+
+        parsed = urlparse(cta_url)
+        if parsed.scheme != "https":
+            raise PublicacionFichaInvalidaException(
+                f"El enlace debe usar https, no '{parsed.scheme or 'ninguno'}'."
+            )
+        if parsed.hostname not in FICHA_HOSTS_PERMITIDOS:
+            raise PublicacionFichaInvalidaException(
+                f"El enlace apunta a '{parsed.hostname}'. Solo se permite enlazar a "
+                f"{', '.join(sorted(FICHA_HOSTS_PERMITIDOS))}."
+            )
+
+        utm_campaign = parse_qs(parsed.query).get("utm_campaign", [])
+        if FICHA_UTM_CAMPAIGN_ESPERADA not in utm_campaign:
+            raise PublicacionFichaInvalidaException(
+                f"El enlace debe llevar utm_campaign={FICHA_UTM_CAMPAIGN_ESPERADA} para que "
+                f"el tráfico desde Maps se pueda atribuir en GA4."
+            )
+
+        schedule_time = params.get("schedule_time")
+        if schedule_time is not None and not RFC3339_REGEX.match(str(schedule_time)):
+            raise PublicacionFichaInvalidaException(
+                f"schedule_time debe estar en formato RFC3339 (ej. 2026-09-15T09:00:00Z), "
+                f"se recibió '{schedule_time}'."
+            )
+
+    @staticmethod
+    def _validar_respuesta_resena(params: dict[str, Any]) -> None:
+        """Valida la respuesta a una reseña y protege contra sobrescrituras accidentales."""
+        review_id = str(params.get("review_id", "")).strip()
+        if not review_id:
+            raise RespuestaResenaInvalidaException(
+                "El identificador de la reseña es obligatorio."
+            )
+
+        comment = str(params.get("comment", "")).strip()
+        if not comment:
+            raise RespuestaResenaInvalidaException(
+                "La respuesta a la reseña no puede estar vacía."
+            )
+        if len(comment) > FICHA_MAX_CHARS_RESPUESTA:
+            raise RespuestaResenaInvalidaException(
+                f"La respuesta tiene {len(comment)} caracteres y el máximo es "
+                f"{FICHA_MAX_CHARS_RESPUESTA}."
+            )
+
+        if bool(params.get("tiene_respuesta", False)) and not bool(
+            params.get("overwrite", False)
+        ):
+            raise RespuestaResenaInvalidaException(
+                f"La reseña '{review_id}' ya tiene una respuesta publicada. "
+                f"Pasá overwrite=True si realmente querés reemplazarla."
+            )

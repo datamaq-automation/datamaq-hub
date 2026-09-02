@@ -5,6 +5,7 @@ from typing import Any
 from src.adapters.gateways.api_cache_gateway import ApiCacheGateway
 from src.adapters.gateways.clarity_gateway import ClarityGateway
 from src.adapters.gateways.ga4_gateway import GA4Gateway
+from src.adapters.gateways.gbp_gateway import GoogleBusinessProfileGateway
 from src.adapters.gateways.google_ads_gateway import GoogleAdsGateway
 from src.application.dtos.analytics_dtos import MarketingActionRequestDTO
 from src.application.use_cases.generar_analytics_digest import (
@@ -39,11 +40,21 @@ _clarity_gw = ClarityGateway(
     cache=_cache,
 )
 
+_gbp_gw = GoogleBusinessProfileGateway(
+    client_id=settings.gbp_oauth_client_id,
+    client_secret=settings.gbp_oauth_client_secret,
+    refresh_token=settings.gbp_refresh_token,
+    account_id=settings.gbp_account_id,
+    location_id=settings.gbp_location_id,
+    cache=_cache,
+)
+
 _digest_use_case = GenerarAnalyticsDigestUseCase(
     google_ads_port=_ads_gw,
     ga4_port=_ga4_gw,
     clarity_port=_clarity_gw,
     budget_limit_ars=1500.0,
+    gbp_port=_gbp_gw,
 )
 _validator_use_case = ValidarAccionMarketingUseCase(
     max_daily_budget_ars=1500.0,

@@ -11,6 +11,7 @@ from src.adapters.gateways.api_cache_gateway import ApiCacheGateway
 from src.adapters.gateways.api_usage_gateway import APIUsageGateway
 from src.adapters.gateways.clarity_gateway import ClarityGateway
 from src.adapters.gateways.ga4_gateway import GA4Gateway
+from src.adapters.gateways.gbp_gateway import GoogleBusinessProfileGateway
 from src.adapters.gateways.google_ads_gateway import GoogleAdsGateway
 from src.application.dtos.analytics_dtos import (
     AnalyticsDigestResponseDTO,
@@ -55,12 +56,21 @@ def get_analytics_controller() -> AnalyticsController:
         deepseek_api_key=settings.deepseek_api_key,
         cache=cache,
     )
+    gbp_gateway = GoogleBusinessProfileGateway(
+        client_id=settings.gbp_oauth_client_id,
+        client_secret=settings.gbp_oauth_client_secret,
+        refresh_token=settings.gbp_refresh_token,
+        account_id=settings.gbp_account_id,
+        location_id=settings.gbp_location_id,
+        cache=cache,
+    )
     return AnalyticsController(
         google_ads_gateway=ads_gateway,
         ga4_gateway=ga4_gateway,
         clarity_gateway=clarity_gateway,
         budget_limit_ars=1500.0,
         api_usage_gateway=api_usage_gateway,
+        gbp_gateway=gbp_gateway,
     )
 
 
@@ -197,6 +207,39 @@ async def get_clarity_live_insights(
 ) -> APIResponseDTO[dict[str, Any]]:
     """Retorna enlaces directos a grabaciones de UX."""
     result = controller.get_clarity_insights()
+    return APIResponseDTO[dict[str, Any]](success=True, data=result)
+
+
+@router.get(
+    "/gbp/performance",
+    response_model=APIResponseDTO[dict[str, Any]],
+    summary="Métricas de la ficha de Google Business Profile",
+    description=(
+        "Retorna impresiones en Maps y Search, clics al sitio, llamadas e indicaciones "
+        "de la ficha, junto al período previo para comparar."
+    ),
+)
+async def get_gbp_performance(
+    controller: Annotated[AnalyticsController, Depends(get_analytics_controller)],
+    days: int = Query(30, ge=1, le=540, description="Días hacia atrás a analizar"),
+) -> APIResponseDTO[dict[str, Any]]:
+    """Retorna las métricas de rendimiento de la ficha."""
+    result = controller.get_gbp_performance(days=days)
+    return APIResponseDTO[dict[str, Any]](success=True, data=result)
+
+
+@router.get(
+    "/gbp/reviews",
+    response_model=APIResponseDTO[dict[str, Any]],
+    summary="Reseñas de la ficha de Google Business Profile",
+    description="Retorna las reseñas más recientes con su puntuación y si ya fueron respondidas.",
+)
+async def get_gbp_reviews(
+    controller: Annotated[AnalyticsController, Depends(get_analytics_controller)],
+    limit: int = Query(20, ge=1, le=50, description="Cantidad de reseñas a traer"),
+) -> APIResponseDTO[dict[str, Any]]:
+    """Retorna el listado de reseñas de la ficha."""
+    result = controller.get_gbp_reviews(limit=limit)
     return APIResponseDTO[dict[str, Any]](success=True, data=result)
 
 

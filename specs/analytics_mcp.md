@@ -1,12 +1,14 @@
 # Spec: Servidores FastMCP de Analítica, Telemetría & Watchdog (DataMaq Hub)
 
-> **Subsistema:** Integración FastMCP, Google Ads, GA4, Microsoft Clarity y Watchdog  
+> **Subsistema:** Integración FastMCP, Google Ads, GA4, Microsoft Clarity, Google Business Profile y Watchdog  
 > **Estado:** Implementado / Aprobado (Google Ads Basic Access Activo)  
 > **Módulos:** `src/adapters/gateways`, `src/infrastructure/fastmcp`, `scripts/`  
 
 ---
 
 ## 1. Objetivo y Contexto
+
+> **Nota:** el vertical de Google Business Profile (ficha de Maps) es la cuarta fuente del digest y tiene spec propia en [`gbp_mcp.md`](gbp_mcp.md). Aporta `ficha_resumen`, `ficha_resenas`, `ficha_terminos` y sus anomalías `FICHA_*` a `AnalyticsDigestResponseDTO`, y es opcional: el digest funciona igual sin ficha configurada.
 
 El subsistema de analítica y FastMCP de `datamaq-hub` expone herramientas estandarizadas mediante el **Model Context Protocol (MCP)** para permitir que agentes autónomos de IA y scripts de monitoreo auditen el rendimiento de marketing digital, la experiencia de usuario (UX) y el gasto publicitario de DataMaq sin intervención manual.
 
