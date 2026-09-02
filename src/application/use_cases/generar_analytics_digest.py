@@ -8,14 +8,19 @@ from src.application.dtos.analytics_dtos import (
     AnomalyDTO,
     CalculatedKpisDTO,
     CampaignMetricDTO,
+    ChannelAttributionDTO,
     ConversionInsightDTO,
+    GeoTrafficInsightDTO,
     SearchTermInsightDTO,
     TrafficInsightDTO,
+    TrafficSourceInsightDTO,
 )
 from src.domain.analytics.entities import (
     CampaignMetric,
     ConversionInsight,
+    GeoTrafficInsight,
     TrafficInsight,
+    TrafficSourceInsight,
 )
 from src.domain.analytics.ports import (
     ClarityDataSourcePort,
@@ -23,10 +28,13 @@ from src.domain.analytics.ports import (
     GoogleAdsDataSourcePort,
 )
 from src.domain.analytics.services import (
+    TARGET_CITIES,
     AnomalyDetectionService,
     BudgetPacingCalculatorService,
+    GeoAnalysisService,
     MetricCalculatorService,
     SearchTermEvaluatorService,
+    TrafficAttributionService,
 )
 
 DEFAULT_BUDGET_LIMIT_ARS = 1500.0
@@ -121,6 +129,44 @@ class GenerarAnalyticsDigestUseCase:
             raw_terms=raw_terms_list
         )
 
+        # 3b. Ingesta de fuentes de tráfico (SEO/SEM/Directo)
+        ga4_traffic = self._ga4_port.get_traffic_sources(days=days, limit=15)
+        traffic_source_entities: list[TrafficSourceInsight] = []
+        for row in ga4_traffic.get("rows", []):
+            traffic_source_entities.append(
+                TrafficSourceInsight(
+                    source=str(row.get("sessionSource", "")),
+                    medium=str(row.get("sessionMedium", "")),
+                    campaign=str(row.get("sessionCampaignName", "")),
+                    sessions=int(row.get("sessions", 0)),
+                    active_users=int(row.get("activeUsers", 0)),
+                    conversions=float(row.get("conversions", 0.0)),
+                )
+            )
+
+        # 3c. Ingesta de tráfico geográfico
+        ga4_geo = self._ga4_port.get_geo_traffic(days=days, limit=15)
+        geo_entities: list[GeoTrafficInsight] = []
+        for row in ga4_geo.get("rows", []):
+            city = str(row.get("city", ""))
+            geo_entities.append(
+                GeoTrafficInsight(
+                    city=city,
+                    region=str(row.get("region", "")),
+                    sessions=int(row.get("sessions", 0)),
+                    active_users=int(row.get("activeUsers", 0)),
+                    is_target_zone=city.lower().strip() in TARGET_CITIES,
+                )
+            )
+
+        # 3d. Cálculo de atribución de canales
+        channel_attribution = TrafficAttributionService.calculate_attribution(
+            traffic_source_entities
+        )
+
+        # 3e. Análisis geográfico
+        _, _, geo_out_pct = GeoAnalysisService.classify_geo(geo_entities)
+
         # 4. Agregación matemática de métricas
         total_impressions = sum(c.impressions for c in campaigns_entities)
         total_clicks = sum(c.clicks for c in campaigns_entities)
@@ -157,6 +203,8 @@ class GenerarAnalyticsDigestUseCase:
             conversions=conversions_entities,
             search_terms=search_terms_entities,
             current_hour_local=current_hour_local,
+            channel_attribution=channel_attribution,
+            geo_out_of_zone_percent=geo_out_pct,
         )
 
         # 6. Formateo de resumen Markdown optimizado para OpenClaw / Telegram
@@ -169,6 +217,9 @@ class GenerarAnalyticsDigestUseCase:
             conversions=conversions_entities,
             anomalies=anomalies_entities,
             intent_urls=clarity_urls,
+            channel_attribution=channel_attribution,
+            geo_insights=geo_entities,
+            geo_out_of_zone_percent=geo_out_pct,
         )
 
         # 7. Construcción de DTOs de salida
@@ -241,6 +292,35 @@ class GenerarAnalyticsDigestUseCase:
                 for t in search_terms_entities
             ],
             intent_recording_urls=clarity_urls,
+            traffic_sources=[
+                TrafficSourceInsightDTO(
+                    source=ts.source,
+                    medium=ts.medium,
+                    campaign=ts.campaign,
+                    sessions=ts.sessions,
+                    active_users=ts.active_users,
+                    conversions=ts.conversions,
+                )
+                for ts in traffic_source_entities
+            ],
+            geo_traffic=[
+                GeoTrafficInsightDTO(
+                    city=g.city,
+                    region=g.region,
+                    sessions=g.sessions,
+                    active_users=g.active_users,
+                    is_target_zone=g.is_target_zone,
+                )
+                for g in geo_entities
+            ],
+            channel_attribution=ChannelAttributionDTO(
+                organic_percent=channel_attribution.organic_percent,
+                paid_percent=channel_attribution.paid_percent,
+                direct_percent=channel_attribution.direct_percent,
+                referral_percent=channel_attribution.referral_percent,
+                other_percent=channel_attribution.other_percent,
+                total_sessions=channel_attribution.total_sessions,
+            ),
             resumen_markdown=resumen_md,
         )
 
@@ -254,6 +334,9 @@ class GenerarAnalyticsDigestUseCase:
         conversions: list[ConversionInsight],
         anomalies: list[Any],
         intent_urls: dict[str, str],
+        channel_attribution: Any | None = None,
+        geo_insights: list[GeoTrafficInsight] | None = None,
+        geo_out_of_zone_percent: float = 0.0,
     ) -> str:
         """Construye un resumen Markdown ultra-compacto listo para consumo."""
         lines: list[str] = [
@@ -270,6 +353,33 @@ class GenerarAnalyticsDigestUseCase:
             lines.append(f"🎯 *Conversiones:* {conv_summary}")
         else:
             lines.append("🎯 *Conversiones:* Sin eventos en el período.")
+
+        # Sección SEO vs SEM (Atribución de Canales)
+        if channel_attribution is not None and channel_attribution.total_sessions > 0:
+            lines.append("")
+            lines.append("📡 *Canales de Tráfico:*")
+            lines.append(
+                f"  🔍 SEO: {channel_attribution.organic_percent:.1f}% "
+                f"| 💰 SEM: {channel_attribution.paid_percent:.1f}% "
+                f"| 🔗 Directo: {channel_attribution.direct_percent:.1f}% "
+                f"| 🌐 Referral: {channel_attribution.referral_percent:.1f}%"
+            )
+            lines.append(f"  Total sesiones: {channel_attribution.total_sessions}")
+
+        # Sección GEO
+        if geo_insights:
+            top_cities = sorted(geo_insights, key=lambda g: g.sessions, reverse=True)[
+                :5
+            ]
+            lines.append("")
+            lines.append("📍 *Top Ciudades:*")
+            for g in top_cities:
+                zone_icon = "✅" if g.is_target_zone else "⚠️"
+                lines.append(f"  {zone_icon} {g.city}: {g.sessions} sesiones")
+            if geo_out_of_zone_percent > 0:
+                lines.append(
+                    f"  Fuera de zona objetivo: {geo_out_of_zone_percent:.1f}%"
+                )
 
         if anomalies:
             lines.append("\n⚠️ *Alertas & Anomalías:*")

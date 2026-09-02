@@ -86,3 +86,26 @@ class MarketingSnapshot:
         default_factory=list[SearchTermInsight]
     )
     intent_recording_urls: dict[str, str] = field(default_factory=dict[str, str])
+
+
+@dataclass(frozen=True)
+class TrafficSourceInsight:
+    """Fuente de tráfico consolidada (SEO, SEM, Directo, Referral)."""
+
+    source: str
+    medium: str
+    campaign: str
+    sessions: int
+    active_users: int
+    conversions: float
+
+
+@dataclass(frozen=True)
+class GeoTrafficInsight:
+    """Tráfico por ubicación geográfica del usuario."""
+
+    city: str
+    region: str
+    sessions: int
+    active_users: int
+    is_target_zone: bool

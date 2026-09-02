@@ -5,7 +5,9 @@ import pytest
 from src.domain.analytics.entities import (
     CampaignMetric,
     ConversionInsight,
+    GeoTrafficInsight,
     SearchTermInsight,
+    TrafficSourceInsight,
 )
 from src.domain.analytics.exceptions import (
     BudgetLimitViolationException,
@@ -14,13 +16,16 @@ from src.domain.analytics.exceptions import (
 from src.domain.analytics.services import (
     AnomalyDetectionService,
     BudgetPacingCalculatorService,
+    GeoAnalysisService,
     MarketingActionGuardrailService,
     MetricCalculatorService,
     SearchTermEvaluatorService,
+    TrafficAttributionService,
 )
 from src.domain.analytics.value_objects import (
     AnomalyType,
     CalculatedKpis,
+    ChannelAttribution,
     MarketingActionType,
     PacingSeverity,
 )
@@ -235,3 +240,151 @@ def test_marketing_action_guardrails() -> None:
             action_type=MarketingActionType.ADD_NEGATIVE_KEYWORD,
             params={"keyword": "   "},
         )
+
+
+def test_traffic_attribution_100_percent_organic() -> None:
+    """Verifica atribución de canal con 100% orgánico (SEO)."""
+    sources = [
+        TrafficSourceInsight(
+            source="google",
+            medium="organic",
+            campaign="(not set)",
+            sessions=50,
+            active_users=45,
+            conversions=2.0,
+        )
+    ]
+    attr = TrafficAttributionService.calculate_attribution(sources)
+    assert attr.organic_percent == 100.0
+    assert attr.paid_percent == 0.0
+    assert attr.direct_percent == 0.0
+    assert attr.total_sessions == 50
+
+
+def test_traffic_attribution_mixed_channels() -> None:
+    """Verifica desglose porcentual de múltiples fuentes."""
+    sources = [
+        TrafficSourceInsight(
+            source="google",
+            medium="cpc",
+            campaign="retrofit-iot",
+            sessions=80,
+            active_users=70,
+            conversions=3.0,
+        ),
+        TrafficSourceInsight(
+            source="google",
+            medium="organic",
+            campaign="(not set)",
+            sessions=15,
+            active_users=12,
+            conversions=1.0,
+        ),
+        TrafficSourceInsight(
+            source="(direct)",
+            medium="(none)",
+            campaign="(not set)",
+            sessions=5,
+            active_users=4,
+            conversions=0.0,
+        ),
+    ]
+    attr = TrafficAttributionService.calculate_attribution(sources)
+    assert attr.total_sessions == 100
+    assert attr.paid_percent == 80.0
+    assert attr.organic_percent == 15.0
+    assert attr.direct_percent == 5.0
+    assert attr.referral_percent == 0.0
+
+
+def test_traffic_attribution_empty() -> None:
+    """Verifica manejo seguro de fuentes vacías sin división por cero."""
+    attr = TrafficAttributionService.calculate_attribution([])
+    assert attr.total_sessions == 0
+    assert attr.organic_percent == 0.0
+    assert attr.paid_percent == 0.0
+
+
+def test_geo_analysis_target_zone() -> None:
+    """Verifica clasificación geográfica en zona objetivo."""
+    geos = [
+        GeoTrafficInsight(
+            city="Pilar",
+            region="Buenos Aires",
+            sessions=25,
+            active_users=20,
+            is_target_zone=True,
+        ),
+        GeoTrafficInsight(
+            city="Garín",
+            region="Buenos Aires",
+            sessions=15,
+            active_users=10,
+            is_target_zone=True,
+        ),
+    ]
+    in_z, out_z, pct_out = GeoAnalysisService.classify_geo(geos)
+    assert in_z == 40
+    assert out_z == 0
+    assert pct_out == 0.0
+
+
+def test_geo_analysis_mixed_zone() -> None:
+    """Verifica porcentaje fuera de zona objetivo."""
+    geos = [
+        GeoTrafficInsight(
+            city="Pilar",
+            region="Buenos Aires",
+            sessions=70,
+            active_users=50,
+            is_target_zone=True,
+        ),
+        GeoTrafficInsight(
+            city="Córdoba",
+            region="Córdoba",
+            sessions=30,
+            active_users=25,
+            is_target_zone=False,
+        ),
+    ]
+    in_z, out_z, pct_out = GeoAnalysisService.classify_geo(geos)
+    assert in_z == 70
+    assert out_z == 30
+    assert pct_out == 30.0
+
+
+def test_anomalies_seo_geo_and_sem_dependency() -> None:
+    """Verifica detección de anomalías de SEO_BAJO, TRAFICO_FUERA_ZONA y DEPENDENCIA_SEM."""
+    kpis = CalculatedKpis(
+        ctr_percent=5.0,
+        cpc_avg_ars=50.0,
+        cpa_ars=500.0,
+        conversion_rate_percent=10.0,
+        pacing_percent=50.0,
+        budget_limit_ars=1500.0,
+        spent_today_ars=750.0,
+        projected_daily_spend_ars=1200.0,
+    )
+    attribution = ChannelAttribution(
+        organic_percent=5.0,
+        paid_percent=85.0,
+        direct_percent=10.0,
+        referral_percent=0.0,
+        other_percent=0.0,
+        total_sessions=100,
+    )
+
+    anomalies = AnomalyDetectionService.detect_anomalies(
+        kpis=kpis,
+        campaigns=[],
+        conversions=[],
+        search_terms=[],
+        current_hour_local=12,
+        channel_attribution=attribution,
+        geo_out_of_zone_percent=45.0,
+    )
+
+    types = [a.anomaly_type for a in anomalies]
+    assert AnomalyType.DEPENDENCIA_SEM in types
+    assert AnomalyType.SEO_BAJO in types
+    assert AnomalyType.TRAFICO_FUERA_ZONA in types

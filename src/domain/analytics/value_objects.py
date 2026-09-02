@@ -21,6 +21,9 @@ class AnomalyType(str, Enum):
     ALTA_FRICCION_UX = "alta_friccion_ux"
     CONVERSION_DETECTADA = "conversion_detectada"
     TERMINO_IRRELEVANTE = "termino_irrelevante"
+    SEO_BAJO = "seo_bajo"
+    TRAFICO_FUERA_ZONA = "trafico_fuera_zona"
+    DEPENDENCIA_SEM = "dependencia_sem"
 
 
 class AnomalySeverity(str, Enum):
@@ -53,3 +56,15 @@ class CalculatedKpis:
     budget_limit_ars: float
     spent_today_ars: float
     projected_daily_spend_ars: float
+
+
+@dataclass(frozen=True)
+class ChannelAttribution:
+    """Distribución porcentual del tráfico por canal."""
+
+    organic_percent: float
+    paid_percent: float
+    direct_percent: float
+    referral_percent: float
+    other_percent: float
+    total_sessions: int

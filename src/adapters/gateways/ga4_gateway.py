@@ -42,7 +42,9 @@ def _run_ga4_report(
             RunReportRequest,
         )
 
-        client = BetaAnalyticsDataClient()
+        client = BetaAnalyticsDataClient.from_service_account_file(
+            google_application_credentials
+        )
         request = RunReportRequest(
             property=f"properties/{ga4_property_id}",
             dimensions=[Dimension(name=d) for d in dimensions],

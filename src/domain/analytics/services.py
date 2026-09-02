@@ -7,7 +7,9 @@ from src.domain.analytics.entities import (
     AnomalyAlert,
     CampaignMetric,
     ConversionInsight,
+    GeoTrafficInsight,
     SearchTermInsight,
+    TrafficSourceInsight,
 )
 from src.domain.analytics.exceptions import (
     BudgetLimitViolationException,
@@ -17,6 +19,7 @@ from src.domain.analytics.value_objects import (
     AnomalySeverity,
     AnomalyType,
     CalculatedKpis,
+    ChannelAttribution,
     MarketingActionType,
     PacingSeverity,
 )
@@ -39,6 +42,32 @@ DEFAULT_NEGATIVE_PATTERNS: tuple[str, ...] = (
     "descargar",
     "login",
     "portal",
+)
+
+# Ciudades dentro de la zona objetivo de DataMaq (GBA Norte + AMBA)
+TARGET_CITIES: frozenset[str] = frozenset(
+    {
+        "pilar",
+        "garín",
+        "garin",
+        "tigre",
+        "campana",
+        "san martín",
+        "san martin",
+        "vicente lópez",
+        "vicente lopez",
+        "san fernando",
+        "malvinas argentinas",
+        "escobar",
+        "san isidro",
+        "olivos",
+        "martínez",
+        "martinez",
+        "del viso",
+        "los polvorines",
+        "grand bourg",
+        "buenos aires",
+    }
 )
 
 
@@ -180,6 +209,8 @@ class AnomalyDetectionService:
         conversions: Sequence[ConversionInsight],
         search_terms: Sequence[SearchTermInsight],
         current_hour_local: int = 12,
+        channel_attribution: ChannelAttribution | None = None,
+        geo_out_of_zone_percent: float | None = None,
     ) -> list[AnomalyAlert]:
         """Evalúa las reglas y retorna la lista de anomalías encontradas."""
         anomalies: list[AnomalyAlert] = []
@@ -260,7 +291,120 @@ class AnomalyDetectionService:
                     )
                 )
 
+        # 5. Regla de dependencia excesiva en SEM (>80% tráfico pago)
+        if channel_attribution is not None:
+            if (
+                channel_attribution.paid_percent > 80.0
+                and channel_attribution.total_sessions >= 10
+            ):
+                anomalies.append(
+                    AnomalyAlert(
+                        anomaly_type=AnomalyType.DEPENDENCIA_SEM,
+                        severity=AnomalySeverity.WARNING,
+                        titulo="Dependencia Excesiva de Google Ads",
+                        descripcion=(
+                            f"El {channel_attribution.paid_percent:.1f}% del tráfico proviene de SEM. "
+                            f"Solo {channel_attribution.organic_percent:.1f}% es orgánico."
+                        ),
+                        metrica_observada=(
+                            f"SEM: {channel_attribution.paid_percent:.1f}% | "
+                            f"SEO: {channel_attribution.organic_percent:.1f}%"
+                        ),
+                        recomendacion="Invertir en contenido SEO (blog técnico B2B) para reducir dependencia de Ads.",
+                    )
+                )
+
+            # 6. Regla de SEO bajo (orgánico < 10% con al menos 20 sesiones totales)
+            if (
+                channel_attribution.organic_percent < 10.0
+                and channel_attribution.total_sessions >= 20
+            ):
+                anomalies.append(
+                    AnomalyAlert(
+                        anomaly_type=AnomalyType.SEO_BAJO,
+                        severity=AnomalySeverity.WARNING,
+                        titulo="Tráfico Orgánico Muy Bajo",
+                        descripcion=(
+                            f"Solo el {channel_attribution.organic_percent:.1f}% del tráfico es orgánico "
+                            f"({channel_attribution.total_sessions} sesiones totales)."
+                        ),
+                        metrica_observada=f"Orgánico: {channel_attribution.organic_percent:.1f}%",
+                        recomendacion="Activar Google Search Console, crear landing pages con keywords long-tail B2B.",
+                    )
+                )
+
+        # 7. Regla de tráfico fuera de zona objetivo (>30%)
+        if geo_out_of_zone_percent is not None and geo_out_of_zone_percent > 30.0:
+            anomalies.append(
+                AnomalyAlert(
+                    anomaly_type=AnomalyType.TRAFICO_FUERA_ZONA,
+                    severity=AnomalySeverity.WARNING,
+                    titulo="Tráfico Fuera de Zona Objetivo",
+                    descripcion=(
+                        f"El {geo_out_of_zone_percent:.1f}% del tráfico proviene de ciudades "
+                        f"fuera de GBA Norte / AMBA."
+                    ),
+                    metrica_observada=f"Fuera de zona: {geo_out_of_zone_percent:.1f}%",
+                    recomendacion="Revisar segmentación geográfica en Google Ads y ajustar exclusiones.",
+                )
+            )
+
         return anomalies
+
+
+class TrafficAttributionService:
+    """Calcula la distribución de tráfico por canal (SEO/SEM/Directo/Referral)."""
+
+    @staticmethod
+    def calculate_attribution(
+        sources: Sequence[TrafficSourceInsight],
+    ) -> ChannelAttribution:
+        """Clasifica las fuentes en canales y calcula porcentajes."""
+        total = sum(s.sessions for s in sources)
+        if total == 0:
+            return ChannelAttribution(
+                organic_percent=0.0,
+                paid_percent=0.0,
+                direct_percent=0.0,
+                referral_percent=0.0,
+                other_percent=0.0,
+                total_sessions=0,
+            )
+
+        organic = sum(s.sessions for s in sources if s.medium == "organic")
+        paid = sum(s.sessions for s in sources if s.medium in ("cpc", "ppc", "paid"))
+        direct = sum(
+            s.sessions
+            for s in sources
+            if s.medium in ("(none)", "(not set)")
+            and s.source in ("(direct)", "direct")
+        )
+        referral = sum(s.sessions for s in sources if s.medium == "referral")
+        other = total - organic - paid - direct - referral
+
+        return ChannelAttribution(
+            organic_percent=round(organic / total * 100, 1),
+            paid_percent=round(paid / total * 100, 1),
+            direct_percent=round(direct / total * 100, 1),
+            referral_percent=round(referral / total * 100, 1),
+            other_percent=round(other / total * 100, 1),
+            total_sessions=total,
+        )
+
+
+class GeoAnalysisService:
+    """Analiza la distribución geográfica del tráfico contra la zona objetivo."""
+
+    @staticmethod
+    def classify_geo(
+        geo_rows: Sequence[GeoTrafficInsight],
+    ) -> tuple[int, int, float]:
+        """Retorna (sesiones_en_zona, sesiones_fuera, porcentaje_fuera)."""
+        in_zone = sum(g.sessions for g in geo_rows if g.is_target_zone)
+        out_zone = sum(g.sessions for g in geo_rows if not g.is_target_zone)
+        total = in_zone + out_zone
+        pct_out = round(out_zone / total * 100, 1) if total > 0 else 0.0
+        return in_zone, out_zone, pct_out
 
 
 class MarketingActionGuardrailService:

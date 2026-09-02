@@ -66,6 +66,44 @@ def test_generar_analytics_digest_execution() -> None:
             }
         ],
     }
+    mock_ga4.get_traffic_sources.return_value = {
+        "status": "success",
+        "rows": [
+            {
+                "sessionSource": "google",
+                "sessionMedium": "cpc",
+                "sessionCampaignName": "retrofit-iot",
+                "sessions": "16",
+                "activeUsers": "14",
+                "conversions": "1.0",
+            },
+            {
+                "sessionSource": "google",
+                "sessionMedium": "organic",
+                "sessionCampaignName": "(not set)",
+                "sessions": "4",
+                "activeUsers": "4",
+                "conversions": "0.0",
+            },
+        ],
+    }
+    mock_ga4.get_geo_traffic.return_value = {
+        "status": "success",
+        "rows": [
+            {
+                "city": "Pilar",
+                "region": "Buenos Aires",
+                "sessions": "15",
+                "activeUsers": "12",
+            },
+            {
+                "city": "Rosario",
+                "region": "Santa Fe",
+                "sessions": "5",
+                "activeUsers": "4",
+            },
+        ],
+    }
 
     mock_clarity = MagicMock()
     mock_clarity.get_intent_recording_urls.return_value = {
@@ -92,6 +130,15 @@ def test_generar_analytics_digest_execution() -> None:
     assert len(digest.conversions) == 1
     assert len(digest.top_pages) == 1
     assert len(digest.search_terms) == 2
+    assert len(digest.traffic_sources) == 2
+    assert len(digest.geo_traffic) == 2
+    assert digest.channel_attribution is not None
+    assert digest.channel_attribution.paid_percent == 80.0
+    assert digest.channel_attribution.organic_percent == 20.0
+    assert digest.geo_traffic[0].is_target_zone is True
+    assert digest.geo_traffic[1].is_target_zone is False
     assert "whatsapp_click" in digest.intent_recording_urls
     assert "DataMaq Analytics Digest" in digest.resumen_markdown
     assert "Gasto Hoy" in digest.resumen_markdown
+    assert "Canales de Tráfico" in digest.resumen_markdown
+    assert "Top Ciudades" in digest.resumen_markdown

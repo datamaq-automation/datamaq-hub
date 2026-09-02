@@ -4,12 +4,14 @@ Utiliza los gateways existentes (GoogleAdsGateway, GA4Gateway, ClarityGateway) y
 para cargar credenciales desde el .env.
 El reporte se escribe en `reports/fastmcp_report_YYYYMMDD.md`.
 """
+
 import datetime
 from pathlib import Path
+from typing import Any, cast
 
-from src.adapters.gateways.google_ads_gateway import GoogleAdsGateway
-from src.adapters.gateways.ga4_gateway import GA4Gateway
 from src.adapters.gateways.clarity_gateway import ClarityGateway
+from src.adapters.gateways.ga4_gateway import GA4Gateway
+from src.adapters.gateways.google_ads_gateway import GoogleAdsGateway
 from src.infrastructure.pydantic.config import Settings
 
 
@@ -43,7 +45,7 @@ def main() -> None:
     intent_urls = clarity.get_intent_recording_urls()
 
     # ---------- Render report ----------
-    today = datetime.date.today().isoformat()
+    today = datetime.datetime.now(datetime.timezone.utc).date().isoformat()
     report_path = Path("reports") / f"fastmcp_report_{today}.md"
     report_path.parent.mkdir(parents=True, exist_ok=True)
     with report_path.open("w", encoding="utf-8") as f:
@@ -57,19 +59,25 @@ def main() -> None:
         f.write(f"- Clics totales: {perf.get('total_clicks', 'N/A')}\n")
         f.write(f"- CPC medio: {perf.get('avg_cpc_ars', 'N/A')} ARS\n\n")
         f.write("## Google Ads – Términos de búsqueda (top 20)\n")
-        for term in search_terms.get('terms', []):
-            f.write(f"- {term['search_term']} (clics: {term['clicks']}, conv: {term['conversions']})\n")
+        for term in search_terms.get("terms", []):
+            f.write(
+                f"- {term['search_term']} (clics: {term['clicks']}, conv: {term['conversions']})\n"
+            )
         f.write("\n")
         f.write("## GA4 – Top Pages\n")
-        for row in top_pages.get('rows', []):
-            f.write(f"- {row.get('pagePath')} – vistas: {row.get('screenPageViews')} – usuarios: {row.get('activeUsers')}\n")
+        for row in top_pages.get("rows", []):
+            f.write(
+                f"- {row.get('pagePath')} – vistas: {row.get('screenPageViews')} – usuarios: {row.get('activeUsers')}\n"
+            )
         f.write("\n")
         f.write("## GA4 – Fuentes de tráfico\n")
-        for row in traffic.get('rows', []):
-            f.write(f"- {row.get('sessionSource')}/{row.get('sessionMedium')} – sesiones: {row.get('sessions')}\n")
+        for row in traffic.get("rows", []):
+            f.write(
+                f"- {row.get('sessionSource')}/{row.get('sessionMedium')} – sesiones: {row.get('sessions')}\n"
+            )
         f.write("\n")
         f.write("## GA4 – Conversiones (eventos)\n")
-        for row in conversions.get('rows', []):
+        for row in conversions.get("rows", []):
             f.write(f"- {row.get('eventName')} – count: {row.get('eventCount')}\n")
         f.write("\n")
         f.write("## Clarity – Project Info\n")
@@ -77,9 +85,30 @@ def main() -> None:
         f.write(f"- Heatmaps: {project_info.get('heatmaps_url')}\n")
         f.write("\n")
         f.write("## Clarity – Live Insights\n")
-        live_data = live.get('data', {})
-        f.write(f"- Usuarios activos: {live_data.get('activeUsers', 'N/A')}\n")
-        f.write(f"- Page views: {live_data.get('pageViews', 'N/A')}\n")
+        raw_live: Any = live.get("data", [])
+        if isinstance(raw_live, list):
+            data_list = cast(list[Any], raw_live)
+            f.write(f"- Métricas activas recibidas: {len(data_list)}\n")
+            for item in data_list:
+                if isinstance(item, dict):
+                    m = cast(dict[str, Any], item)
+                    if m.get("metricName") == "Traffic":
+                        raw_info: Any = m.get("information")
+                        if isinstance(raw_info, list) and len(raw_info) > 0:
+                            info_list = cast(list[Any], raw_info)
+                            info_elem: Any = info_list[0]
+                            if isinstance(info_elem, dict):
+                                info = cast(dict[str, Any], info_elem)
+                                f.write(
+                                    f"- Sesiones Clarity en vivo: {info.get('totalSessionCount', '0')}\n"
+                                )
+                                f.write(
+                                    f"- Usuarios únicos Clarity: {info.get('distinctUserCount', '0')}\n"
+                                )
+        elif isinstance(raw_live, dict):
+            dict_live = cast(dict[str, Any], raw_live)
+            f.write(f"- Usuarios activos: {dict_live.get('activeUsers', 'N/A')}\n")
+            f.write(f"- Page views: {dict_live.get('pageViews', 'N/A')}\n")
         f.write("\n")
         f.write("## Clarity – Grabaciones por intención\n")
         for intent, url in intent_urls.items():

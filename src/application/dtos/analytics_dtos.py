@@ -96,6 +96,46 @@ class AnomalyDTO(BaseModel):
     recomendacion: str = Field(description="Acción recomendada")
 
 
+class TrafficSourceInsightDTO(BaseModel):
+    """Fuente de tráfico desglosada por canal."""
+
+    model_config = ConfigDict(frozen=True)
+
+    source: str = Field(description="Fuente de tráfico (google, direct, etc.)")
+    medium: str = Field(description="Medio de tráfico (organic, cpc, referral, etc.)")
+    campaign: str = Field(description="Nombre de campaña UTM")
+    sessions: int = Field(description="Cantidad de sesiones")
+    active_users: int = Field(description="Usuarios activos")
+    conversions: float = Field(description="Conversiones atribuidas")
+
+
+class GeoTrafficInsightDTO(BaseModel):
+    """Distribución geográfica del tráfico."""
+
+    model_config = ConfigDict(frozen=True)
+
+    city: str = Field(description="Ciudad de origen")
+    region: str = Field(description="Región o provincia")
+    sessions: int = Field(description="Cantidad de sesiones")
+    active_users: int = Field(description="Usuarios activos")
+    is_target_zone: bool = Field(
+        description="True si pertenece a la zona objetivo GBA Norte/AMBA"
+    )
+
+
+class ChannelAttributionDTO(BaseModel):
+    """Distribución porcentual del tráfico por canal."""
+
+    model_config = ConfigDict(frozen=True)
+
+    organic_percent: float = Field(description="% tráfico orgánico (SEO)")
+    paid_percent: float = Field(description="% tráfico pago (SEM/Ads)")
+    direct_percent: float = Field(description="% tráfico directo")
+    referral_percent: float = Field(description="% tráfico referral")
+    other_percent: float = Field(description="% otros canales")
+    total_sessions: int = Field(description="Total de sesiones en el período")
+
+
 class AnalyticsDigestResponseDTO(BaseModel):
     """Resumen consolidado y pre-procesado listo para OpenClaw, Telegram y UI."""
 
@@ -129,6 +169,18 @@ class AnalyticsDigestResponseDTO(BaseModel):
     intent_recording_urls: dict[str, str] = Field(
         default_factory=dict[str, str],
         description="URLs directas a grabaciones en Clarity",
+    )
+    traffic_sources: list[TrafficSourceInsightDTO] = Field(
+        default_factory=list[TrafficSourceInsightDTO],
+        description="Desglose de tráfico por fuente/medio/campaña (SEO vs SEM vs Directo)",
+    )
+    geo_traffic: list[GeoTrafficInsightDTO] = Field(
+        default_factory=list[GeoTrafficInsightDTO],
+        description="Distribución geográfica del tráfico con clasificación de zona",
+    )
+    channel_attribution: ChannelAttributionDTO | None = Field(
+        default=None,
+        description="Atribución porcentual de canales (SEO/SEM/Directo/Referral)",
     )
     resumen_markdown: str = Field(
         default="",
