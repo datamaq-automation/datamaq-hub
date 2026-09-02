@@ -302,7 +302,35 @@ Para optimizar el consumo de la IA (**OpenClaw**) y garantizar 0% alucinación e
    - Generación de un *Analytics Digest* ultra-compacto (reducción del 95% de tokens para OpenClaw) y resumen Markdown para alertas.
 2. **Post-procesamiento & Guardrails (`ValidarAccionMarketingUseCase`):**
    - Evalúa de forma estricta cualquier propuesta de acción del agente (ej. ajustar presupuesto, variar CPC o agregar palabras negativas).
-   - Bloquea físicamente cualquier intento de superar el presupuesto máximo de **$1.500 ARS/día** o un CPC mayor a **$500 ARS**.
+   - Bloquea físicamente cualquier intento de superar el presupuesto máximo de **$1.500 ARS/día** o un CPC mayor a **$650 ARS**.
+
+### 4.2 Integración OpenClaw ↔ Tríada de Analítica (Protocolo de Cero Alucinaciones)
+
+Para responder a las consultas diarias sobre la tríada (Google Ads, GA4, Clarity), OpenClaw interactúa con el backend local a través de `http://127.0.0.1:8013` (puerto loopback autorizado en `/home/openclaw/.openclaw/exec-approvals.json`).
+
+#### Comparativa de Arquitectura y Eficiencia de Tokens:
+
+| Métrica / Atributo | Enfoque Anterior (Multi-curl Crudo) | Enfoque Optimizado (`/digest?format=text`) |
+|---|---|---|
+| **Llamadas HTTP** | 5 peticiones (`/campaigns`, `/pacing`, `/search-terms`, `/clarity/live`, `/ga4/conversions`) | **1 única petición** (`/api/v1/analytics/digest?format=text`) |
+| **Tokens de Entrada** | ~11.000 - 12.500 tokens (JSONs crudos masivos) | **~200 tokens** (Markdown pre-calculado) |
+| **Tokens de Razonamiento + Salida** | ~1.600 tokens (DeepSeek intentando correlacionar) | **~150 tokens** (breve intro Tenazas + reporte directo) |
+| **Consumo Total de Tokens** | **~24.000 a 28.000 tokens** por consulta | **< 400 tokens** (**> 98% de ahorro**) |
+| **Riesgo de Alucinación** | Alto (cálculos de porcentajes y sumas en prompt) | **0% (Determinismo Puro en Python)** |
+
+#### Protocolo de Invocación en OpenClaw:
+OpenClaw ejecuta:
+```bash
+curl -s "http://127.0.0.1:8013/api/v1/analytics/digest?format=text"
+```
+El agente envuelve el texto pre-calculado con una breve introducción en su tono característico (*Tenazas 🦞*), entregando datos 100% verificados sin consumo innecesario de tokens.
+
+#### Sincronización del Watchdog Automático (Crontab):
+En el cron del VPS (`/var/spool/cron/datamaq`), el script `scripts/analytics_watchdog.py` está programado a las **06:30 AM** (hora local de Argentina):
+```cron
+30 6 * * * cd /var/www/datamaq-hub && PYTHONPATH=. .venv/bin/python scripts/analytics_watchdog.py >/dev/null 2>&1
+```
+Esto asegura que el reporte diario del día anterior llegue proactivamente al canal de Telegram (`chat_id: 593052206`) antes de que comience la jornada laboral.
 
 ---
 

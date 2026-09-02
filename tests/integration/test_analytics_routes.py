@@ -104,6 +104,19 @@ def test_get_analytics_digest_envelope(client: TestClient) -> None:
     assert json_data["data"]["pacing_severity"] == "normal"
 
 
+def test_get_analytics_digest_text_and_markdown_format(client: TestClient) -> None:
+    """Verifica que /analytics/digest?format=text retorna directamente el Markdown en texto plano."""
+    resp_text = client.get("/api/v1/analytics/digest?days=1&format=text")
+    assert resp_text.status_code == 200
+    assert "text/plain" in resp_text.headers["content-type"]
+    assert resp_text.text == "Resumen mock"
+
+    resp_md = client.get("/api/v1/analytics/digest?days=1&format=markdown")
+    assert resp_md.status_code == 200
+    assert "text/plain" in resp_md.headers["content-type"]
+    assert resp_md.text == "Resumen mock"
+
+
 def test_post_analytics_actions_validate_envelope(client: TestClient) -> None:
     """Verifica que /analytics/actions/validate retorna el envelope estándar APIResponseDTO."""
     payload = {

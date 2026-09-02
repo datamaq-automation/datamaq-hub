@@ -3,7 +3,8 @@
 from functools import lru_cache
 from typing import Annotated, Any
 
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, Depends, Query, Response
+from fastapi.responses import PlainTextResponse
 
 from src.adapters.controllers.analytics_controller import AnalyticsController
 from src.adapters.gateways.api_cache_gateway import ApiCacheGateway
@@ -65,7 +66,7 @@ def get_analytics_controller() -> AnalyticsController:
 
 @router.get(
     "/digest",
-    response_model=APIResponseDTO[AnalyticsDigestResponseDTO],
+    response_model=None,
     summary="Digest Pre-procesado de Analítica (OpenClaw / Telegram)",
     description=(
         "Retorna un resumen estructurado, comprimido y enriquecido con detección "
@@ -75,9 +76,18 @@ def get_analytics_controller() -> AnalyticsController:
 async def get_analytics_digest(
     controller: Annotated[AnalyticsController, Depends(get_analytics_controller)],
     days: int = Query(1, ge=1, le=90, description="Días hacia atrás a analizar"),
-) -> APIResponseDTO[AnalyticsDigestResponseDTO]:
+    format: str = Query(
+        "json",
+        description="Formato de respuesta: 'json', 'text' o 'markdown'",
+    ),
+) -> Response | APIResponseDTO[AnalyticsDigestResponseDTO]:
     """Genera el digest pre-procesado para consumo inteligente."""
     result = controller.get_digest(days=days)
+    if format in ("text", "markdown"):
+        return PlainTextResponse(
+            content=result.resumen_markdown,
+            media_type="text/plain; charset=utf-8",
+        )
     return APIResponseDTO[AnalyticsDigestResponseDTO](success=True, data=result)
 
 
