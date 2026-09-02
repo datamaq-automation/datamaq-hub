@@ -11,7 +11,12 @@ except ImportError:
     # google-ads ausente en entornos de test/CI sin dependencias de Google
     GoogleAdsException = Exception
 
-DAILY_BUDGET_LIMIT_ARS: float = 1500.0
+import os
+
+# Límite diario de gasto en ARS (se lee de la variable de entorno o se usa 1500 por defecto)
+DAILY_BUDGET_LIMIT_ARS: float = float(
+    os.getenv("GOOGLE_ADS_DAILY_BUDGET_LIMIT_ARS", "1500")
+)
 
 
 def _get_google_ads_client(
