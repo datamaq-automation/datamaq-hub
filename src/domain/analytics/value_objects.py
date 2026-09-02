@@ -24,6 +24,7 @@ class AnomalyType(str, Enum):
     SEO_BAJO = "seo_bajo"
     TRAFICO_FUERA_ZONA = "trafico_fuera_zona"
     DEPENDENCIA_SEM = "dependencia_sem"
+    SUB_ENTREGA_SEM = "sub_entrega_sem"
 
 
 class AnomalySeverity(str, Enum):

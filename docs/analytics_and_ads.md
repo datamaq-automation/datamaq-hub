@@ -117,95 +117,140 @@ CLARITY_API_TOKEN=your_clarity_export_api_jwt_token
 
 ---
 
-## 3. Estrategia de Campañas Google Ads (Búsqueda B2B Priorizada)
+## 3. Estrategia de Campañas Google Ads (Etapa 2 — Búsqueda B2B Priorizada)
 
-* **Presupuesto Total Diario:** **$1.500 ARS/día** (~$45.000 ARS/mes).
-* **Estrategia de Puja:** Maximizar Clics con CPC Máximo Controlado.
+* **Presupuesto Total Diario:** **$1.500 ARS/día** (~$45.000 ARS/mes, configurable en `.env` vía `GOOGLE_ADS_DAILY_BUDGET_LIMIT_ARS`).
+* **Estrategia de Puja:** Maximizar Clics con Techo de CPC Controlado a **$650 ARS**.
 * **Red:** Red de Búsqueda de Google Únicamente (*Display y Socios Desactivados*).
-* **Segmentación Geográfica:** AMBA & GBA Norte (Pilar, Garín, Tigre, Campana, San Martín, Vicente López, San Fernando, Malvinas Argentinas).
+* **Segmentación Geográfica:** AMBA & GBA Norte (Pilar, Garín, Tigre, Campana, San Martín, Vicente López, San Fernando, Malvinas Argentinas) con presencia física estricta (`PRESENCE`).
 * **Horario de Publicación:** Lunes a Viernes de 07:30 a 17:30 hs.
 
 ```
-Presupuesto Total: $1.500 ARS/día
-├── 🥇 CAMPAÑA 1 (PRIORITARIA - 75%): $1.100 ARS/día → Telemetría & Bajada de Datos OT a PC (Retrofit IoT)
-└── 🥈 CAMPAÑA 2 (SOPORTE - 25%):     $400 ARS/día   → Calidad de Energía & Cero Multas Edenor (cos φ)
+Presupuesto Total: $1.500 ARS/día (Límite Inviolable)
+├── 🥇 CAMPAÑA 1 (FOCO PRINCIPAL - 80%): $1.200 ARS/día → Calidad de Energía & Cero Multas Edenor (cos φ)
+└── 🥈 CAMPAÑA 2 (SOPORTE - 20%):         $300 ARS/día   → Telemetría & Bajada de Datos OT a PC (Retrofit IoT)
 ```
 
 ---
 
-### 🥇 CAMPAÑA 1 (PRIORITARIA): "Telemetría y Adquisición de Datos de Planta — Retrofit IoT"
+### 🥇 CAMPAÑA 1 (FOCO PRINCIPAL): "Calidad de Energia — Cero Multas Edenor cos fi"
 
-* **Presupuesto Asignado:** **$1.100 ARS/día** (Límite CPC: **$500 ARS**).
-* **URL de Destino:** `https://datamaq.com.ar/?utm_source=google_ads&utm_medium=cpc&utm_campaign=retrofit-iot#servicios`
-* **Ruta visible:** `datamaq.com.ar/datos/maquinas`
-
-#### Palabras Clave (Búsqueda Exacta y de Frase):
-```text
-[adquisicion de datos de produccion industrial]
-[bajada de datos de maquinas a pc]
-[monitoreo de inyectoras de plastico]
-[telemetria de maquinas industriales]
-[conteo de piezas produccion automatizacion]
-[medicion de tiempos de ciclo fabrica]
-[monitoreo de paradas de planta]
-[sistema andon conteo de produccion]
-[retrofit iot maquinas industriales]
-"adquisicion de datos plc a pc"
-"bajada de datos linea de produccion"
-"monitoreo de maquinas industriales pyme"
-"automatizacion de toma de datos fabrica"
-"conteo de piezas automatico para maquinas"
-"sensores para inyectoras de plastico produccion"
-```
-
-#### Títulos de Anuncio Adaptable (Máx. 30 caracteres):
-1. `Datos de Planta a su PC` (23 car.)
-2. `Telemetría para Inyectoras` (26 car.)
-3. `Conteo de Piezas en Vivo` (24 car.)
-4. `Bajada de Datos de Máquinas` (27 car.)
-5. `Adquisición de Datos OT a IT` (28 car.)
-6. `Monitoreo de Líneas de Planta` (30 car.)
-7. `Registro en Base de Datos` (26 car.)
-8. `Sin Licencias Mensuales` (23 car.)
-9. `Medición Tiempos de Ciclo` (26 car.)
-10. `DataMaq Automatización` (22 car.)
-11. `Zona Norte: Garín y Pilar` (26 car.)
-12. `Integración PLC y Sensores` (27 car.)
-13. `Base de Datos 100% Local` (25 car.)
-14. `Alertas de Parada de Planta` (27 car.)
-15. `Ingeniería Directa en Planta` (28 car.)
-
-#### Descripciones de Anuncio Adaptable (Máx. 90 caracteres):
-1. `Bajada de datos de inyectoras y líneas a PC local. Registro de ciclos y piezas en tiempo real.` (90 car.)
-2. `Conecte sus máquinas sin cambiar de PLC. Base de datos local, segura y sin nube obligatoria.` (89 car.)
-3. `Diagnóstico e instalación en planta en Zona Norte. Hardware robusto y software a medida.` (86 car.)
-4. `Automatice el reporte de producción y paradas de planta. Soporte directo por ingenieros.` (87 car.)
-
----
-
-### 🥈 CAMPAÑA 2 (SOPORTE): "Cero Multas Edenor — Factor de Potencia cos φ"
-
-* **Presupuesto Asignado:** **$400 ARS/día** (Límite CPC: **$400 ARS**).
+* **Presupuesto Asignado:** **$1.200 ARS/día** (Límite CPC: **$650 ARS**).
 * **URL de Destino:** `https://datamaq.com.ar/?utm_source=google_ads&utm_medium=cpc&utm_campaign=calidad-energia#servicios`
 * **Ruta visible:** `datamaq.com.ar/cero-multas/energia`
 
-#### Palabras Clave:
+#### Palabras Clave de Intención Técnica y Búsqueda:
 ```text
-[multa factor de potencia industrial]
+"banco de capacitores trifasico"
+"bancos de capacitores automaticos"
+"multa factor de potencia edenor"
+"correccion factor de potencia industrial"
+"analizador de redes trifasico medicion"
+"recargo reactiva edenor t3"
+"mantenimiento banco de capacitores"
+"banco de capacitores pilar"
+"banco de capacitores garin"
+"banco de capacitores"
+"bancos de capacitores industriales"
+"mantenimiento electrico industrial"
+"tableros electricos industriales"
+"medicion de factor de potencia"
+"analisis de calidad de energia"
+"compensacion de reactiva"
+"calculo de capacitores para factor de potencia"
+"como corregir el factor de potencia"
+"como funciona un banco de capacitores"
+"calculo banco de capacitores industrial"
+"solucion multa factor de potencia edenor"
+"compensacion reactiva industrial pyme"
 [multa cos fi edenor]
-[recargo factor de potencia edenor t3]
 [banco de capacitores industrial trifasico]
-"eliminar multa factor de potencia fabrica"
-"banco de capacitores pilar parque industrial"
-"banco de capacitores garin fabrica"
-"analizador de redes trifasico medicion industrial"
+[recargo factor de potencia edenor t3]
+[correccion factor de potencia]
+[multa edenor factor de potencia]
 ```
+
+#### Títulos de Anuncio Adaptable (Autoridad Técnica y Resolución):
+1. `¿Multas cos fi en Edenor?` (25 car.)
+2. `Cálculo Banco Capacitores` (24 car.)
+3. `Cómo Corregir Reactiva` (21 car.)
+4. `Diagnóstico en Planta 48hs` (26 car.)
+5. `Ingenieros en Zona Norte` (23 car.)
+6. `Medición con Powermeter` (22 car.)
+7. `Elimine Penalidad Edenor` (23 car.)
+8. `DataMaq Eficiencia Pyme` (22 car.)
+9. `Atención en Pilar y Garín` (24 car.)
+10. `Diagnóstico 100% Deducible` (26 car.)
+11. `Banco de Capacitores` (20 car.)
+12. `Factor de Potencia en 48hs` (25 car.)
+13. `Atención Directa en Planta` (26 car.)
+14. `Evite Recargos en Factura` (24 car.)
+15. `Compensación de Reactiva` (24 car.)
+
+#### Descripciones de Anuncio Adaptable:
+1. `Elimine multas por factor de potencia en Edenor. Diagnóstico deducible 100% en planta.`
+2. `Diagnóstico en planta en Zona Norte. Medición con analizador y solución en 48hs.`
+3. `Evite penalidades millonarias. Financiación en cuotas y descuento Banco Provincia.`
+4. `Instalación llave en mano de hardware Powermeter y telemetría de por vida.`
+
+#### Extensiones de Anuncio (Assets Vinculados):
+* **Sitelinks**:
+  - *Diagnóstico en Planta*: `/contact` (Medición con analizador de redes en fábrica)
+  - *Compensación cos fi*: `/#servicios` (Bancos automáticos trifásicos)
+  - *Telemetría Industrial*: `/datos/maquinas` (Bajada de datos OT a PC)
+* **Callouts**:
+  - `Atención en Planta 48hs`
+  - `Zona Norte: Pilar y Garín`
+  - `Ingenieros Especialistas`
+  - `Sin Abonos Mensuales`
 
 ---
 
-### 🚫 Palabras Clave Negativas Compartidas:
+### 🥈 CAMPAÑA 2 (SOPORTE): "Telemetria y Adquisicion de Datos — Retrofit IoT"
+
+* **Presupuesto Asignado:** **$300 ARS/día** (Límite CPC: **$650 ARS**).
+* **URL de Destino:** `https://datamaq.com.ar/?utm_source=google_ads&utm_medium=cpc&utm_campaign=retrofit-iot#servicios`
+* **Ruta visible:** `datamaq.com.ar/datos/maquinas`
+
+#### Palabras Clave:
 ```text
--gratis -curso -tutorial -pdf -arduino -raspberry -tesis -universidad -empleo -sueldo -curriculum -manual
+"mantenimiento electrico industrial"
+"programacion plc siemens"
+"servicio de programacion plc"
+"automatizacion industrial pilar"
+"automatizacion industrial garin"
+"armado de tableros electricos industriales"
+"integrador plc argentina"
+"bajada de datos linea de produccion"
+"monitoreo de inyectoras de plastico"
+"conteo de piezas produccion"
+"automatizacion industrial"
+"telemetria industrial"
+"monitoreo de maquinas"
+"sensores industriales"
+"sistema scada industrial"
+"tableros de control industrial"
+"retrofit iot maquinas industriales"
+[telemetria industrial]
+[monitoreo de maquinas industriales]
+[automatizacion industrial argentina]
+```
+
+#### Extensiones de Anuncio (Assets Vinculados):
+* **Sitelinks**:
+  - *Diagnóstico en Planta*: `/contact` (Relevamiento de líneas de planta)
+  - *Cero Multas Edenor*: `/#servicios` (Compensación de factor de potencia)
+* **Callouts**:
+  - `Base de Datos 100% Local`
+  - `Sin Licencias Mensuales`
+  - `Zona Norte: Garín y Pilar`
+  - `Soporte Técnico Directo`
+
+---
+
+### 🚫 Palabras Clave Negativas Compartidas (Blindaje Anti-Capacitación Estricto):
+```text
+-gratis -curso -cursos -capacitacion -capacitaciones -taller -facultad -estudiante -profesor -alumno -examen -tutorial -pdf -arduino -raspberry -tesis -universidad -empleo -sueldo -curriculum -manual -que es -monografia -wikipedia -pasantia -bolsa de trabajo -salario -ejemplos
 ```
 
 ---

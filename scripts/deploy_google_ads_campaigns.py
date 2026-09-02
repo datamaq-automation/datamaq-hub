@@ -11,6 +11,7 @@ from pathlib import Path
 from typing import Any
 
 import yaml
+from google.api_core import protobuf_helpers
 
 from src.adapters.gateways.google_ads_gateway import (
     GoogleAdsException,
@@ -95,6 +96,16 @@ def print_simulation_plan(
         print(f"     • Descripciones Adaptables ({len(descriptions)}):")
         for d in descriptions:
             print(f"       - {d}")
+        sitelinks = camp.get("sitelinks", [])
+        if sitelinks:
+            print(f"     • Sitelinks ({len(sitelinks)}):")
+            for sl in sitelinks:
+                print(f"       - {sl['text']} ({sl['url']})")
+        callouts = camp.get("callouts", [])
+        if callouts:
+            print(f"     • Callouts ({len(callouts)}):")
+            for co in callouts:
+                print(f"       - {co}")
         print("-" * 70)
 
 
@@ -155,6 +166,52 @@ def deploy_campaigns(
         if camp_name in existing_campaigns:
             campaign_resource = existing_campaigns[camp_name]
             print(f"   ℹ️ Campaña existente detectada: {campaign_resource}")
+            try:
+                camp_q = f"SELECT campaign.campaign_budget, campaign.target_spend.cpc_bid_ceiling_micros FROM campaign WHERE campaign.resource_name = '{campaign_resource}'"
+                for r in ga_service.search(customer_id=customer_id, query=camp_q):
+                    budget_res = r.campaign.campaign_budget
+                    target_budget_micros = int(
+                        spec.get("budget_ars", 1000.0) * 1_000_000
+                    )
+                    target_cpc_micros = int(
+                        spec.get("cpc_bid_ceiling_ars", 650.0) * 1_000_000
+                    )
+
+                    # Actualizar presupuesto
+                    b_op = client.get_type("CampaignBudgetOperation")
+                    b_update = b_op.update
+                    b_update.resource_name = budget_res
+                    b_update.amount_micros = target_budget_micros
+                    client.copy_from(
+                        b_op.update_mask,
+                        protobuf_helpers.field_mask(None, b_update._pb),
+                    )
+                    campaign_budget_service.mutate_campaign_budgets(
+                        customer_id=customer_id, operations=[b_op]
+                    )
+                    print(
+                        f"   ✅ Presupuesto sincronizado: ${spec.get('budget_ars', 0.0):,.2f} ARS/día"
+                    )
+
+                    # Actualizar techo de puja CPC
+                    c_op = client.get_type("CampaignOperation")
+                    c_update = c_op.update
+                    c_update.resource_name = campaign_resource
+                    c_update.target_spend.cpc_bid_ceiling_micros = target_cpc_micros
+                    client.copy_from(
+                        c_op.update_mask,
+                        protobuf_helpers.field_mask(None, c_update._pb),
+                    )
+                    campaign_service.mutate_campaigns(
+                        customer_id=customer_id, operations=[c_op]
+                    )
+                    print(
+                        f"   ✅ Techo CPC sincronizado: ${spec.get('cpc_bid_ceiling_ars', 0.0):,.2f} ARS"
+                    )
+            except (GoogleAdsException, ValueError, RuntimeError, OSError) as upd_err:
+                print(
+                    f"   ℹ️ Sincronización de presupuesto/puja omitida o vigente: {upd_err}"
+                )
         else:
             # Crear Presupuesto Diario
             budget_operation = client.get_type("CampaignBudgetOperation")
@@ -366,6 +423,79 @@ def deploy_campaigns(
             print("   ✅ Anuncio adaptable de búsqueda (RSA) creado y activo.")
         except (GoogleAdsException, ValueError, RuntimeError, OSError) as ad_err:
             print(f"   ℹ️ Anuncio RSA ya existente o procesado: {ad_err}")
+
+        # 7. Extensiones de Anuncio: Sitelinks
+        sitelinks = spec.get("sitelinks", [])
+        if sitelinks:
+            asset_service = client.get_service("AssetService")
+            campaign_asset_service = client.get_service("CampaignAssetService")
+            for sl in sitelinks:
+                try:
+                    a_op = client.get_type("AssetOperation")
+                    asset = a_op.create
+                    asset.name = f"Sitelink: {sl['text']} - {camp_name[:15]}"
+                    asset.sitelink_asset.link_text = sl["text"]
+                    if sl.get("description1"):
+                        asset.sitelink_asset.description1 = sl["description1"]
+                    if sl.get("description2"):
+                        asset.sitelink_asset.description2 = sl["description2"]
+                    asset.final_urls.append(sl["url"])
+                    a_resp = asset_service.mutate_assets(
+                        customer_id=customer_id, operations=[a_op]
+                    )
+                    asset_res = a_resp.results[0].resource_name
+
+                    ca_op = client.get_type("CampaignAssetOperation")
+                    ca = ca_op.create
+                    ca.campaign = campaign_resource
+                    ca.asset = asset_res
+                    ca.field_type = client.enums.AssetFieldTypeEnum.SITELINK
+                    campaign_asset_service.mutate_campaign_assets(
+                        customer_id=customer_id, operations=[ca_op]
+                    )
+                    print(f"   ✅ Sitelink vinculado: '{sl['text']}'")
+                except (
+                    GoogleAdsException,
+                    ValueError,
+                    RuntimeError,
+                    OSError,
+                ) as sl_err:
+                    print(
+                        f"   ℹ️ Sitelink '{sl['text']}' procesado o existente: {sl_err}"
+                    )
+
+        # 8. Extensiones de Anuncio: Callouts (Textos destacados)
+        callouts = spec.get("callouts", [])
+        if callouts:
+            asset_service = client.get_service("AssetService")
+            campaign_asset_service = client.get_service("CampaignAssetService")
+            for co in callouts:
+                try:
+                    a_op = client.get_type("AssetOperation")
+                    asset = a_op.create
+                    asset.name = f"Callout: {co} - {camp_name[:15]}"
+                    asset.callout_asset.callout_text = co
+                    a_resp = asset_service.mutate_assets(
+                        customer_id=customer_id, operations=[a_op]
+                    )
+                    asset_res = a_resp.results[0].resource_name
+
+                    ca_op = client.get_type("CampaignAssetOperation")
+                    ca = ca_op.create
+                    ca.campaign = campaign_resource
+                    ca.asset = asset_res
+                    ca.field_type = client.enums.AssetFieldTypeEnum.CALLOUT
+                    campaign_asset_service.mutate_campaign_assets(
+                        customer_id=customer_id, operations=[ca_op]
+                    )
+                    print(f"   ✅ Callout vinculado: '{co}'")
+                except (
+                    GoogleAdsException,
+                    ValueError,
+                    RuntimeError,
+                    OSError,
+                ) as co_err:
+                    print(f"   ℹ️ Callout '{co}' procesado o existente: {co_err}")
 
     print("\n" + "=" * 70)
     print("🎉 DESPLIEGUE EN VIVO COMPLETADO AL 100% EN GOOGLE ADS")

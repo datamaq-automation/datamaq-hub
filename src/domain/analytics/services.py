@@ -42,6 +42,11 @@ DEFAULT_NEGATIVE_PATTERNS: tuple[str, ...] = (
     "descargar",
     "login",
     "portal",
+    "capacitacion",
+    "capacitaciones",
+    "taller",
+    "facultad",
+    "estudiante",
 )
 
 # Ciudades dentro de la zona objetivo de DataMaq (GBA Norte + AMBA)
@@ -260,6 +265,24 @@ class AnomalyDetectionService:
                         descripcion="La campaña está habilitada pero no ha registrado impresiones hoy.",
                         metrica_observada="0 impresiones",
                         recomendacion="Verificar aprobación de anuncios, pujas y saldo en Google Ads.",
+                    )
+                )
+            elif (
+                camp.status == "ENABLED"
+                and 0 < camp.impressions < 3
+                and current_hour_local >= 13
+            ):
+                anomalies.append(
+                    AnomalyAlert(
+                        anomaly_type=AnomalyType.SUB_ENTREGA_SEM,
+                        severity=AnomalySeverity.WARNING,
+                        titulo=f"Sub-entrega Crítica en '{camp.name}'",
+                        descripcion=(
+                            f"La campaña lleva solo {camp.impressions} impresiones pasadas las "
+                            f"{current_hour_local}:00 hs. Posible puja insuficiente o palabras clave con bajo volumen."
+                        ),
+                        metrica_observada=f"{camp.impressions} impresiones a las {current_hour_local}:00 hs",
+                        recomendacion="Revisar concordancias en campaigns.yaml, ampliar términos o verificar Quality Score.",
                     )
                 )
 

@@ -388,3 +388,85 @@ def test_anomalies_seo_geo_and_sem_dependency() -> None:
     assert AnomalyType.DEPENDENCIA_SEM in types
     assert AnomalyType.SEO_BAJO in types
     assert AnomalyType.TRAFICO_FUERA_ZONA in types
+
+
+def test_anomaly_sub_entrega_sem() -> None:
+    """Verifica detección de sub-entrega crítica en campañas habilitadas con muy pocas impresiones."""
+    kpis = CalculatedKpis(
+        ctr_percent=0.0,
+        cpc_avg_ars=0.0,
+        cpa_ars=0.0,
+        conversion_rate_percent=0.0,
+        pacing_percent=0.0,
+        budget_limit_ars=1500.0,
+        spent_today_ars=0.0,
+        projected_daily_spend_ars=0.0,
+    )
+    campaigns = [
+        CampaignMetric(
+            campaign_id="123",
+            name="Calidad de Energia",
+            status="ENABLED",
+            impressions=2,
+            clicks=0,
+            cost_ars=0.0,
+            conversions=0.0,
+            cpc_avg_ars=0.0,
+        )
+    ]
+
+    # Antes de las 13:00 no debe alertar sub-entrega
+    anomalies_morning = AnomalyDetectionService.detect_anomalies(
+        kpis=kpis,
+        campaigns=campaigns,
+        conversions=[],
+        search_terms=[],
+        current_hour_local=11,
+    )
+    types_morning = [a.anomaly_type for a in anomalies_morning]
+    assert AnomalyType.SUB_ENTREGA_SEM not in types_morning
+
+    # A partir de las 13:00 hs debe alertar SUB_ENTREGA_SEM
+    anomalies_afternoon = AnomalyDetectionService.detect_anomalies(
+        kpis=kpis,
+        campaigns=campaigns,
+        conversions=[],
+        search_terms=[],
+        current_hour_local=14,
+    )
+    types_afternoon = [a.anomaly_type for a in anomalies_afternoon]
+    assert AnomalyType.SUB_ENTREGA_SEM in types_afternoon
+
+
+def test_negative_pattern_capacitaciones() -> None:
+    """Verifica que consultas de capacitacion y taller sean clasificadas como negativas."""
+    raw_terms = [
+        {
+            "term": "capacitacion plc siemens",
+            "impressions": 10,
+            "clicks": 1,
+            "cost_ars": 50.0,
+            "conversions": 0,
+        },
+        {
+            "term": "taller de electronica",
+            "impressions": 5,
+            "clicks": 1,
+            "cost_ars": 40.0,
+            "conversions": 0,
+        },
+        {
+            "term": "banco de capacitores trifasico",
+            "impressions": 20,
+            "clicks": 2,
+            "cost_ars": 100.0,
+            "conversions": 1,
+        },
+    ]
+    insights = SearchTermEvaluatorService.evaluate_terms(raw_terms)
+    assert len(insights) == 3
+    assert insights[0].is_negative_candidate is True
+    assert "capacitacion" in insights[0].reason
+    assert insights[1].is_negative_candidate is True
+    assert "taller" in insights[1].reason
+    assert insights[2].is_negative_candidate is False
