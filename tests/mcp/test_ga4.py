@@ -38,6 +38,9 @@ def test_ga4_missing_credentials_graceful_handling(
     sources = ga4_mcp.get_ga4_traffic_sources()
     assert sources["status"] == "missing_credentials"
 
+    wa_sources = ga4_mcp.get_ga4_whatsapp_click_sources()
+    assert wa_sources["status"] == "missing_credentials"
+
     geo = ga4_mcp.get_ga4_geo_traffic()
     assert geo["status"] == "missing_credentials"
 
@@ -92,3 +95,44 @@ def test_ga4_top_pages_segmentation(monkeypatch: pytest.MonkeyPatch) -> None:
     acad_res = ga4_mcp.get_ga4_top_pages(segment="academic")
     assert acad_res["total_rows"] == 2
     assert all(r["pagePath"].startswith("/cursos") for r in acad_res["rows"])
+
+
+def test_ga4_whatsapp_click_sources_filters_by_exact_event_name(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Debe pedirle a GA4 el evento `whatsapp_click` exacto, sin arrastrar `whatsapp_click_server`."""
+    captured: dict[str, Any] = {}
+
+    def _mock_report(
+        prop_id: str,
+        creds: str,
+        dimensions: list[str],
+        metrics: list[str],
+        days: int = 7,
+        limit: int = 10,
+        event_name_filter: str | None = None,
+    ) -> dict[str, Any]:
+        captured["dimensions"] = dimensions
+        captured["metrics"] = metrics
+        captured["event_name_filter"] = event_name_filter
+        return {
+            "status": "success",
+            "rows": [
+                {"sessionSource": "google", "sessionMedium": "cpc", "eventCount": "5"}
+            ],
+        }
+
+    mock_gateway = GA4Gateway(
+        ga4_property_id="123456789", google_application_credentials="fake_path"
+    )
+    monkeypatch.setattr(ga4_mcp, "_gateway", mock_gateway)
+    monkeypatch.setattr(
+        "src.adapters.gateways.ga4_gateway._run_ga4_report", _mock_report
+    )
+
+    result = ga4_mcp.get_ga4_whatsapp_click_sources(days=1, limit=15)
+
+    assert result["status"] == "success"
+    assert captured["event_name_filter"] == "whatsapp_click"
+    assert captured["dimensions"] == ["sessionSource", "sessionMedium"]
+    assert captured["metrics"] == ["eventCount"]

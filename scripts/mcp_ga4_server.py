@@ -14,6 +14,7 @@ from src.infrastructure.fastmcp.ga4 import (
     get_ga4_status,
     get_ga4_top_pages,
     get_ga4_traffic_sources,
+    get_ga4_whatsapp_click_sources,
 )
 
 mcp: Any = (
@@ -24,6 +25,7 @@ if mcp:
     mcp.tool()(get_ga4_status)
     mcp.tool()(get_ga4_top_pages)
     mcp.tool()(get_ga4_traffic_sources)
+    mcp.tool()(get_ga4_whatsapp_click_sources)
     mcp.tool()(get_ga4_geo_traffic)
     mcp.tool()(get_ga4_conversions)
 

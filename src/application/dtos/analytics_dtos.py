@@ -260,6 +260,14 @@ class AnalyticsDigestResponseDTO(BaseModel):
         default=None,
         description="Atribución porcentual de canales (SEO/SEM/Directo/Referral)",
     )
+    whatsapp_click_attribution: ChannelAttributionDTO | None = Field(
+        default=None,
+        description=(
+            "Atribución porcentual por canal de los eventos whatsapp_click reales "
+            "(excluye el respaldo server-side whatsapp_click_server); "
+            "total_sessions representa la cantidad total de clics, no sesiones"
+        ),
+    )
     ficha_resumen: ResumenFichaDTO | None = Field(
         default=None,
         description="Totales de la ficha de Google Business Profile (paquete local de Maps)",

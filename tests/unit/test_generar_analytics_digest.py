@@ -105,6 +105,14 @@ def test_generar_analytics_digest_execution() -> None:
         ],
     }
 
+    mock_ga4.get_whatsapp_click_sources.return_value = {
+        "status": "success",
+        "rows": [
+            {"sessionSource": "google", "sessionMedium": "cpc", "eventCount": "3"},
+            {"sessionSource": "(direct)", "sessionMedium": "(none)", "eventCount": "1"},
+        ],
+    }
+
     mock_clarity = MagicMock()
     mock_clarity.get_intent_recording_urls.return_value = {
         "whatsapp_click": "https://clarity.microsoft.com/recordings?filter=wa",
@@ -138,9 +146,15 @@ def test_generar_analytics_digest_execution() -> None:
     assert digest.geo_traffic[0].is_target_zone is True
     assert digest.geo_traffic[1].is_target_zone is False
     assert "whatsapp_click" in digest.intent_recording_urls
+    assert digest.whatsapp_click_attribution is not None
+    assert digest.whatsapp_click_attribution.paid_percent == 75.0
+    assert digest.whatsapp_click_attribution.direct_percent == 25.0
+    assert digest.whatsapp_click_attribution.total_sessions == 4
+    mock_ga4.get_whatsapp_click_sources.assert_called_once_with(days=1, limit=15)
     assert "DataMaq Analytics Digest" in digest.resumen_markdown
     assert "Gasto Hoy" in digest.resumen_markdown
     assert "Canales de Tráfico" in digest.resumen_markdown
+    assert "Clics WhatsApp por Fuente" in digest.resumen_markdown
     assert "Top Ciudades" in digest.resumen_markdown
 
 
@@ -161,6 +175,7 @@ def _puertos_vacios() -> tuple[MagicMock, MagicMock, MagicMock]:
     mock_ga4.get_conversions.return_value = {"status": "success", "rows": []}
     mock_ga4.get_top_pages.return_value = {"status": "success", "rows": []}
     mock_ga4.get_traffic_sources.return_value = {"status": "success", "rows": []}
+    mock_ga4.get_whatsapp_click_sources.return_value = {"status": "success", "rows": []}
     mock_ga4.get_geo_traffic.return_value = {"status": "success", "rows": []}
 
     mock_clarity = MagicMock()
@@ -184,6 +199,8 @@ def test_digest_sin_puerto_gbp_sigue_funcionando() -> None:
     assert dto.ficha_resenas == []
     assert dto.ficha_terminos == []
     assert "Ficha de Google" not in dto.resumen_markdown
+    assert dto.whatsapp_click_attribution is None
+    assert "Clics WhatsApp por Fuente" not in dto.resumen_markdown
 
 
 def test_digest_incorpora_la_ficha_de_google() -> None:

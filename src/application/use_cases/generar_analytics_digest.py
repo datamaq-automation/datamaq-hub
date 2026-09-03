@@ -181,6 +181,25 @@ class GenerarAnalyticsDigestUseCase:
             traffic_source_entities
         )
 
+        # 3d-bis. Atribución de canales solo para clics reales en WhatsApp (excluye
+        # el duplicado server-side whatsapp_click_server, ver ga4_gateway.py).
+        ga4_wa_sources = self._ga4_port.get_whatsapp_click_sources(days=days, limit=15)
+        whatsapp_source_entities: list[TrafficSourceInsight] = []
+        for row in ga4_wa_sources.get("rows", []):
+            whatsapp_source_entities.append(
+                TrafficSourceInsight(
+                    source=str(row.get("sessionSource", "")),
+                    medium=str(row.get("sessionMedium", "")),
+                    campaign="",
+                    sessions=int(row.get("eventCount", 0)),
+                    active_users=0,
+                    conversions=0.0,
+                )
+            )
+        whatsapp_attribution = TrafficAttributionService.calculate_attribution(
+            whatsapp_source_entities
+        )
+
         # 3e. Análisis geográfico
         _, _, geo_out_pct = GeoAnalysisService.classify_geo(geo_entities)
 
@@ -243,6 +262,7 @@ class GenerarAnalyticsDigestUseCase:
             anomalies=[*anomalies_entities, *ficha_anomalies],
             intent_urls=clarity_urls,
             channel_attribution=channel_attribution,
+            whatsapp_attribution=whatsapp_attribution,
             geo_insights=geo_entities,
             geo_out_of_zone_percent=geo_out_pct,
             ficha_resumen=ficha_resumen,
@@ -347,6 +367,18 @@ class GenerarAnalyticsDigestUseCase:
                 referral_percent=channel_attribution.referral_percent,
                 other_percent=channel_attribution.other_percent,
                 total_sessions=channel_attribution.total_sessions,
+            ),
+            whatsapp_click_attribution=(
+                ChannelAttributionDTO(
+                    organic_percent=whatsapp_attribution.organic_percent,
+                    paid_percent=whatsapp_attribution.paid_percent,
+                    direct_percent=whatsapp_attribution.direct_percent,
+                    referral_percent=whatsapp_attribution.referral_percent,
+                    other_percent=whatsapp_attribution.other_percent,
+                    total_sessions=whatsapp_attribution.total_sessions,
+                )
+                if whatsapp_attribution.total_sessions > 0
+                else None
             ),
             ficha_resumen=(
                 ResumenFichaDTO(
@@ -469,6 +501,7 @@ class GenerarAnalyticsDigestUseCase:
         anomalies: list[Any],
         intent_urls: dict[str, str],
         channel_attribution: Any | None = None,
+        whatsapp_attribution: Any | None = None,
         geo_insights: list[GeoTrafficInsight] | None = None,
         geo_out_of_zone_percent: float = 0.0,
         ficha_resumen: ResumenFicha | None = None,
@@ -501,6 +534,18 @@ class GenerarAnalyticsDigestUseCase:
                 f"| 🌐 Referral: {channel_attribution.referral_percent:.1f}%"
             )
             lines.append(f"  Total sesiones: {channel_attribution.total_sessions}")
+
+        # Sección clics WhatsApp por fuente (excluye el duplicado server-side)
+        if whatsapp_attribution is not None and whatsapp_attribution.total_sessions > 0:
+            lines.append("")
+            lines.append("📲 *Clics WhatsApp por Fuente:*")
+            lines.append(
+                f"  🔍 SEO: {whatsapp_attribution.organic_percent:.1f}% "
+                f"| 💰 SEM: {whatsapp_attribution.paid_percent:.1f}% "
+                f"| 🔗 Directo: {whatsapp_attribution.direct_percent:.1f}% "
+                f"| 🌐 Referral: {whatsapp_attribution.referral_percent:.1f}%"
+            )
+            lines.append(f"  Total clics: {whatsapp_attribution.total_sessions}")
 
         # Sección GEO
         if geo_insights:

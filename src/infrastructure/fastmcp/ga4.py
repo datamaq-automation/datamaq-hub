@@ -35,6 +35,11 @@ def get_ga4_traffic_sources(days: int = 7, limit: int = 10) -> dict[str, Any]:
     return _gateway.get_traffic_sources(days=days, limit=limit)
 
 
+def get_ga4_whatsapp_click_sources(days: int = 1, limit: int = 15) -> dict[str, Any]:
+    """Desglosa los clics reales de WhatsApp por fuente/medio (excluye el respaldo server-side)."""
+    return _gateway.get_whatsapp_click_sources(days=days, limit=limit)
+
+
 def get_ga4_geo_traffic(days: int = 7, limit: int = 15) -> dict[str, Any]:
     """Obtiene la distribución geográfica del tráfico por ciudad y región."""
     return _gateway.get_geo_traffic(days=days, limit=limit)

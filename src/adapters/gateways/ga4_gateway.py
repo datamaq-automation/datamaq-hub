@@ -20,6 +20,7 @@ def _run_ga4_report(
     metrics: list[str],
     days: int = 7,
     limit: int = 10,
+    event_name_filter: str | None = None,
 ) -> dict[str, Any]:
     """Ejecuta un reporte de GA4 con dimensiones y métricas especificadas."""
     if (
@@ -38,6 +39,8 @@ def _run_ga4_report(
         from google.analytics.data_v1beta.types import (  # type: ignore
             DateRange,
             Dimension,
+            Filter,
+            FilterExpression,
             Metric,
             RunReportRequest,
         )
@@ -45,11 +48,23 @@ def _run_ga4_report(
         client = BetaAnalyticsDataClient.from_service_account_file(
             google_application_credentials
         )
+        dimension_filter = None
+        if event_name_filter:
+            dimension_filter = FilterExpression(
+                filter=Filter(
+                    field_name="eventName",
+                    string_filter=Filter.StringFilter(
+                        value=event_name_filter,
+                        match_type=Filter.StringFilter.MatchType.EXACT,
+                    ),
+                )
+            )
         request = RunReportRequest(
             property=f"properties/{ga4_property_id}",
             dimensions=[Dimension(name=d) for d in dimensions],
             metrics=[Metric(name=m) for m in metrics],
             date_ranges=[DateRange(start_date=f"{days}daysAgo", end_date="today")],
+            dimension_filter=dimension_filter,
             limit=limit,
         )
         response = client.run_report(request)
@@ -176,6 +191,34 @@ class GA4Gateway:
             metrics=["sessions", "activeUsers"],
             days=days,
             limit=limit,
+        )
+        if result.get("status") == "success":
+            self._cache.set(key, result)
+        return result
+
+    def get_whatsapp_click_sources(
+        self, days: int = 1, limit: int = 15
+    ) -> dict[str, Any]:
+        """Desglosa los eventos `whatsapp_click` reales (client-side) por fuente/medio.
+
+        Filtra explícitamente por el nombre de evento exacto `whatsapp_click`, lo que
+        excluye el evento `whatsapp_click_server` que el backend de www-datamaq envía
+        como respaldo vía Measurement Protocol (mismo `client_id` fijo para todos los
+        clics, sin sesión real) — de lo contrario ese duplicado infla el bucket
+        "directo" en cualquier desglose por fuente.
+        """
+        key = f"ga4:whatsapp_click_sources:days_{days}:limit_{limit}"
+        cached = self._cache.get(key)
+        if cached is not None:
+            return cached
+        result = _run_ga4_report(
+            self.ga4_property_id,
+            self.google_application_credentials,
+            dimensions=["sessionSource", "sessionMedium"],
+            metrics=["eventCount"],
+            days=days,
+            limit=limit,
+            event_name_filter="whatsapp_click",
         )
         if result.get("status") == "success":
             self._cache.set(key, result)
