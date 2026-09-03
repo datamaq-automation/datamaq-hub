@@ -94,7 +94,7 @@ https://console.cloud.google.com/apis/api/businessprofileperformance.googleapis.
 
 Estrictamente secuencial. Los pasos 1 a 4 son trámites y esperas.
 
-- [ ] **1. Crear y verificar la ficha** siguiendo §11 del plan de Fase 4 (`www-datamaq/docs/fase4_google_business_profile.md`): NAP de §3, service-area business con dirección oculta, las 10 localidades de §4.3, categoría primaria *Servicio de ingeniería eléctrica*.
+- [ ] **1. Crear y verificar la ficha.** El §11 del plan de Fase 4 (`www-datamaq/docs/fase4_google_business_profile.md`) citado originalmente acá **no existe** en el repo (verificado 2026-09-02: ni en el working tree, ni en el historial de git, ni en las otras copias de la máquina). Procedimiento reconstruido y detallado en [`gbp_creacion_verificacion.md`](gbp_creacion_verificacion.md): NAP desde `brand.yaml`, service-area business con dirección oculta, 10 localidades candidatas desde `geografia.yaml` (a validar), categoría primaria *Servicio de ingeniería eléctrica*.
 - [ ] **2. Esperar 60 días** de ficha verificada y activa. Prerrequisito duro de Google.
 - [ ] **3. Habilitar las 4 APIs** en el proyecto `datamaq-505320`:
   `mybusinessaccountmanagement` · `mybusinessbusinessinformation` · `businessprofileperformance` · `mybusiness` (v4, para reseñas y publicaciones)
@@ -174,7 +174,8 @@ Arreglarlo es un cambio aparte que toca los cuatro entrypoints. Verificar antes 
 | Recurso | Dónde |
 |---|---|
 | Spec técnica del vertical | [`specs/gbp_mcp.md`](../specs/gbp_mcp.md) |
-| Plan de negocio de la Fase 4 | `www-datamaq/docs/fase4_google_business_profile.md` |
+| Procedimiento de creación y verificación de la ficha | [`gbp_creacion_verificacion.md`](gbp_creacion_verificacion.md) |
+| Plan de negocio de la Fase 4 | `www-datamaq/docs/fase4_google_business_profile.md` — **no existe en el repo** (verificado 2026-09-02), referencia histórica rota |
 | Analítica: las otras tres fuentes | [`analytics_and_ads.md`](analytics_and_ads.md) |
 | Sincronización de credenciales local ↔ VPS | [`credenciales_entornos.md`](credenciales_entornos.md) |
 | Commit del vertical | `e5c9790` |
