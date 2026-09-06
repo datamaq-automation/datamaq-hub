@@ -44,6 +44,9 @@ El motor incorpora de forma nativa la factoría `obtener_perfil_agustin_bustos()
 - **Zonas Objetivo:** Añelo, Neuquén, Río Negro, Rincón de los Sauces, Plaza Huincul, Cutral Co, Catriel, Allen, Cipolletti.
 - **Modalidades Admitidas:** Rotacional de yacimiento (diagramas 14x14, 7x7), presencial, híbrido o remoto.
 
+> ⚙️ **Configuración Externalizada (SSOT):**  
+> Para evitar datos hardcodeados y facilitar el calibrado continuo de palabras clave, el perfil se encuentra externalizado en [`data/perfiles/agustin_bustos.yaml`](../data/perfiles/agustin_bustos.yaml) y se carga mediante el adaptador [`YamlPerfilGateway`](../src/adapters/gateways/empleo/yaml_perfil_gateway.py), implementando el puerto `PerfilProfesionalRepositoryPort`.
+
 ---
 
 ## 4. Guía de Uso (100% Manual / Bajo Demanda)

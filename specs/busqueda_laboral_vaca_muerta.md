@@ -42,6 +42,7 @@ De acuerdo con los estudios de mercado laboral digital basados en la Clasificaci
   - `PortalEmpleoPort`: Protocolo para consultar ofertas en fuentes externas.
   - `OfertasCachePort`: Protocolo para persistencia temporal con TTL.
   - `OportunidadesRepositoryPort`: Protocolo para persistencia relacional y auditoría del ciclo de vida de postulaciones e interacciones (`guardar`, `obtener_por_id`, `listar`, `actualizar_estado`, `eliminar`, `registrar_interaccion`, `listar_interacciones`).
+  - `PerfilProfesionalRepositoryPort`: Protocolo para cargar perfiles profesionales desde almacenamiento persistente o configuración YAML (`obtener_perfil`).
 
 - **Tracking y CRM de Postulaciones (`entities.py` y `value_objects.py`):**
   - `OportunidadLaboral`: Entidad inmutable que representa una oportunidad en el pipeline de selección. Campos: `id`, `titulo`, `empresa`, `fuente`, `url`, `ubicacion`, `modalidad`, `score_afinidad`, `nivel_afinidad`, `requisitos`, `salario_estimado`, `estado`, `notas`, `fecha_publicacion`, `fecha_deteccion`, `fecha_postulacion`, `fecha_actualizacion`.
@@ -50,7 +51,7 @@ De acuerdo con los estudios de mercado laboral digital basados en la Clasificaci
   - `TipoInteraccion`: Enum con hitos de contacto: `POSTULACION`, `CONTACTO_LINKEDIN`, `ENTREVISTA_RRHH`, `ENTREVISTA_TECNICA`, `TEST_TECNICO`, `FEEDBACK`, `SEGUIMIENTO`, `OTRO`.
 
 - **Excepciones (`exceptions.py`):**
-  - `EmpleoDomainException`, `PortalEmpleoError`, `PerfilInvalidoError`, `OfertaNoEncontradaError`, `OportunidadNoEncontradaError`.
+  - `EmpleoDomainException`, `PortalEmpleoError`, `PerfilInvalidoError`, `OfertaNoEncontradaError`, `OportunidadNoEncontradaError`, `PerfilNoEncontradoError`.
 
 ---
 
@@ -84,6 +85,7 @@ De acuerdo con los estudios de mercado laboral digital basados en la Clasificaci
   - `VistaTalentGateway`: Conexión a la API y portal de Vista Energy.
   - `MemoryOfertasCacheGateway`: Caché en memoria con TTL para evitar rate limiting o bloqueos por consultas repetitivas.
   - `SqlOportunidadesGateway`: Implementación de `OportunidadesRepositoryPort` mediante SQLAlchemy con soporte dual para SQLite (local) y MySQL (VPS).
+  - `YamlPerfilGateway`: Implementación de `PerfilProfesionalRepositoryPort` que carga y parsea archivos YAML desde `data/perfiles/` con caché en memoria y validación tipada estricta.
 - **Controlador (`controllers/empleo_controller.py`):** Controlador puro y agnóstico de transporte con métodos para búsqueda, listado, creación, actualización de estado y registro de interacciones.
 - **Inyección de Dependencias (`controllers/dependencies.py`):** Factorías `@lru_cache` `get_empleo_controller()` y `get_oportunidades_repository()` proveyendo el repositorio configurado.
 - **Presentador (`presenters/error_presenter.py`):** Mapeo estandarizado de `EmpleoDomainException` a códigos HTTP y JSON unificados.
