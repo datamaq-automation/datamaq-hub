@@ -23,6 +23,10 @@ docs/
 │   ├── analytics_and_ads.md                   # SSOT unificado: Google Ads (Basic Access Aprobado), GA4, Clarity, Watchdog y Atribución
 │   └── gbp_ficha_google.md                    # Handoff: vertical de Google Business Profile (desplegado, pendiente de habilitación)
 │
+├── 💼 Búsqueda Laboral & Talento (Vaca Muerta)
+│   ├── busqueda_laboral_vaca_muerta.md        # Manual operativo, CRM relacional y diagnóstico estratégico
+│   └── estrategia_linkedin_vaca_muerta.md     # Posicionamiento en LinkedIn, perfil híbrido y prospección O&G
+│
 └── 🔐 Operaciones & Despliegue
     ├── credenciales_entornos.md               # Runbook: sincronización de .env local ↔ VPS, rotación de tokens OAuth
     └── vps_replica_runbook.md                 # Runbook: réplica de datos VPS (SSOT) ➔ local
@@ -43,7 +47,8 @@ docs/
 | **[`oportunidades_de_mejora.md`](oportunidades_de_mejora.md)** | Hoja de ruta estratégica y oportunidades de alto impacto en automatización, leads y FastMCP. | **Vigente** |
 | **[`credenciales_entornos.md`](credenciales_entornos.md)** | Runbook operativo: qué variables sincronizar entre local y VPS (y cuál **no**), auditoría de drift sin exponer secretos, y rotación del `GOOGLE_ADS_REFRESH_TOKEN` y la credencial GA4. | **SSOT Activo** |
 | **[`vps_replica_runbook.md`](vps_replica_runbook.md)** | Runbook de sincronización unidireccional de datos persistentes desde el VPS (SSOT) hacia la réplica local. | **SSOT Activo** |
-| **[`busqueda_laboral_vaca_muerta.md`](busqueda_laboral_vaca_muerta.md)** | Manual operativo y diagnóstico estratégico del motor de búsqueda laboral en Vaca Muerta (YPF, Tecpetrol, PAE, Vista). | **SSOT Activo** |
+| **[`busqueda_laboral_vaca_muerta.md`](busqueda_laboral_vaca_muerta.md)** | Manual operativo, CRM relacional y diagnóstico estratégico del motor de búsqueda laboral en Vaca Muerta (YPF, Tecpetrol, PAE, Vista). | **SSOT Activo** |
+| **[`estrategia_linkedin_vaca_muerta.md`](estrategia_linkedin_vaca_muerta.md)** | Estrategia de posicionamiento en LinkedIn, reenmarcado semántico de perfil híbrido (MT 13.2kV + Python/APM), 20 skills clave y consultoras boutique de Neuquén. | **SSOT Activo** |
 
 ---
 

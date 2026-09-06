@@ -41,9 +41,16 @@ De acuerdo con los estudios de mercado laboral digital basados en la Clasificaci
 - **Puertos (`ports.py`):**
   - `PortalEmpleoPort`: Protocolo para consultar ofertas en fuentes externas.
   - `OfertasCachePort`: Protocolo para persistencia temporal con TTL.
+  - `OportunidadesRepositoryPort`: Protocolo para persistencia relacional y auditoría del ciclo de vida de postulaciones e interacciones (`guardar`, `obtener_por_id`, `listar`, `actualizar_estado`, `eliminar`, `registrar_interaccion`, `listar_interacciones`).
+
+- **Tracking y CRM de Postulaciones (`entities.py` y `value_objects.py`):**
+  - `OportunidadLaboral`: Entidad inmutable que representa una oportunidad en el pipeline de selección. Campos: `id`, `titulo`, `empresa`, `fuente`, `url`, `ubicacion`, `modalidad`, `score_afinidad`, `nivel_afinidad`, `requisitos`, `salario_estimado`, `estado`, `notas`, `fecha_publicacion`, `fecha_deteccion`, `fecha_postulacion`, `fecha_actualizacion`.
+  - `InteraccionPostulacion`: Registro de auditoría para cada punto de contacto (`id`, `oportunidad_id`, `tipo`, `fecha`, `contacto`, `canal`, `notas`, `proxima_accion`, `fecha_proxima_accion`).
+  - `EstadoOportunidad`: Enum con estados: `DETECTADA`, `POSTULADA`, `EN_PROCESO`, `ENTREVISTA`, `DESCARTADA`, `FINALIZADA`.
+  - `TipoInteraccion`: Enum con hitos de contacto: `POSTULACION`, `CONTACTO_LINKEDIN`, `ENTREVISTA_RRHH`, `ENTREVISTA_TECNICA`, `TEST_TECNICO`, `FEEDBACK`, `SEGUIMIENTO`, `OTRO`.
 
 - **Excepciones (`exceptions.py`):**
-  - `EmpleoDomainException`, `PortalEmpleoError`, `PerfilInvalidoError`, `OfertaNoEncontradaError`.
+  - `EmpleoDomainException`, `PortalEmpleoError`, `PerfilInvalidoError`, `OfertaNoEncontradaError`, `OportunidadNoEncontradaError`.
 
 ---
 
@@ -53,9 +60,18 @@ De acuerdo con los estudios de mercado laboral digital basados en la Clasificaci
   - `BuscarOfertasQueryDTO`: Parámetros de consulta (palabras clave, ubicación, solo_vaca_muerta, min_score_afinidad, perfil opcional).
   - `PerfilProfesionalDTO`: Representación serializable del perfil profesional.
   - `OfertaLaboralDTO` y `ResultadoBusquedaDTO`.
+  - `OportunidadLaboralDTO`, `InteraccionPostulacionDTO`, `CrearOportunidadDTO`, `ActualizarEstadoOportunidadDTO`, `RegistrarInteraccionDTO`, `ListarOportunidadesFilterDTO`.
 - **Mappers (`mappers/empleo_mapper.py`):** Mapeo bidireccional entre dominio y DTOs Pydantic v2.
-- **Casos de Uso (`use_cases/empleo/buscar_ofertas_vaca_muerta_use_case.py`):**
+- **Casos de Uso (`use_cases/empleo/`):**
   - `BuscarOfertasVacaMuertaUseCase`: Orquesta secuencial/concurrentemente los portales inyectados con tolerancia a fallos individual, aplica filtro de cuenca, scoring saturado según el perfil (por defecto el perfil de Agustín Bustos) y ordena descendentemente por score.
+  - `gestionar_oportunidades_use_cases.py`: Casos de uso de gestión del pipeline relacional:
+    - `GuardarOportunidadUseCase`: Persiste o actualiza oportunidades en base de datos.
+    - `ListarOportunidadesUseCase`: Consulta oportunidades filtrando por estado o empresa.
+    - `ObtenerOportunidadUseCase`: Recupera una oportunidad por ID con sus notas.
+    - `ActualizarEstadoOportunidadUseCase`: Transición de estado (`POSTULADA`, `ENTREVISTA`, etc.).
+    - `EliminarOportunidadUseCase`: Eliminación física de registros.
+    - `RegistrarInteraccionUseCase`: Agrega eventos de auditoría (InMail, llamado, entrevista).
+    - `ListarInteraccionesUseCase`: Historial cronológico de interacciones de una vacante.
 
 ---
 
@@ -67,19 +83,27 @@ De acuerdo con los estudios de mercado laboral digital basados en la Clasificaci
   - `PaeTalentGateway`: Conexión al portal de Pan American Energy (PAE).
   - `VistaTalentGateway`: Conexión a la API y portal de Vista Energy.
   - `MemoryOfertasCacheGateway`: Caché en memoria con TTL para evitar rate limiting o bloqueos por consultas repetitivas.
-- **Controlador (`controllers/empleo_controller.py`):** Controlador puro y agnóstico de transporte.
-- **Inyección de Dependencias (`controllers/dependencies.py`):** Factoría `@lru_cache` `get_empleo_controller()` inyectando los 4 gateways.
+  - `SqlOportunidadesGateway`: Implementación de `OportunidadesRepositoryPort` mediante SQLAlchemy con soporte dual para SQLite (local) y MySQL (VPS).
+- **Controlador (`controllers/empleo_controller.py`):** Controlador puro y agnóstico de transporte con métodos para búsqueda, listado, creación, actualización de estado y registro de interacciones.
+- **Inyección de Dependencias (`controllers/dependencies.py`):** Factorías `@lru_cache` `get_empleo_controller()` y `get_oportunidades_repository()` proveyendo el repositorio configurado.
 - **Presentador (`presenters/error_presenter.py`):** Mapeo estandarizado de `EmpleoDomainException` a códigos HTTP y JSON unificados.
 
 ---
 
 ## 5. Infraestructura y Modos de Consumo (`src/infrastructure/` y `scripts/`)
 
+- **Modelos SQLAlchemy (`infrastructure/sqlalchemy/models/empleo_models.py`):**
+  - `OportunidadLaboralModel` e `InteraccionPostulacionModel` mapeando tablas `oportunidades_laborales` e `interacciones_laborales`.
 - **FastAPI (`routes/empleo_routes.py`):**
   - `GET /api/v1/empleo/vaca-muerta`: Consulta rápida por query params.
   - `POST /api/v1/empleo/vaca-muerta`: Consulta avanzada con perfil ad-hoc en JSON.
-- **CLI Manual (`scripts/buscar_empleo_vaca_muerta.py`):**
-  - Script ejecutable directo por consola para búsquedas bajo demanda:
-    ```bash
-    python scripts/buscar_empleo_vaca_muerta.py -k confiabilidad telemetria vfd -m 40
-    ```
+  - `GET /api/v1/empleo/oportunidades`: Listado filtrable de oportunidades registradas.
+  - `POST /api/v1/empleo/oportunidades`: Registro de nueva oportunidad.
+  - `PATCH /api/v1/empleo/oportunidades/{id}/estado`: Cambio de estado en pipeline.
+  - `POST /api/v1/empleo/oportunidades/{id}/interacciones`: Registro de interacción.
+- **Herramientas de Terminal y Automatización:**
+  - `scripts/buscar_empleo_vaca_muerta.py`: Búsqueda interactiva CLI bajo demanda con opción de persistencia automática en base de datos (`--guardar`).
+  - `scripts/gestionar_empleo_db.py`: CLI de administración tipo CRM (`listar`, `ver`, `actualizar`, `interactuar`, `stats`).
+  - `scripts/procesar_mails_empleo.py`: Ingesta desde alertas de correo electrónico en casillas IMAP.
+  - `scripts/run_mail_job_watchdog.sh`: Script watchdog para ingesta periódica controlada.
+  - `scripts/sync_busqueda_laboral_vps.sh`: Sincronización bidireccional (`pull`/`push`) entre VPS MySQL y SQLite local.

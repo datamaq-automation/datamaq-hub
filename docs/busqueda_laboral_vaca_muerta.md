@@ -84,7 +84,56 @@ El servidor expone rutas bajo `/api/v1/empleo`:
 
 ---
 
-## 5. Mantenimiento y Verificación
+## 5. Estrategia de Posicionamiento y Prospección
+
+Para potenciar la captación y superar los filtros ATS y el sesgo de selección en perfiles técnicos híbridos, consultar la guía estratégica maestra:
+* **[`estrategia_linkedin_vaca_muerta.md`](estrategia_linkedin_vaca_muerta.md)**: Reenmarcado semántico (*Semantic Reframing* de Python/IoT al servicio del Uptime/APM de planta), configuración de ubicación en cuenca neuquina, extracto optimizado, matriz de 20 aptitudes y mapeo de consultoras boutique (Patagonia Resources, Vincular, SI-RH, SHR, Petrol Human) con templates de prospección directa InMail a Superintendentes y Jefes de Planta.
+
+---
+
+## 6. Base de Datos Relacional y CRM de Seguimiento
+
+El sistema incluye persistencia relacional híbrida (MySQL en VPS como SSOT y réplica local SQLite en `data/busqueda_laboral.db`) para gestionar el pipeline de postulaciones:
+
+- **Tabla `oportunidades_laborales`:** Almacena título, empresa, fuente, URL, ubicación, modalidad, score de afinidad, estado del ciclo de vida (`DETECTADA`, `POSTULADA`, `EN_PROCESO`, `ENTREVISTA`, `DESCARTADA`, `FINALIZADA`), notas y fechas de auditoría.
+- **Tabla `interacciones_laborales`:** Registra cada contacto (`POSTULACION`, `CONTACTO_LINKEDIN`, `ENTREVISTA_RRHH`, `ENTREVISTA_TECNICA`, `FEEDBACK`), interlocutor, notas y canal utilizado.
+
+### Herramientas de Gestión y Sincronización
+
+1. **Gestión de Oportunidades por CLI:**
+   ```bash
+   # Listar oportunidades registradas
+   python scripts/gestionar_empleo_db.py listar --estado DETECTADA
+   
+   # Ver detalle de una oportunidad
+   python scripts/gestionar_empleo_db.py ver 1
+   
+   # Actualizar estado de postulación
+   python scripts/gestionar_empleo_db.py actualizar 1 --estado POSTULADA --notas "Postulado via SuccessFactors"
+   
+   # Registrar interacción (ej. contacto por LinkedIn)
+   python scripts/gestionar_empleo_db.py interactuar 1 --tipo CONTACTO_LINKEDIN --contacto "Hiring Manager" --notas "Enviado InMail"
+   
+   # Ver métricas del pipeline
+   python scripts/gestionar_empleo_db.py stats
+   ```
+
+2. **Ingesta desde Alertas por Correo:**
+   - [`scripts/procesar_mails_empleo.py`](../scripts/procesar_mails_empleo.py): Ingesta automática de oportunidades desde correos de alertas recibidos en casillas IMAP.
+   - [`scripts/run_mail_job_watchdog.sh`](../scripts/run_mail_job_watchdog.sh): Watchdog de ejecución controlada para ingesta periódica sin loops desatendidos.
+
+3. **Sincronización VPS ↔ Local:**
+   ```bash
+   # Sincronizar cambios desde el VPS hacia SQLite local
+   bash scripts/sync_busqueda_laboral_vps.sh pull
+   
+   # Enviar actualizaciones locales al MySQL del VPS
+   bash scripts/sync_busqueda_laboral_vps.sh push
+   ```
+
+---
+
+## 7. Mantenimiento y Verificación
 
 - La suite de pre-push verifica el bounded context de empleo:
   ```bash
