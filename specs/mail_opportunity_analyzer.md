@@ -217,7 +217,10 @@ __init__(mail_reader: MailReaderPort,
 - POST `https://api.telegram.org/bot{token}/sendMessage` con `parse_mode="Markdown"`. Errores de red → log + `False`.
 - Badge prioridad: `ALTA`→🟢, `MEDIA`→🟡, `BAJA`→⚪.
 
-### 5.2 Controlador — `src/adapters/controllers/mail_controller.py` (amplíar)
+### 5.2 Controlador — `src/adapters/controllers/mail_analysis_controller.py`
+> Implementado como controlador propio en lugar de ampliar `MailController`: el
+> análisis tiene otro grafo de dependencias (notificador, caché, contactos, tareas)
+> y así ambos controladores quedan totales, sin dependencias opcionales.
 
 - `scan_and_notify_important_emails(request: ScanMailRequestDTO) -> ScanMailResponseDTO`.
 - `analyze_single_email(uid: str, cuenta: str, carpeta: str = "INBOX") -> AnalisisEmailDTO`.

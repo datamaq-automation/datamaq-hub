@@ -11,7 +11,12 @@ import urllib.request
 from src.domain.common.ports import LoggerPort, NullLogger
 from src.domain.mail.entities import AnalisisEmail, EmailDetail
 from src.domain.mail.ports import MailNotifierPort
+from src.domain.mail.services import MailDecoderService, _partes_remitente
 from src.domain.mail.value_objects import NivelPrioridad
+
+# Caracteres del cuerpo real que se incluyen en la alerta. El resumen ejecutivo es
+# una plantilla determinística: sin este bloque el mensaje nunca dice qué pide el correo.
+_CUERPO_MAX_CHARS = 400
 
 _BADGES: dict[NivelPrioridad, str] = {
     NivelPrioridad.ALTA: "🟢",
@@ -83,14 +88,26 @@ class TelegramMailNotifierGateway(MailNotifierPort):
         contacto_linea = f"{contacto} ({cargo})" if cargo else contacto
         tipo = ent.tipo_proyecto or "No especificado"
 
+        # El nombre visible ya va en la línea de Contacto: acá interesa la dirección.
+        _display, direccion = _partes_remitente(email.remitente)
+        direccion = direccion or email.remitente
+
+        cuerpo = MailDecoderService.build_snippet(
+            raw_body=email.cuerpo_texto.encode("utf-8", errors="replace"),
+            content_type="text/plain",
+            max_chars=_CUERPO_MAX_CHARS,
+        )
+        bloque_cuerpo = f"📄 *Cuerpo:*\n{cuerpo}\n\n" if cuerpo else ""
+
         return (
             "🚨 *NUEVA OPORTUNIDAD B2B ENTRANTE — DataMaq*\n\n"
             f"🏢 *Empresa:* {empresa}\n"
             f"👤 *Contacto:* {contacto_linea}\n"
-            f"✉️ *Email:* {email.remitente}\n"
+            f"✉️ *Email:* {direccion}\n"
             f"🎯 *Asunto:* {email.asunto}\n"
             f"📊 *Prioridad:* {badge} {analisis.prioridad.value} (Score: {analisis.score}/100)\n"
             f"🏷️ *Tipo:* {tipo}\n\n"
+            f"{bloque_cuerpo}"
             f"💡 *Resumen:*\n{analisis.resumen_ejecutivo}\n\n"
             f"⚡ *Acción Recomendada:*\n{analisis.accion_sugerida}\n\n"
             f"📅 *Fecha:* {email.fecha}"

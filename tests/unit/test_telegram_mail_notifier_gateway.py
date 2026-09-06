@@ -119,3 +119,46 @@ def test_badge_segun_prioridad(prioridad: NivelPrioridad, esperado: str) -> None
     )
     texto = TelegramMailNotifierGateway._construir_mensaje(analisis, _email())
     assert esperado in texto
+
+
+def test_alerta_incluye_el_cuerpo_real_del_correo():
+    """El resumen ejecutivo es una plantilla: sin el cuerpo la alerta no dice qué piden."""
+    from src.adapters.gateways.telegram_mail_notifier_gateway import (
+        TelegramMailNotifierGateway,
+    )
+    from src.domain.mail.entities import EmailDetail
+    from src.domain.mail.services import EmailOpportunityAnalyzerService
+
+    correo = EmailDetail(
+        uid="9",
+        remitente="Gurzale, Sol <sol.gurzale@jtekt.onmicrosoft.com>",
+        asunto="RE: Proyecto automatización",
+        cuerpo_texto=(
+            "Necesitamos registrar tiempos de ciclo de las inyectoras y llevarlos a un SCADA.\n\n"
+            "Evaluando proveedores para la bajada de datos."
+        ),
+    )
+    analisis = EmailOpportunityAnalyzerService().analizar(correo)
+    mensaje = TelegramMailNotifierGateway._construir_mensaje(analisis, correo)
+
+    assert "📄 *Cuerpo:*" in mensaje
+    assert "tiempos de ciclo de las inyectoras" in mensaje
+    # La dirección se muestra limpia; el nombre visible va en la línea de contacto.
+    assert "✉️ *Email:* sol.gurzale@jtekt.onmicrosoft.com" in mensaje
+    assert "Sol Gurzale" in mensaje
+
+
+def test_alerta_omite_el_bloque_de_cuerpo_si_no_hay_texto():
+    from src.adapters.gateways.telegram_mail_notifier_gateway import (
+        TelegramMailNotifierGateway,
+    )
+    from src.domain.mail.entities import EmailDetail
+    from src.domain.mail.services import EmailOpportunityAnalyzerService
+
+    correo = EmailDetail(
+        uid="10", remitente="a@empresa.com", asunto="Sin cuerpo", cuerpo_texto=""
+    )
+    analisis = EmailOpportunityAnalyzerService().analizar(correo)
+    assert "📄 *Cuerpo:*" not in TelegramMailNotifierGateway._construir_mensaje(
+        analisis, correo
+    )

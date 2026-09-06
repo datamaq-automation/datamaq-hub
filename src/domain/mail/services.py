@@ -2,6 +2,7 @@
 
 import re
 from email.header import decode_header, make_header
+from email.utils import parseaddr
 
 from src.domain.mail.entities import (
     AnalisisEmail,
@@ -32,6 +33,66 @@ class MailDecoderService:
         decoded = MailDecoderService.decode_header_str(raw_header)
         parts = [p.strip() for p in decoded.split(",") if p.strip()]
         return parts
+
+    @staticmethod
+    def strip_html(text: str) -> str:
+        """Reduce un cuerpo HTML a texto plano legible."""
+        sin_bloques = re.sub(
+            r"<(script|style)[^>]*>.*?</\1>", " ", text, flags=re.DOTALL | re.IGNORECASE
+        )
+        sin_tags = re.sub(r"<[^>]+>", " ", sin_bloques)
+        for entidad, caracter in (
+            ("&nbsp;", " "),
+            ("&amp;", "&"),
+            ("&lt;", "<"),
+            ("&gt;", ">"),
+            ("&quot;", '"'),
+            ("&#39;", "'"),
+        ):
+            sin_tags = sin_tags.replace(entidad, caracter)
+        return sin_tags
+
+    @staticmethod
+    def build_snippet(
+        raw_body: bytes,
+        content_type: str = "text/plain",
+        transfer_encoding: str = "",
+        max_chars: int = 200,
+    ) -> str:
+        """Construye una vista previa de una porción inicial del cuerpo de un correo.
+
+        Pensado para listados, donde solo se descargan los primeros bytes del cuerpo.
+        Un base64 cortado a la mitad no se puede decodificar de forma confiable, así que
+        en ese caso se devuelve cadena vacía en lugar de basura: es preferible no mostrar
+        nada a mostrar algo incorrecto.
+        """
+        if not raw_body:
+            return ""
+
+        codificacion = transfer_encoding.strip().lower()
+        if codificacion == "base64":
+            return ""
+
+        texto = raw_body.decode("utf-8", errors="replace")
+
+        if codificacion == "quoted-printable":
+            import quopri
+
+            # El último escape puede venir cortado por el fetch parcial: se descarta.
+            recortado = re.sub(r"=[0-9A-Fa-f]?$", "", texto)
+            texto = quopri.decodestring(
+                recortado.encode("utf-8", errors="replace")
+            ).decode("utf-8", errors="replace")
+
+        if "html" in content_type.lower():
+            texto = MailDecoderService.strip_html(texto)
+
+        # El carácter de reemplazo delata bytes truncados a mitad de secuencia UTF-8.
+        texto = texto.replace("\ufffd", "")
+        compactado = " ".join(texto.split())
+        if len(compactado) <= max_chars:
+            return compactado
+        return compactado[:max_chars].rstrip() + "…"
 
     @staticmethod
     def sanitize_text(text: str | None) -> str:
@@ -157,6 +218,29 @@ def _primer_match(texto: str, palabras: tuple[str, ...]) -> str | None:
     return None
 
 
+def _partes_remitente(remitente: str) -> tuple[str, str]:
+    """Separa el remitente en (nombre visible, dirección).
+
+    El par de ángulos se resuelve a mano porque `parseaddr` interpreta la coma de
+    `Gurzale, Sol <sol.gurzale@jtekt.com>` como separador de una lista de direcciones
+    y devuelve el nombre partido — y así es como llegan los correos corporativos reales.
+    """
+    crudo = (remitente or "").strip()
+    if not crudo:
+        return "", ""
+
+    m = re.search(r"<([^<>]+)>\s*$", crudo)
+    if m:
+        direccion = m.group(1).strip()
+        nombre = crudo[: m.start()].strip().strip("\"'").strip()
+        return nombre, direccion
+
+    nombre, direccion = parseaddr(crudo)
+    if not direccion and "@" in crudo:
+        direccion = crudo
+    return nombre.strip(), direccion.strip()
+
+
 class EmailOpportunityAnalyzerService:
     """Motor determinístico (cero LLM) de scoring de oportunidades B2B en correos.
 
@@ -258,13 +342,17 @@ class EmailOpportunityAnalyzerService:
         )
 
     @staticmethod
+    def _dominio_remitente(remitente_norm: str) -> str:
+        """Devuelve el dominio del remitente, tolerando el formato `Nombre <addr>`."""
+        _nombre, direccion = _partes_remitente(remitente_norm)
+        m = re.search(r"[@]([a-z0-9.-]+)$", direccion)
+        return m.group(1) if m else ""
+
+    @staticmethod
     def _es_dominio_corporativo(remitente_norm: str) -> bool:
         """Detecta si el remitente pertenece a un dominio no-freemail/corporativo."""
-        m = re.search(r"[@]([a-z0-9.-]+)$", remitente_norm)
-        if not m:
-            return False
-        dominio = m.group(1)
-        if dominio in _FREEMAIL_DOMINIOS:
+        dominio = EmailOpportunityAnalyzerService._dominio_remitente(remitente_norm)
+        if not dominio or dominio in _FREEMAIL_DOMINIOS:
             return False
         return "." in dominio
 
@@ -307,9 +395,8 @@ class EmailOpportunityAnalyzerService:
         if grupo:
             empresa = grupo
         else:
-            m = re.search(r"[@]([a-z0-9.-]+)$", remitente_norm)
-            if m and m.group(1) not in _FREEMAIL_DOMINIOS:
-                dominio = m.group(1)
+            dominio = EmailOpportunityAnalyzerService._dominio_remitente(remitente_norm)
+            if dominio and dominio not in _FREEMAIL_DOMINIOS:
                 empresa = dominio.split(".")[0].capitalize()
 
         # Cargo: buscar rol comprador en el cuerpo
@@ -320,14 +407,17 @@ class EmailOpportunityAnalyzerService:
                 cargo = rol.capitalize()
                 break
 
-        # Nombre: primer token del display name del remitente
-        nombre: str | None = None
-        if "[" in detail.remitente:
-            nombre = detail.remitente[1:].split("]")[0].strip() or None
-        elif not nombre:
-            parte_nombre = detail.remitente.split("@")[0]
-            tokens = [t for t in parte_nombre.split() if t]
-            nombre = tokens[0] if tokens else None
+        # Nombre: el display name del remitente si viene; si no, el local-part.
+        display, direccion = _partes_remitente(detail.remitente)
+        nombre: str | None = display or None
+        if nombre and "," in nombre:
+            # Los directorios corporativos escriben "Apellido, Nombre".
+            apellido, _, pila = nombre.partition(",")
+            if pila.strip():
+                nombre = f"{pila.strip()} {apellido.strip()}"
+        if not nombre:
+            local = (direccion or detail.remitente).split("@")[0]
+            nombre = local.replace(".", " ").strip().title() or None
 
         return EntidadesDetectadas(
             empresa=empresa,

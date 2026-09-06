@@ -141,3 +141,70 @@ def test_umbrales_de_prioridad() -> None:
     assert 0 <= alta.score <= 100
     assert 0 <= media.score <= 100
     assert 0 <= baja.score <= 100
+
+
+def test_partes_remitente_resuelve_el_formato_de_directorio_corporativo():
+    """Los directorios corporativos mandan "Apellido, Nombre <addr>"; la coma rompe parseaddr."""
+    from src.domain.mail.services import _partes_remitente
+
+    assert _partes_remitente("Gurzale, Sol <sol.gurzale@jtekt.onmicrosoft.com>") == (
+        "Gurzale, Sol",
+        "sol.gurzale@jtekt.onmicrosoft.com",
+    )
+    assert _partes_remitente('"Perez, Juan" <juan@empresa.com>') == (
+        "Perez, Juan",
+        "juan@empresa.com",
+    )
+    assert _partes_remitente("ana@siderar.com.ar") == ("", "ana@siderar.com.ar")
+    assert _partes_remitente("") == ("", "")
+
+
+def test_dominio_corporativo_se_detecta_con_nombre_visible():
+    """Regresión: el `$` del regex fallaba con `Nombre <addr>` y se perdían 15 puntos de score."""
+    from src.domain.mail.services import EmailOpportunityAnalyzerService, _normalizar
+
+    detectar = EmailOpportunityAnalyzerService._es_dominio_corporativo
+    assert (
+        detectar(_normalizar("Gurzale, Sol <sol.gurzale@jtekt.onmicrosoft.com>"))
+        is True
+    )
+    assert detectar(_normalizar("sol.gurzale@jtekt.onmicrosoft.com")) is True
+    # Freemail sigue sin contar como corporativo, venga como venga.
+    assert detectar(_normalizar("Juan Perez <juan@gmail.com>")) is False
+    assert detectar(_normalizar("juan@gmail.com")) is False
+
+
+def test_analisis_extrae_nombre_legible_del_display_name():
+    from src.domain.mail.entities import EmailDetail
+    from src.domain.mail.services import EmailOpportunityAnalyzerService
+    from src.domain.mail.value_objects import CategoriaEmail, NivelPrioridad
+
+    correo = EmailDetail(
+        uid="1",
+        remitente="Gurzale, Sol <sol.gurzale@jtekt.onmicrosoft.com>",
+        asunto="RE: Proyecto automatización",
+        cuerpo_texto=(
+            "Estamos evaluando proveedores para la bajada de datos de las lineas de "
+            "inyeccion y los tiempos de ciclo de las inyectoras. Jefe de mantenimiento."
+        ),
+    )
+    analisis = EmailOpportunityAnalyzerService().analizar(
+        correo, cuenta="info@datamaq.com.ar"
+    )
+
+    assert analisis.entidades.contacto_nombre == "Sol Gurzale"
+    assert analisis.entidades.empresa == "JTEKT AUTOMOTIVE ARGENTINA (Toyota Group)"
+    assert analisis.categoria == CategoriaEmail.OPORTUNIDAD_COMERCIAL
+    assert analisis.prioridad == NivelPrioridad.ALTA
+    assert analisis.requiere_alerta is True
+
+
+def test_analisis_deduce_nombre_del_local_part_si_no_hay_display_name():
+    from src.domain.mail.entities import EmailDetail
+    from src.domain.mail.services import EmailOpportunityAnalyzerService
+
+    correo = EmailDetail(
+        uid="2", remitente="ana.lopez@siderar.com.ar", asunto="Consulta"
+    )
+    analisis = EmailOpportunityAnalyzerService().analizar(correo)
+    assert analisis.entidades.contacto_nombre == "Ana Lopez"

@@ -1,17 +1,24 @@
 """FastAPI routing para lectura de correos electrónicos vía IMAP Multi-Cuenta (OpenClaw / Interno)."""
 
-from typing import Annotated
+from typing import Annotated, Any
 
 from fastapi import APIRouter, Depends, Query
 
-from src.adapters.controllers.dependencies import get_mail_controller
+from src.adapters.controllers.dependencies import (
+    get_mail_analysis_controller,
+    get_mail_controller,
+)
+from src.adapters.controllers.mail_analysis_controller import MailAnalysisController
 from src.adapters.controllers.mail_controller import MailController
 from src.adapters.gateways.imap_mail_gateway import ImapMailGateway
 from src.application.dtos.common_dto import APIResponseDTO
 from src.application.dtos.mail_dto import (
+    AnalisisEmailDTO,
     EmailDetailDTO,
     EmailFolderDTO,
     MailInboxResponseDTO,
+    ScanMailRequestDTO,
+    ScanMailResponseDTO,
     UnreadSummaryDTO,
 )
 from src.infrastructure.pydantic.config import get_settings
@@ -19,16 +26,12 @@ from src.infrastructure.pydantic.config import get_settings
 router = APIRouter(prefix="/mail", tags=["Correo Electrónico (Mail Reader)"])
 
 
-def get_configured_mail_controller(
-    account: Annotated[
-        str | None,
-        Query(
-            description="Identificador o email de la cuenta de correo (opcional, ej. 'datamaq', 'abc')",
-            examples=["datamaq", "abc"],
-        ),
-    ] = None,
-) -> MailController:
-    """Proveedor de dependencias para MailController configurado según la cuenta solicitada."""
+def _build_mail_reader(account: str | None) -> tuple[Any, Any, str]:
+    """Arma el lector de correo (Gmail o IMAP) con caché para la cuenta pedida.
+
+    Devuelve `(reader_cacheado, cache, cuenta)`; la caché se reutiliza tanto para el
+    decorador de lectura como para la deduplicación de alertas del analizador.
+    """
     from src.adapters.gateways.api_cache_gateway import (
         ApiCacheGateway,
         resolve_database_url,
@@ -72,7 +75,53 @@ def get_configured_mail_controller(
         cache=cache,
         account=account_config.user,
     )
+    return gateway, cache, account_config.user
+
+
+def get_configured_mail_controller(
+    account: Annotated[
+        str | None,
+        Query(
+            description="Identificador o email de la cuenta de correo (opcional, ej. 'datamaq', 'abc')",
+            examples=["datamaq", "abc"],
+        ),
+    ] = None,
+) -> MailController:
+    """Proveedor de dependencias para MailController configurado según la cuenta solicitada."""
+    gateway, _cache, _cuenta = _build_mail_reader(account)
     return get_mail_controller(gateway=gateway)
+
+
+def get_configured_mail_analysis_controller(
+    account: Annotated[
+        str | None,
+        Query(
+            description="Identificador o email de la cuenta de correo (opcional, ej. 'datamaq', 'abc')",
+            examples=["datamaq", "abc"],
+        ),
+    ] = None,
+) -> MailAnalysisController:
+    """Proveedor de dependencias para el analizador de oportunidades B2B en correo."""
+    from src.adapters.controllers.dependencies import (
+        get_default_contacts_gateway,
+        get_default_mail_notifier_gateway,
+        get_default_tarea_gateway,
+    )
+
+    settings = get_settings()
+    gateway, cache, _cuenta = _build_mail_reader(account)
+    return get_mail_analysis_controller(
+        gateway=gateway,
+        cache=cache,
+        notifier=get_default_mail_notifier_gateway(
+            bot_token=settings.telegram_bot_token,
+            chat_id=settings.telegram_chat_id,
+        ),
+        contacts_repo=get_default_contacts_gateway(
+            database_url=settings.roundcube_db_url
+        ),
+        tarea_repo=get_default_tarea_gateway(database_url=settings.database_url),
+    )
 
 
 @router.get(
@@ -244,3 +293,47 @@ async def get_message_detail_shortcut(
         success=True,
         data=detail,
     )
+
+
+@router.post(
+    "/analizar",
+    response_model=APIResponseDTO[ScanMailResponseDTO],
+    summary="Escanear correos entrantes y alertar oportunidades B2B",
+    description=(
+        "Escanea los correos no leídos de la carpeta indicada con el motor determinístico "
+        "de scoring, envía una alerta a Telegram por cada oportunidad comercial nueva "
+        "(deduplicada 30 días) y opcionalmente registra el contacto y crea la tarea de "
+        "respuesta. La lectura es estrictamente read-only: no altera el flag de leído."
+    ),
+)
+def analizar_correos_endpoint(
+    body: ScanMailRequestDTO,
+    controller: Annotated[
+        MailAnalysisController, Depends(get_configured_mail_analysis_controller)
+    ],
+) -> APIResponseDTO[ScanMailResponseDTO]:
+    """Escanea el buzón y despacha alertas de oportunidad comercial."""
+    resultado = controller.analizar_correos(dto=body)
+    return APIResponseDTO[ScanMailResponseDTO](success=True, data=resultado)
+
+
+@router.get(
+    "/analizar/{uid}",
+    response_model=APIResponseDTO[AnalisisEmailDTO],
+    summary="Analizar un correo puntual",
+    description=(
+        "Devuelve el análisis de oportunidad de un correo por UID sin notificar ni "
+        "escribir en la caché de deduplicación. Útil para inspeccionar el scoring."
+    ),
+)
+def analizar_correo_endpoint(
+    uid: str,
+    controller: Annotated[
+        MailAnalysisController, Depends(get_configured_mail_analysis_controller)
+    ],
+    cuenta: Annotated[str, Query(description="Cuenta de correo analizada")] = "datamaq",
+    carpeta: Annotated[str, Query(description="Carpeta IMAP")] = "INBOX",
+) -> APIResponseDTO[AnalisisEmailDTO]:
+    """Analiza un correo individual sin efectos secundarios."""
+    analisis = controller.analizar_correo(uid=uid, cuenta=cuenta, carpeta=carpeta)
+    return APIResponseDTO[AnalisisEmailDTO](success=True, data=analisis)

@@ -7,6 +7,7 @@ import ssl
 import urllib.error
 import urllib.parse
 import urllib.request
+from dataclasses import replace
 from email import message_from_bytes
 from email.utils import parsedate_to_datetime
 from typing import cast
@@ -287,14 +288,15 @@ class ImapMailGateway(MailReaderPort):
                 typ, msg_data = client.uid(
                     "FETCH",
                     uid,
-                    "(FLAGS BODY.PEEK[HEADER.FIELDS (FROM TO CC SUBJECT DATE CONTENT-TYPE)])",
+                    "(FLAGS BODY.PEEK[HEADER.FIELDS (FROM TO CC SUBJECT DATE CONTENT-TYPE CONTENT-TRANSFER-ENCODING)])",
                 )
                 if typ != "OK" or not msg_data:
                     continue
 
                 summary = self._parse_summary_from_fetch(uid, folder, msg_data)
                 if summary:
-                    messages.append(summary)
+                    ctype, cte = self._extraer_tipo_y_codificacion(msg_data)
+                    messages.append(self._con_snippet(client, uid, summary, ctype, cte))
 
         except MailDomainException:
             raise
@@ -404,6 +406,65 @@ class ImapMailGateway(MailReaderPort):
             carpeta=folder,
             snippet="",
         )
+
+    # Octetos del cuerpo que se descargan para la vista previa del listado. Suficiente
+    # para un párrafo y acotado para no convertir el listado en una descarga completa.
+    _SNIPPET_OCTETOS = 4096
+
+    @staticmethod
+    def _extraer_tipo_y_codificacion(fetch_response: list[object]) -> tuple[str, str]:
+        """Relee las cabeceras ya descargadas para saber cómo decodificar el cuerpo."""
+        for part in fetch_response:
+            if isinstance(part, tuple) and len(part) >= 2:
+                body_part = cast(tuple[object, object], part)[1]
+                if isinstance(body_part, (bytes, bytearray)):
+                    msg = message_from_bytes(bytes(body_part))
+                    return (
+                        msg.get_content_type(),
+                        str(msg.get("Content-Transfer-Encoding", "") or ""),
+                    )
+        return "text/plain", ""
+
+    def _con_snippet(
+        self,
+        client: imaplib.IMAP4,
+        uid: str,
+        summary: EmailSummary,
+        content_type: str = "text/plain",
+        transfer_encoding: str = "",
+    ) -> EmailSummary:
+        """Agrega una vista previa del cuerpo al resumen, sin alterar el flag de leído.
+
+        Descarga solo los primeros octetos con `BODY.PEEK[TEXT]<0.N>`. Cualquier fallo
+        deja el resumen intacto: la vista previa es un extra, nunca puede romper el
+        listado del buzón.
+        """
+        try:
+            typ, data = client.uid(
+                "FETCH", uid, f"(BODY.PEEK[TEXT]<0.{self._SNIPPET_OCTETOS}>)"
+            )
+            if typ != "OK" or not data:
+                return summary
+            for part in data:
+                if isinstance(part, tuple) and len(part) >= 2:
+                    cuerpo = cast(tuple[object, object], part)[1]
+                    if isinstance(cuerpo, (bytes, bytearray)):
+                        snippet = MailDecoderService.build_snippet(
+                            raw_body=bytes(cuerpo),
+                            content_type=content_type,
+                            transfer_encoding=transfer_encoding,
+                        )
+                        if snippet:
+                            return replace(summary, snippet=snippet)
+            return summary
+        except Exception as e:  # noqa: BLE001
+            # Captura amplia deliberada: el listado del buzón es la ruta crítica y la
+            # vista previa es un extra. Ante cualquier fallo se devuelve el resumen
+            # tal como quedaba antes de este enriquecimiento.
+            self._logger.debug(
+                "No se pudo construir la vista previa del correo %s: %s", uid, e
+            )
+            return summary
 
     def _parse_detail_from_fetch(
         self,

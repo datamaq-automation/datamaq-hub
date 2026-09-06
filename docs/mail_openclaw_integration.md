@@ -366,3 +366,57 @@ Reducción de latencia de **≈ 99.8 %** (de 2.587 ms a ~10.9 ms en el diagnóst
 > resuelta (el email). Así la caché se comparte entre alias semánticos de la misma
 > cuenta (`docente`, `abc.gob.ar`, `gmail` → misma `user` → misma clave), maximizando
 > la tasa de hit sin romper corrección.
+
+---
+
+## 7. Alertas de oportunidad B2B (analizador cableado)
+
+El motor determinístico de scoring (`EmailOpportunityAnalyzerService`) ya no es código
+inerte: quedó expuesto por HTTP y por un watchdog para cron.
+
+### Endpoints
+
+| Método | Ruta | Efecto |
+|---|---|---|
+| `POST` | `/api/v1/mail/analizar` | Escanea los no leídos, puntúa y **notifica** por Telegram (deduplicado 30 días). |
+| `GET` | `/api/v1/mail/analizar/{uid}` | Devuelve el análisis de un correo puntual, **sin** notificar ni cachear. |
+
+```bash
+curl -sS -X POST http://127.0.0.1:8013/api/v1/mail/analizar \
+  -H 'Content-Type: application/json' \
+  -d '{"cuenta":"openclaw@datamaq.com.ar","carpeta":"INBOX","limit":10}'
+```
+
+### Watchdog y cron
+
+```bash
+PYTHONPATH=. ./venv/bin/python scripts/mail_watchdog.py --dry-run      # sin enviar nada
+PYTHONPATH=. ./venv/bin/python scripts/mail_watchdog.py --json         # salida estructurada
+```
+
+La deduplicación con TTL de 30 días (`mail:alerted:{cuenta}:{uid}`) hace que sea seguro
+correrlo seguido: un mismo correo alerta una sola vez.
+
+```cron
+*/15 * * * * cd /var/www/datamaq-hub && PYTHONPATH=. .venv/bin/python scripts/mail_watchdog.py >/dev/null 2>&1
+```
+
+> **Cuidado con la cuenta resuelta.** `get_mail_account_config` cae deliberadamente a la
+> primera cuenta de `MAIL_ACCOUNTS` cuando el buzón por defecto no tiene credenciales.
+> En un cron eso significaría escanear el buzón equivocado en silencio, así que el
+> watchdog avisa por `stderr` cuando la cuenta resuelta no es la pedida. Antes de
+> programarlo, correr `--dry-run` una vez y confirmar la línea `📬 Buzón …`.
+
+### Qué cambió en el contenido de la alerta
+
+- Se agregó un bloque `📄 Cuerpo:` con los primeros 400 caracteres del texto real. El
+  `💡 Resumen:` es una plantilla determinística y por diseño nunca dice qué pide el correo.
+- El remitente se parsea con el par de ángulos (`Apellido, Nombre <addr>`), de modo que
+  el contacto sale legible y el `✉️ Email:` muestra solo la dirección.
+- **Corrección de scoring:** la detección de dominio corporativo fallaba con todo
+  remitente que trajera nombre visible (el regex anclaba en `$` y la cadena termina en
+  `>`), perdiendo 15 puntos justo en los correos B2B reales.
+- Los listados IMAP ahora traen `snippet` (antes siempre vacío): se descargan los
+  primeros 4096 octetos del cuerpo con `BODY.PEEK[TEXT]<0.N>`, sin alterar el flag de
+  leído. Si el cuerpo viene en base64 el snippet queda vacío a propósito — un base64
+  cortado a la mitad no se decodifica de forma confiable.

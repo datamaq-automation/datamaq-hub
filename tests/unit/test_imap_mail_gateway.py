@@ -192,6 +192,8 @@ def test_imap_gateway_list_messages_success():
     mock_client = MagicMock()
     mock_client.select.return_value = ("OK", [b"12"])
     mock_client.status.return_value = ("OK", [b'"INBOX" (MESSAGES 12 UNSEEN 3)'])
+    # El listado hace dos FETCH por mensaje: cabeceras y, a continuación, los primeros
+    # octetos del cuerpo para armar la vista previa.
     mock_client.uid.side_effect = [
         ("OK", [b"101 102"]),
         (
@@ -205,12 +207,20 @@ def test_imap_gateway_list_messages_success():
         ),
         (
             "OK",
+            [(b"1 (BODY[TEXT]<0> {40}", b"Consulta por telemetria de inyectoras.")],
+        ),
+        (
+            "OK",
             [
                 (
                     b"2 (FLAGS () BODY[HEADER.FIELDS ...] {100}",
                     b"From: test2@datamaq.com.ar\r\nSubject: Test 2\r\n\r\n",
                 )
             ],
+        ),
+        (
+            "OK",
+            [(b"2 (BODY[TEXT]<0> {30}", b"Segundo cuerpo de prueba.")],
         ),
     ]
 
@@ -221,6 +231,9 @@ def test_imap_gateway_list_messages_success():
     assert unread == 3
     assert len(messages) == 2
     assert messages[0].uid == "102"  # Newest first
+    # El listado ya no devuelve solo cabeceras: trae una vista previa del cuerpo.
+    assert messages[0].snippet == "Consulta por telemetria de inyectoras."
+    assert messages[1].snippet == "Segundo cuerpo de prueba."
 
 
 def test_imap_gateway_get_message_by_uid_success():
@@ -314,3 +327,61 @@ def test_imap_gateway_xoauth2_token_exchange_error():
         gateway._get_oauth2_access_token()
 
     assert "Error conectando al endpoint" in exc_info.value.message
+
+
+def test_imap_gateway_snippet_falla_sin_romper_el_listado():
+    """La vista previa es un extra: si el FETCH del cuerpo falla, el listado sigue igual."""
+    gateway = ImapMailGateway()
+    mock_client = MagicMock()
+    mock_client.select.return_value = ("OK", [b"1"])
+    mock_client.status.return_value = ("OK", [b'"INBOX" (MESSAGES 1 UNSEEN 1)'])
+    mock_client.uid.side_effect = [
+        ("OK", [b"101"]),
+        (
+            "OK",
+            [
+                (
+                    b"1 (FLAGS () BODY[HEADER.FIELDS ...] {100}",
+                    b"From: jefe@jtekt.com\r\nSubject: RE: Proyecto automatizacion\r\n\r\n",
+                )
+            ],
+        ),
+        OSError("conexión caída durante el fetch del cuerpo"),
+    ]
+
+    with patch.object(gateway, "_create_connection", return_value=mock_client):
+        messages, _total, _unread = gateway.list_messages(folder="INBOX", limit=10)
+
+    assert len(messages) == 1
+    assert messages[0].asunto == "RE: Proyecto automatizacion"
+    assert messages[0].snippet == ""
+
+
+def test_imap_gateway_snippet_omite_cuerpos_base64():
+    """Un base64 cortado a la mitad no se decodifica: mejor sin vista previa que con basura."""
+    gateway = ImapMailGateway()
+    mock_client = MagicMock()
+    mock_client.select.return_value = ("OK", [b"1"])
+    mock_client.status.return_value = ("OK", [b'"INBOX" (MESSAGES 1 UNSEEN 0)'])
+    mock_client.uid.side_effect = [
+        ("OK", [b"101"]),
+        (
+            "OK",
+            [
+                (
+                    b"1 (FLAGS () BODY[HEADER.FIELDS ...] {100}",
+                    (
+                        b"From: a@b.com\r\nSubject: Con adjunto\r\n"
+                        b"Content-Type: text/plain\r\n"
+                        b"Content-Transfer-Encoding: base64\r\n\r\n"
+                    ),
+                )
+            ],
+        ),
+        ("OK", [(b"1 (BODY[TEXT]<0> {20}", b"Q29uc3VsdGEgdGVjbmlj")]),
+    ]
+
+    with patch.object(gateway, "_create_connection", return_value=mock_client):
+        messages, _total, _unread = gateway.list_messages(folder="INBOX", limit=10)
+
+    assert messages[0].snippet == ""
