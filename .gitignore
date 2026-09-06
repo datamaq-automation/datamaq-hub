@@ -3,6 +3,8 @@ data/*.db
 data/*.sqlite*
 !data/paritarias/
 !data/paritarias/*.json
+!data/perfiles/
+!data/perfiles/*.yaml
 data/.backups/
 __pycache__/
 venv/

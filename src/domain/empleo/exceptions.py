@@ -15,3 +15,7 @@ class PerfilInvalidoError(EmpleoDomainException):
 
 class OfertaNoEncontradaError(EmpleoDomainException):
     """Raised when an employment offer is not found."""
+
+
+class PerfilNoEncontradoError(EmpleoDomainException):
+    """Raised when a professional profile file or record is not found."""

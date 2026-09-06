@@ -1,0 +1,98 @@
+# Perfil Profesional de Agustín Leonardo Bustos
+# Configuración YAML para scoring y filtrado en Búsqueda Laboral Vaca Muerta
+
+nombre_perfil: agustin_bustos
+titulo_deseado: Especialista en Confiabilidad Operacional y Desempeño de Activos
+
+palabras_clave_prioritarias:
+  - confiabilidad
+  - apm
+  - mantenimiento
+  - instrumentacion
+  - instrumentación
+  - electromecanica
+  - electromecánica
+  - electrico
+  - eléctrico
+  - variadores
+  - vfd
+  - media tension
+  - media tensión
+  - 13.2 kv
+  - 13.2kv
+  - ccm
+  - telemetria
+  - telemetría
+  - iot
+  - iiot
+  - predictivo
+  - preventivo
+  - cbm
+  - smart meters
+  - gmao
+  - cmms
+  - scada
+  - plc
+  - control
+  - troubleshooting
+  - comisionado
+  - loto
+  - nfpa 70e
+  - aea 90364
+  - diagrama
+  - 14x7
+  - 10x5
+  - rotativo
+
+palabras_clave_secundarias:
+  - python
+  - machine learning
+  - inteligencia artificial
+  - aprendizaje automatico
+  - aprendizaje automático
+  - analisis de datos
+  - análisis de datos
+  - compresor
+  - neumatica
+  - neumática
+  - hidraulica
+  - hidráulica
+  - hse
+  - ssma
+  - manejo defensivo
+  - uptime
+  - npt
+  - solar
+  - generadores
+  - celdas
+  - siemens
+  - schneider
+  - abb
+  - tenaris
+  - yacimiento
+  - pozo
+  - planta
+  - modbus
+  - profibus
+  - ethernet/ip
+
+ubicaciones_preferidas:
+  - añelo
+  - anelo
+  - neuquen
+  - neuquén
+  - rio negro
+  - río negro
+  - rincon de los sauces
+  - rincón de los sauces
+  - plaza huincul
+  - cutral co
+  - catriel
+  - allen
+  - cipolletti
+
+modalidades_admitidas:
+  - ROTACIONAL_YACIMIENTO
+  - PRESENCIAL
+  - HIBRIDO
+  - REMOTO

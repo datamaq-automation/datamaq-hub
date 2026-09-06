@@ -6,6 +6,7 @@ from src.domain.empleo.entities import (
     InteraccionPostulacion,
     OfertaLaboral,
     OportunidadLaboral,
+    PerfilProfesional,
 )
 from src.domain.empleo.value_objects import EstadoOportunidad, FuenteOferta
 
@@ -87,4 +88,12 @@ class OportunidadesRepositoryPort(Protocol):
         oportunidad_id: int,
     ) -> list[InteraccionPostulacion]:
         """Lista las interacciones asociadas a una oportunidad."""
+        ...
+
+
+class PerfilProfesionalRepositoryPort(Protocol):
+    """Puerto para cargar perfiles profesionales desde almacenamiento o configuración."""
+
+    def obtener_perfil(self, nombre: str = "agustin_bustos") -> PerfilProfesional:
+        """Carga y retorna una entidad PerfilProfesional por su identificador/nombre."""
         ...
