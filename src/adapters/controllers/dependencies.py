@@ -2,6 +2,7 @@
 
 from functools import lru_cache
 
+from src.adapters.controllers.empleo_controller import EmpleoController
 from src.adapters.controllers.health_controller import HealthController
 from src.adapters.controllers.horarios_docencia_controller import (
     HorariosDocenciaController,
@@ -332,6 +333,46 @@ def get_mail_controller(
     )
 
 
+from src.adapters.controllers.mail_analysis_controller import MailAnalysisController
+from src.adapters.gateways.telegram_mail_notifier_gateway import (
+    TelegramMailNotifierGateway,
+)
+from src.application.use_cases.analizar_correos_entrantes import (
+    AnalizarCorreosEntrantesUseCase,
+)
+from src.domain.cache.ports import ApiCachePort
+from src.domain.mail.ports import MailNotifierPort
+from src.domain.mail.services import EmailOpportunityAnalyzerService
+from src.domain.tareas.ports import TareaRepositoryPort as _TareaRepositoryPort
+
+
+def get_default_mail_notifier_gateway(
+    bot_token: str = "",
+    chat_id: str = "",
+) -> MailNotifierPort:
+    """Creates a default TelegramMailNotifierGateway instance."""
+    return TelegramMailNotifierGateway(bot_token=bot_token, chat_id=chat_id)
+
+
+def get_mail_analysis_controller(
+    gateway: MailReaderPort,
+    cache: ApiCachePort,
+    notifier: MailNotifierPort | None = None,
+    contacts_repo: ContactsRepositoryPort | None = None,
+    tarea_repo: _TareaRepositoryPort | None = None,
+) -> MailAnalysisController:
+    """Builds and returns a MailAnalysisController instance."""
+    use_case = AnalizarCorreosEntrantesUseCase(
+        mail_reader=gateway,
+        analyzer=EmailOpportunityAnalyzerService(),
+        notifier=notifier or get_default_mail_notifier_gateway(),
+        cache=cache,
+        contacts_repo=contacts_repo,
+        tarea_repo=tarea_repo,
+    )
+    return MailAnalysisController(analizar_correos_use_case=use_case)
+
+
 def get_default_contacts_gateway(
     database_url: str | None = None,
 ) -> ContactsRepositoryPort:
@@ -477,3 +518,61 @@ def get_tools_controller() -> ToolsController:
     )
 
     return ToolsController(calcular_cos_fi_use_case=CalcularRecargoCosFiUseCase())
+
+
+@lru_cache
+def get_oportunidades_repository_gateway():
+    """Proveedor de dependencias para el repositorio de oportunidades laborales."""
+    from src.adapters.gateways.empleo.sql_oportunidades_gateway import (
+        SQLOportunidadesGateway,
+    )
+
+    return SQLOportunidadesGateway()
+
+
+@lru_cache
+def get_empleo_controller() -> EmpleoController:
+    """Proveedor de dependencias para EmpleoController."""
+    from src.adapters.gateways.empleo.memory_ofertas_cache_gateway import (
+        MemoryOfertasCacheGateway,
+    )
+    from src.adapters.gateways.empleo.pae_talent_gateway import PaeTalentGateway
+    from src.adapters.gateways.empleo.tecpetrol_talent_gateway import (
+        TecpetrolTalentGateway,
+    )
+    from src.adapters.gateways.empleo.vista_talent_gateway import (
+        VistaTalentGateway,
+    )
+    from src.adapters.gateways.empleo.ypf_talent_gateway import YpfTalentGateway
+    from src.application.use_cases.empleo.buscar_ofertas_vaca_muerta_use_case import (
+        BuscarOfertasVacaMuertaUseCase,
+    )
+    from src.application.use_cases.empleo.gestionar_oportunidades_use_cases import (
+        ActualizarEstadoOportunidadUseCase,
+        ListarInteraccionesUseCase,
+        ListarOportunidadesUseCase,
+        RegistrarInteraccionUseCase,
+        RegistrarOportunidadUseCase,
+    )
+
+    ypf_gateway = YpfTalentGateway()
+    tecpetrol_gateway = TecpetrolTalentGateway()
+    pae_gateway = PaeTalentGateway()
+    vista_gateway = VistaTalentGateway()
+    cache_gateway = MemoryOfertasCacheGateway()
+    repo_gateway = get_oportunidades_repository_gateway()
+
+    use_case = BuscarOfertasVacaMuertaUseCase(
+        portales=[ypf_gateway, tecpetrol_gateway, pae_gateway, vista_gateway],
+        cache=cache_gateway,
+    )
+    return EmpleoController(
+        buscar_ofertas_uc=use_case,
+        registrar_oportunidad_uc=RegistrarOportunidadUseCase(repository=repo_gateway),
+        listar_oportunidades_uc=ListarOportunidadesUseCase(repository=repo_gateway),
+        actualizar_estado_uc=ActualizarEstadoOportunidadUseCase(
+            repository=repo_gateway
+        ),
+        registrar_interaccion_uc=RegistrarInteraccionUseCase(repository=repo_gateway),
+        listar_interacciones_uc=ListarInteraccionesUseCase(repository=repo_gateway),
+    )

@@ -17,6 +17,12 @@ from src.domain.contacts.exceptions import (
     ContactNotFoundError,
     ContactsDomainException,
 )
+from src.domain.empleo.exceptions import (
+    EmpleoDomainException,
+    OfertaNoEncontradaError,
+    PerfilInvalidoError,
+    PortalEmpleoError,
+)
 from src.domain.horarios_docencia.exceptions import (
     HorariosDocenciaDomainException,
     IncompatibilidadHorariaCriticaException,
@@ -57,7 +63,8 @@ class ErrorPresenter:
         | CalendarDomainException
         | LeadException
         | CalculadoraCosFiException
-        | TarjetaException,
+        | TarjetaException
+        | EmpleoDomainException,
         default_status_code: int = 422,
     ) -> tuple[ErrorResponseDTO, int]:
         status_code = default_status_code
@@ -143,6 +150,18 @@ class ErrorPresenter:
             status_code = 422
         elif isinstance(exc, TarjetaException):
             code_name = "TARJETA_DOMAIN_ERROR"
+            status_code = 422
+        elif isinstance(exc, PerfilInvalidoError):
+            code_name = "PERFIL_INVALIDO"
+            status_code = 400
+        elif isinstance(exc, OfertaNoEncontradaError):
+            code_name = "OFERTA_NO_ENCONTRADA"
+            status_code = 404
+        elif isinstance(exc, PortalEmpleoError):
+            code_name = "PORTAL_EMPLEO_ERROR"
+            status_code = 502
+        elif isinstance(exc, EmpleoDomainException):
+            code_name = "EMPLEO_DOMAIN_ERROR"
             status_code = 422
 
         msg = getattr(exc, "message", str(exc))

@@ -18,6 +18,7 @@ from src.domain.calculadora_cos_fi.exceptions import (
 )
 from src.domain.calendar.exceptions import CalendarDomainException
 from src.domain.contacts.exceptions import ContactsDomainException
+from src.domain.empleo.exceptions import EmpleoDomainException
 from src.domain.horarios_docencia.exceptions import (
     HorariosDocenciaDomainException,
 )
@@ -37,6 +38,9 @@ from src.infrastructure.fastapi.routes.calendar_routes import (
 )
 from src.infrastructure.fastapi.routes.contacts_routes import (
     router as contacts_router,
+)
+from src.infrastructure.fastapi.routes.empleo_routes import (
+    router as empleo_router,
 )
 from src.infrastructure.fastapi.routes.health_routes import router as health_router
 from src.infrastructure.fastapi.routes.horarios_docencia_routes import (
@@ -149,6 +153,13 @@ def create_app() -> FastAPI:
         payload, status_code = ErrorPresenter.format_domain_error(exc)
         return JSONResponse(status_code=status_code, content=payload.model_dump())
 
+    @app.exception_handler(EmpleoDomainException)
+    async def empleo_exception_handler(
+        _: Request, exc: EmpleoDomainException
+    ) -> JSONResponse:
+        payload, status_code = ErrorPresenter.format_domain_error(exc)
+        return JSONResponse(status_code=status_code, content=payload.model_dump())
+
     # Unified framework exception handlers (Standardizing all error shapes to {"success": false, "error": {...}})
     @app.exception_handler(RequestValidationError)
     async def validation_exception_handler(
@@ -216,6 +227,7 @@ def create_app() -> FastAPI:
     app.include_router(agenda_router, prefix="/api/v1")
     app.include_router(leads_router)
     app.include_router(tarjeta_router, prefix="/api/v1")
+    app.include_router(empleo_router, prefix="/api/v1")
 
     # Root redirect/info endpoint
     @app.get("/", include_in_schema=False)
