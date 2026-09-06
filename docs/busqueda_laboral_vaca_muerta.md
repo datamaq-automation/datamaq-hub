@@ -84,10 +84,11 @@ El servidor expone rutas bajo `/api/v1/empleo`:
 
 ---
 
-## 5. Estrategia de Posicionamiento y Prospección
+## 5. Estrategia de Posicionamiento, Prospección y Planificación
 
-Para potenciar la captación y superar los filtros ATS y el sesgo de selección en perfiles técnicos híbridos, consultar la guía estratégica maestra:
+Para potenciar la captación y coordinar la ejecución temporal del plan de búsqueda:
 * **[`estrategia_linkedin_vaca_muerta.md`](estrategia_linkedin_vaca_muerta.md)**: Reenmarcado semántico (*Semantic Reframing* de Python/IoT al servicio del Uptime/APM de planta), configuración de ubicación en cuenca neuquina, extracto optimizado, matriz de 20 aptitudes y mapeo de consultoras boutique (Patagonia Resources, Vincular, SI-RH, SHR, Petrol Human) con templates de prospección directa InMail a Superintendentes y Jefes de Planta.
+* **[`pert_camino_critico_vaca_muerta.md`](pert_camino_critico_vaca_muerta.md)**: Modelo PERT y camino crítico (CPM) estructurado en 5 fases, con duración estimada de 35 días hábiles, cálculo de holguras, identificación de cuellos de botella y tácticas de aceleración (fast-tracking/crashing).
 
 ---
 

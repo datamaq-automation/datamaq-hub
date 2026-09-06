@@ -25,7 +25,8 @@ docs/
 │
 ├── 💼 Búsqueda Laboral & Talento (Vaca Muerta)
 │   ├── busqueda_laboral_vaca_muerta.md        # Manual operativo, CRM relacional y diagnóstico estratégico
-│   └── estrategia_linkedin_vaca_muerta.md     # Posicionamiento en LinkedIn, perfil híbrido y prospección O&G
+│   ├── estrategia_linkedin_vaca_muerta.md     # Posicionamiento en LinkedIn, perfil híbrido y prospección O&G
+│   └── pert_camino_critico_vaca_muerta.md     # Modelo PERT/CPM: camino crítico, tiempos y mitigación de cuellos de botella
 │
 └── 🔐 Operaciones & Despliegue
     ├── credenciales_entornos.md               # Runbook: sincronización de .env local ↔ VPS, rotación de tokens OAuth
@@ -49,6 +50,7 @@ docs/
 | **[`vps_replica_runbook.md`](vps_replica_runbook.md)** | Runbook de sincronización unidireccional de datos persistentes desde el VPS (SSOT) hacia la réplica local. | **SSOT Activo** |
 | **[`busqueda_laboral_vaca_muerta.md`](busqueda_laboral_vaca_muerta.md)** | Manual operativo, CRM relacional y diagnóstico estratégico del motor de búsqueda laboral en Vaca Muerta (YPF, Tecpetrol, PAE, Vista). | **SSOT Activo** |
 | **[`estrategia_linkedin_vaca_muerta.md`](estrategia_linkedin_vaca_muerta.md)** | Estrategia de posicionamiento en LinkedIn, reenmarcado semántico de perfil híbrido (MT 13.2kV + Python/APM), 20 skills clave y consultoras boutique de Neuquén. | **SSOT Activo** |
+| **[`pert_camino_critico_vaca_muerta.md`](pert_camino_critico_vaca_muerta.md)** | Planificación PERT/CPM: camino crítico (35 días hábiles), holguras, ruta sub-crítica Outbound y análisis de incertidumbre. | **SSOT Activo** |
 
 ---
 
