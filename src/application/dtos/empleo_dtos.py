@@ -185,3 +185,59 @@ class InteraccionDTO(BaseModel):
     resumen: str = ""
     proxima_accion: str = ""
     fecha_proxima_accion: str = ""
+
+
+class ContactoPerfilDTO(BaseModel):
+    """DTO para información de contacto extraída del perfil."""
+
+    nombre: str
+    email: str = ""
+    telefono: str = ""
+    linkedin_url: str = ""
+    ubicacion: str = ""
+
+
+class ExperienciaPerfilDTO(BaseModel):
+    """DTO para cada experiencia laboral del candidato."""
+
+    empresa: str
+    puesto: str
+    periodo: str
+    duracion: str = ""
+    ubicacion: str = ""
+    descripcion: str = ""
+    es_actual: bool = False
+
+
+class EducacionPerfilDTO(BaseModel):
+    """DTO para educación o certificación académica."""
+
+    institucion: str
+    titulo: str
+    periodo: str = ""
+
+
+class PerfilCandidatoDetalladoDTO(BaseModel):
+    """DTO integral del perfil analizado y normalizado desde LinkedIn."""
+
+    contacto: ContactoPerfilDTO
+    titular: str
+    extracto: str
+    aptitudes_principales: list[str] = Field(default_factory=list[str])
+    experiencias: list[ExperienciaPerfilDTO] = Field(default_factory=list[ExperienciaPerfilDTO])
+    educacion: list[EducacionPerfilDTO] = Field(default_factory=list[EducacionPerfilDTO])
+    palabras_clave_detectadas: list[str] = Field(default_factory=list[str])
+    anios_experiencia_estimados: float = 0.0
+
+
+class ProcesarPDFLocalQueryDTO(BaseModel):
+    """DTO para solicitar el procesamiento de un PDF local por su ruta en disco."""
+
+    pdf_path: str = Field(
+        ...,
+        description="Ruta absoluta o relativa al archivo PDF del perfil de LinkedIn",
+    )
+    guardar_como_yaml: bool = Field(
+        default=False,
+        description="Si es True, exporta o sincroniza el perfil analizado en data/perfiles/",
+    )

@@ -1,18 +1,26 @@
 """Mappers for empleo bounded context."""
 
 from src.application.dtos.empleo_dtos import (
+    ContactoPerfilDTO,
+    EducacionPerfilDTO,
+    ExperienciaPerfilDTO,
     InteraccionDTO,
     OfertaLaboralDTO,
     OportunidadDTO,
+    PerfilCandidatoDetalladoDTO,
     PerfilProfesionalDTO,
     RegistrarInteraccionDTO,
     RegistrarOportunidadDTO,
     ResultadoBusquedaDTO,
 )
 from src.domain.empleo.entities import (
+    ContactoPerfil,
+    EducacionPerfil,
+    ExperienciaPerfil,
     InteraccionPostulacion,
     OfertaLaboral,
     OportunidadLaboral,
+    PerfilCandidatoDetallado,
     PerfilProfesional,
     ResultadoBusquedaEmpleo,
 )
@@ -83,9 +91,7 @@ class EmpleoMapper:
             salario_moneda=entidad.salario_moneda,
             salario_bruto_neto=entidad.salario_bruto_neto,
             url_fuente=entidad.url_fuente,
-            estado=entidad.estado.value
-            if isinstance(entidad.estado, EstadoOportunidad)
-            else str(entidad.estado),
+            estado=entidad.estado.value if isinstance(entidad.estado, EstadoOportunidad) else str(entidad.estado),
             fecha_publicacion=entidad.fecha_publicacion,
             fecha_postulacion=entidad.fecha_postulacion,
             fecha_entrevista=entidad.fecha_entrevista,
@@ -173,4 +179,49 @@ class EmpleoMapper:
             resumen=dto.resumen,
             proxima_accion=dto.proxima_accion,
             fecha_proxima_accion=dto.fecha_proxima_accion,
+        )
+
+    @staticmethod
+    def contacto_entidad_a_dto(entidad: ContactoPerfil) -> ContactoPerfilDTO:
+        return ContactoPerfilDTO(
+            nombre=entidad.nombre,
+            email=entidad.email,
+            telefono=entidad.telefono,
+            linkedin_url=entidad.linkedin_url,
+            ubicacion=entidad.ubicacion,
+        )
+
+    @staticmethod
+    def experiencia_entidad_a_dto(entidad: ExperienciaPerfil) -> ExperienciaPerfilDTO:
+        return ExperienciaPerfilDTO(
+            empresa=entidad.empresa,
+            puesto=entidad.puesto,
+            periodo=entidad.periodo,
+            duracion=entidad.duracion,
+            ubicacion=entidad.ubicacion,
+            descripcion=entidad.descripcion,
+            es_actual=entidad.es_actual,
+        )
+
+    @staticmethod
+    def educacion_entidad_a_dto(entidad: EducacionPerfil) -> EducacionPerfilDTO:
+        return EducacionPerfilDTO(
+            institucion=entidad.institucion,
+            titulo=entidad.titulo,
+            periodo=entidad.periodo,
+        )
+
+    @staticmethod
+    def perfil_detallado_entidad_a_dto(
+        entidad: PerfilCandidatoDetallado,
+    ) -> PerfilCandidatoDetalladoDTO:
+        return PerfilCandidatoDetalladoDTO(
+            contacto=EmpleoMapper.contacto_entidad_a_dto(entidad.contacto),
+            titular=entidad.titular,
+            extracto=entidad.extracto,
+            aptitudes_principales=list(entidad.aptitudes_principales),
+            experiencias=[EmpleoMapper.experiencia_entidad_a_dto(e) for e in entidad.experiencias],
+            educacion=[EmpleoMapper.educacion_entidad_a_dto(ed) for ed in entidad.educacion],
+            palabras_clave_detectadas=list(entidad.palabras_clave_detectadas),
+            anios_experiencia_estimados=entidad.anios_experiencia_estimados,
         )
