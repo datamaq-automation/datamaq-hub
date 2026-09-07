@@ -40,6 +40,12 @@ from src.domain.mail.exceptions import (
     MailConnectionError,
     MailDomainException,
 )
+from src.domain.planificacion.exceptions import (
+    CicloEnGrafoPertError,
+    PlanificacionDomainException,
+    PlanNoEncontradoError,
+    TareaPlanNoEncontradaError,
+)
 from src.domain.recibos.exceptions import (
     DomainException,
     InvalidIdentifierError,
@@ -64,7 +70,8 @@ class ErrorPresenter:
         | LeadException
         | CalculadoraCosFiException
         | TarjetaException
-        | EmpleoDomainException,
+        | EmpleoDomainException
+        | PlanificacionDomainException,
         default_status_code: int = 422,
     ) -> tuple[ErrorResponseDTO, int]:
         status_code = default_status_code
@@ -162,6 +169,18 @@ class ErrorPresenter:
             status_code = 502
         elif isinstance(exc, EmpleoDomainException):
             code_name = "EMPLEO_DOMAIN_ERROR"
+            status_code = 422
+        elif isinstance(exc, PlanNoEncontradoError):
+            code_name = "PLAN_NO_ENCONTRADO"
+            status_code = 404
+        elif isinstance(exc, TareaPlanNoEncontradaError):
+            code_name = "TAREA_PLAN_NO_ENCONTRADA"
+            status_code = 404
+        elif isinstance(exc, CicloEnGrafoPertError):
+            code_name = "CICLO_EN_GRAFO_PERT"
+            status_code = 400
+        elif isinstance(exc, PlanificacionDomainException):
+            code_name = "PLANIFICACION_DOMAIN_ERROR"
             status_code = 422
 
         msg = getattr(exc, "message", str(exc))

@@ -576,3 +576,33 @@ def get_empleo_controller() -> EmpleoController:
         registrar_interaccion_uc=RegistrarInteraccionUseCase(repository=repo_gateway),
         listar_interacciones_uc=ListarInteraccionesUseCase(repository=repo_gateway),
     )
+
+
+@lru_cache
+def get_planificacion_gateway():
+    """Proveedor de dependencias para el repositorio de planificación."""
+    from src.adapters.gateways.planificacion.yaml_planificacion_gateway import (
+        YamlPlanificacionGateway,
+    )
+
+    return YamlPlanificacionGateway()
+
+
+@lru_cache
+def get_planificacion_controller():
+    """Proveedor de dependencias para PlanificacionController."""
+    from src.adapters.controllers.planificacion_controller import (
+        PlanificacionController,
+    )
+    from src.application.use_cases.planificacion.actualizar_estado_tarea_plan_use_case import (
+        ActualizarEstadoTareaPlanUseCase,
+    )
+    from src.application.use_cases.planificacion.obtener_tablero_kanban_pert_use_case import (
+        ObtenerTableroKanbanPertUseCase,
+    )
+
+    gateway = get_planificacion_gateway()
+    return PlanificacionController(
+        obtener_tablero_uc=ObtenerTableroKanbanPertUseCase(repository=gateway),
+        actualizar_estado_uc=ActualizarEstadoTareaPlanUseCase(repository=gateway),
+    )
