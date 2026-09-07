@@ -8,6 +8,9 @@ from src.adapters.controllers.horarios_docencia_controller import (
     HorariosDocenciaController,
 )
 from src.adapters.controllers.mail_controller import MailController
+from src.adapters.controllers.planificacion_controller import (
+    PlanificacionController,
+)
 from src.adapters.controllers.receipt_controller import ReceiptController
 from src.adapters.controllers.simulation_controller import SimulationController
 from src.adapters.controllers.tarjeta_controller import TarjetaController
@@ -69,6 +72,7 @@ from src.domain.horarios_docencia.ports import DesignacionDocenteRepositoryPort
 from src.domain.liquidacion.ports import ParitariaRepositoryPort
 from src.domain.liquidacion.services import MotorLiquidacionDocenteService
 from src.domain.mail.ports import MailReaderPort
+from src.domain.planificacion.ports import PlanificacionRepositoryPort
 from src.domain.recibos.ports import (
     PDFExtractorPort,
     ReceiptParserRegistryPort,
@@ -579,7 +583,7 @@ def get_empleo_controller() -> EmpleoController:
 
 
 @lru_cache
-def get_planificacion_gateway():
+def get_planificacion_gateway() -> PlanificacionRepositoryPort:
     """Proveedor de dependencias para el repositorio de planificación."""
     from src.adapters.gateways.planificacion.yaml_planificacion_gateway import (
         YamlPlanificacionGateway,
@@ -588,8 +592,7 @@ def get_planificacion_gateway():
     return YamlPlanificacionGateway()
 
 
-@lru_cache
-def get_planificacion_controller():
+def get_planificacion_controller() -> PlanificacionController:
     """Proveedor de dependencias para PlanificacionController."""
     from src.adapters.controllers.planificacion_controller import (
         PlanificacionController,

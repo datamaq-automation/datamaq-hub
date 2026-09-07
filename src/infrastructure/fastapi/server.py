@@ -25,6 +25,9 @@ from src.domain.horarios_docencia.exceptions import (
 from src.domain.leads.exceptions import LeadException
 from src.domain.liquidacion.exceptions import LiquidacionDomainException
 from src.domain.mail.exceptions import MailDomainException
+from src.domain.planificacion.exceptions import (
+    PlanificacionDomainException,
+)
 from src.domain.recibos.exceptions import DomainException
 from src.domain.tarjetas.exceptions import TarjetaException
 from src.infrastructure.fastapi.routes.agenda_routes import (
@@ -50,6 +53,9 @@ from src.infrastructure.fastapi.routes.leads_routes import (
     router as leads_router,
 )
 from src.infrastructure.fastapi.routes.mail_routes import router as mail_router
+from src.infrastructure.fastapi.routes.planificacion_routes import (
+    router as planificacion_router,
+)
 from src.infrastructure.fastapi.routes.receipt_routes import router as receipt_router
 from src.infrastructure.fastapi.routes.simulation_routes import (
     router as simulation_router,
@@ -160,6 +166,13 @@ def create_app() -> FastAPI:
         payload, status_code = ErrorPresenter.format_domain_error(exc)
         return JSONResponse(status_code=status_code, content=payload.model_dump())
 
+    @app.exception_handler(PlanificacionDomainException)
+    async def planificacion_exception_handler(
+        _: Request, exc: PlanificacionDomainException
+    ) -> JSONResponse:
+        payload, status_code = ErrorPresenter.format_domain_error(exc)
+        return JSONResponse(status_code=status_code, content=payload.model_dump())
+
     # Unified framework exception handlers (Standardizing all error shapes to {"success": false, "error": {...}})
     @app.exception_handler(RequestValidationError)
     async def validation_exception_handler(
@@ -228,6 +241,7 @@ def create_app() -> FastAPI:
     app.include_router(leads_router)
     app.include_router(tarjeta_router, prefix="/api/v1")
     app.include_router(empleo_router, prefix="/api/v1")
+    app.include_router(planificacion_router, prefix="/api/v1")
 
     # Root redirect/info endpoint
     @app.get("/", include_in_schema=False)

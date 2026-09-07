@@ -44,6 +44,7 @@ from src.domain.planificacion.exceptions import (
     CicloEnGrafoPertError,
     PlanificacionDomainException,
     PlanNoEncontradoError,
+    TareaPlanInvalidaError,
     TareaPlanNoEncontradaError,
 )
 from src.domain.recibos.exceptions import (
@@ -176,6 +177,9 @@ class ErrorPresenter:
         elif isinstance(exc, TareaPlanNoEncontradaError):
             code_name = "TAREA_PLAN_NO_ENCONTRADA"
             status_code = 404
+        elif isinstance(exc, TareaPlanInvalidaError):
+            code_name = "TAREA_PLAN_INVALIDA"
+            status_code = 422
         elif isinstance(exc, CicloEnGrafoPertError):
             code_name = "CICLO_EN_GRAFO_PERT"
             status_code = 400
