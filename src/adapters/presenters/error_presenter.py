@@ -19,6 +19,7 @@ from src.domain.contacts.exceptions import (
 )
 from src.domain.empleo.exceptions import (
     EmpleoDomainException,
+    LinkedInPDFParsingError,
     OfertaNoEncontradaError,
     PerfilInvalidoError,
     PortalEmpleoError,
@@ -168,6 +169,9 @@ class ErrorPresenter:
         elif isinstance(exc, PortalEmpleoError):
             code_name = "PORTAL_EMPLEO_ERROR"
             status_code = 502
+        elif isinstance(exc, LinkedInPDFParsingError):
+            code_name = "LINKEDIN_PDF_PARSING_ERROR"
+            status_code = 422
         elif isinstance(exc, EmpleoDomainException):
             code_name = "EMPLEO_DOMAIN_ERROR"
             status_code = 422

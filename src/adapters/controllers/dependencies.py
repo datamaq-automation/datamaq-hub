@@ -45,6 +45,9 @@ from src.application.use_cases.crear_designaciones_desde_recibo import (
 )
 from src.application.use_cases.eliminar_designacion import EliminarDesignacionUseCase
 from src.application.use_cases.eliminar_recibo import EliminarReciboUseCase
+from src.application.use_cases.empleo.parsear_perfil_linkedin_use_case import (
+    ParsearPerfilLinkedInUseCase,
+)
 from src.application.use_cases.get_mail_detail import GetMailDetailUseCase
 from src.application.use_cases.get_unread_summary import GetUnreadSummaryUseCase
 from src.application.use_cases.list_inbox_messages import ListInboxMessagesUseCase
@@ -68,6 +71,7 @@ from src.application.use_cases.registrar_designacion import (
 from src.application.use_cases.validar_horarios_docencia import (
     ValidarHorariosDocenciaUseCase,
 )
+from src.domain.empleo.ports import LinkedInProfileParserPort
 from src.domain.horarios_docencia.ports import DesignacionDocenteRepositoryPort
 from src.domain.liquidacion.ports import ParitariaRepositoryPort
 from src.domain.liquidacion.services import MotorLiquidacionDocenteService
@@ -579,7 +583,27 @@ def get_empleo_controller() -> EmpleoController:
         ),
         registrar_interaccion_uc=RegistrarInteraccionUseCase(repository=repo_gateway),
         listar_interacciones_uc=ListarInteraccionesUseCase(repository=repo_gateway),
+        parsear_perfil_linkedin_uc=get_parsear_perfil_linkedin_use_case(),
     )
+
+
+@lru_cache
+def get_linkedin_parser_gateway() -> LinkedInProfileParserPort:
+    """Proveedor de dependencias para el parser de PDF de LinkedIn."""
+    from src.adapters.gateways.empleo.pdf_linkedin_parser_gateway import (
+        PdfplumberLinkedInParserGateway,
+    )
+
+    return PdfplumberLinkedInParserGateway()
+
+
+def get_parsear_perfil_linkedin_use_case() -> ParsearPerfilLinkedInUseCase:
+    """Proveedor de dependencias para ParsearPerfilLinkedInUseCase."""
+    from src.application.use_cases.empleo.parsear_perfil_linkedin_use_case import (
+        ParsearPerfilLinkedInUseCase,
+    )
+
+    return ParsearPerfilLinkedInUseCase(parser=get_linkedin_parser_gateway())
 
 
 @lru_cache
