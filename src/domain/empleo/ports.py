@@ -111,3 +111,11 @@ class LinkedInProfileParserPort(Protocol):
     def parsear_archivo(self, ruta_archivo: Path) -> PerfilCandidatoDetallado:
         """Parsea un archivo local PDF de LinkedIn y retorna el perfil detallado."""
         ...
+
+
+class PerfilExportPort(Protocol):
+    """Puerto para exportar perfiles detallados a almacenamiento estructurado."""
+
+    def exportar_yaml(self, perfil: PerfilCandidatoDetallado, destino: Path) -> None:
+        """Exporta la entidad de perfil a un archivo YAML en disco."""
+        ...

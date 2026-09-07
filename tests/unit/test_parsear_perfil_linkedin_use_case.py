@@ -3,6 +3,9 @@ from unittest.mock import MagicMock
 
 import pytest
 
+from src.adapters.gateways.empleo.yaml_perfil_exporter_gateway import (
+    YamlPerfilExporterGateway,
+)
 from src.application.use_cases.empleo.parsear_perfil_linkedin_use_case import (
     ParsearPerfilLinkedInUseCase,
 )
@@ -20,18 +23,19 @@ def mock_perfil_detallado() -> PerfilCandidatoDetallado:
         contacto=ContactoPerfil(
             nombre="Agustin Bustos",
             email="agustin@test.com",
-            telefono="1135162685",
+            telefono="1135162637",
             linkedin_url="https://linkedin.com/in/agustin-bustos",
             ubicacion="Argentina",
         ),
         titular="Ingeniero de Automatización",
-        extracto="Trayectoria en mantenimiento y automatización",
-        aptitudes_principales=("Automatización", "Mantenimiento"),
+        extracto="Extracto de prueba",
+        aptitudes_principales=("PLC", "SCADA"),
         experiencias=(
             ExperienciaPerfil(
                 empresa="Madygraf",
                 puesto="Coordinador de Proyectos",
-                periodo="2020 - Present",
+                periodo="2020 - Actualidad",
+                duracion="4 años",
                 es_actual=True,
             ),
         ),
@@ -53,7 +57,11 @@ def test_execute_from_bytes_success(
     mock_parser = MagicMock()
     mock_parser.parsear_pdf.return_value = mock_perfil_detallado
 
-    use_case = ParsearPerfilLinkedInUseCase(parser=mock_parser, perfiles_dir=tmp_path)
+    use_case = ParsearPerfilLinkedInUseCase(
+        parser=mock_parser,
+        exporter=YamlPerfilExporterGateway(data_dir=tmp_path),
+        perfiles_dir=tmp_path,
+    )
     dto = use_case.execute_from_bytes(
         b"%PDF-test", guardar_como_yaml=True, nombre_yaml="test_out"
     )
@@ -77,10 +85,18 @@ def test_execute_from_path_success(
     mock_parser = MagicMock()
     mock_parser.parsear_archivo.return_value = mock_perfil_detallado
 
-    use_case = ParsearPerfilLinkedInUseCase(parser=mock_parser, perfiles_dir=tmp_path)
-    fake_path = tmp_path / "perfil.pdf"
-    fake_path.touch()
+    use_case = ParsearPerfilLinkedInUseCase(
+        parser=mock_parser,
+        exporter=YamlPerfilExporterGateway(data_dir=tmp_path),
+        perfiles_dir=tmp_path,
+    )
+    pdf_file = tmp_path / "dummy.pdf"
+    pdf_file.write_bytes(b"%PDF-dummy")
 
-    dto = use_case.execute_from_path(fake_path, guardar_como_yaml=False)
+    dto = use_case.execute_from_path(
+        pdf_file, guardar_como_yaml=True, nombre_yaml="test_out_path"
+    )
+
     assert dto.contacto.nombre == "Agustin Bustos"
-    assert not (tmp_path / "agustin_bustos_parsed.yaml").exists()
+    yaml_file = tmp_path / "test_out_path.yaml"
+    assert yaml_file.exists()

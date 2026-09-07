@@ -1,8 +1,9 @@
 """FastAPI routes for empleo y oportunidades laborales en Vaca Muerta."""
 
+from pathlib import Path
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, Depends, File, Query, UploadFile
 
 from src.adapters.controllers.dependencies import get_empleo_controller
 from src.adapters.controllers.empleo_controller import EmpleoController
@@ -13,6 +14,8 @@ from src.application.dtos.empleo_dtos import (
     CambiarEstadoDTO,
     InteraccionDTO,
     OportunidadDTO,
+    PerfilCandidatoDetalladoDTO,
+    ProcesarPDFLocalQueryDTO,
     RegistrarInteraccionDTO,
     RegistrarOportunidadDTO,
     ResultadoBusquedaDTO,
@@ -153,3 +156,58 @@ async def listar_interacciones(
     """Lista las interacciones asociadas a la oportunidad."""
     resultado = controller.listar_interacciones(oportunidad_id=id)
     return APIResponseDTO[list[InteraccionDTO]](success=True, data=resultado)
+
+
+@router.post(
+    "/perfil/cargar-pdf",
+    response_model=APIResponseDTO[PerfilCandidatoDetalladoDTO],
+    summary="Cargar y procesar perfil de LinkedIn en PDF",
+    description=(
+        "Recibe un PDF exportado de LinkedIn mediante multipart/form-data, "
+        "extrae de forma determinística en CPU local la experiencia, educación, "
+        "titular, contacto y aptitudes técnicas, optimizando el consumo de tokens."
+    ),
+)
+async def cargar_perfil_linkedin_pdf(
+    controller: Annotated[EmpleoController, Depends(get_empleo_controller)],
+    file: Annotated[UploadFile, File(description="Archivo PDF del perfil de LinkedIn")],
+    guardar_como_yaml: Annotated[
+        bool,
+        Query(
+            description="Si es True, persiste el perfil extraído en data/perfiles/ como YAML"
+        ),
+    ] = False,
+) -> APIResponseDTO[PerfilCandidatoDetalladoDTO]:
+    """Carga y procesa un PDF de LinkedIn desde bytes subidos."""
+    contenido = await file.read()
+    filename = file.filename or "perfil.pdf"
+    nombre_yaml = Path(filename).stem
+    resultado = controller.parsear_perfil_linkedin_pdf(
+        contenido_pdf=contenido,
+        guardar_como_yaml=guardar_como_yaml,
+        nombre_yaml=nombre_yaml,
+    )
+    return APIResponseDTO[PerfilCandidatoDetalladoDTO](success=True, data=resultado)
+
+
+@router.post(
+    "/perfil/procesar-pdf-local",
+    response_model=APIResponseDTO[PerfilCandidatoDetalladoDTO],
+    summary="Procesar perfil de LinkedIn desde ruta local en el filesystem",
+    description=(
+        "Procesa un PDF de LinkedIn ubicado en el almacenamiento local del host. "
+        "Ideal para optimización de tokens y pipelines automatizados sin re-subir binarios."
+    ),
+)
+async def procesar_perfil_linkedin_local(
+    body: ProcesarPDFLocalQueryDTO,
+    controller: Annotated[EmpleoController, Depends(get_empleo_controller)],
+) -> APIResponseDTO[PerfilCandidatoDetalladoDTO]:
+    """Procesa un PDF de LinkedIn a partir de su ruta absoluta en el sistema de archivos."""
+    nombre_yaml = Path(body.pdf_path).stem
+    resultado = controller.parsear_perfil_linkedin_local(
+        ruta_pdf=body.pdf_path,
+        guardar_como_yaml=body.guardar_como_yaml,
+        nombre_yaml=nombre_yaml,
+    )
+    return APIResponseDTO[PerfilCandidatoDetalladoDTO](success=True, data=resultado)

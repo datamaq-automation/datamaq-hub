@@ -599,11 +599,17 @@ def get_linkedin_parser_gateway() -> LinkedInProfileParserPort:
 
 def get_parsear_perfil_linkedin_use_case() -> ParsearPerfilLinkedInUseCase:
     """Proveedor de dependencias para ParsearPerfilLinkedInUseCase."""
+    from src.adapters.gateways.empleo.yaml_perfil_exporter_gateway import (
+        YamlPerfilExporterGateway,
+    )
     from src.application.use_cases.empleo.parsear_perfil_linkedin_use_case import (
         ParsearPerfilLinkedInUseCase,
     )
 
-    return ParsearPerfilLinkedInUseCase(parser=get_linkedin_parser_gateway())
+    return ParsearPerfilLinkedInUseCase(
+        parser=get_linkedin_parser_gateway(),
+        exporter=YamlPerfilExporterGateway(),
+    )
 
 
 @lru_cache

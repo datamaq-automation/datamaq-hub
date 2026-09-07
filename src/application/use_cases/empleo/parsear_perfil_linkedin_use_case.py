@@ -1,11 +1,8 @@
 from pathlib import Path
-from typing import Any
-
-import yaml
 
 from src.application.dtos.empleo_dtos import PerfilCandidatoDetalladoDTO
 from src.application.mappers.empleo_mapper import EmpleoMapper
-from src.domain.empleo.ports import LinkedInProfileParserPort
+from src.domain.empleo.ports import LinkedInProfileParserPort, PerfilExportPort
 
 
 class ParsearPerfilLinkedInUseCase:
@@ -14,9 +11,11 @@ class ParsearPerfilLinkedInUseCase:
     def __init__(
         self,
         parser: LinkedInProfileParserPort,
+        exporter: PerfilExportPort | None = None,
         perfiles_dir: Path | None = None,
     ) -> None:
         self._parser = parser
+        self._exporter = exporter
         if perfiles_dir is None:
             self._perfiles_dir = (
                 Path(__file__).resolve().parents[4] / "data" / "perfiles"
@@ -33,8 +32,10 @@ class ParsearPerfilLinkedInUseCase:
         entidad = self._parser.parsear_pdf(contenido_pdf)
         dto = EmpleoMapper.perfil_detallado_entidad_a_dto(entidad)
 
-        if guardar_como_yaml:
-            self._guardar_perfil_yaml(dto, nombre_yaml)
+        if guardar_como_yaml and self._exporter is not None:
+            self._exporter.exportar_yaml(
+                entidad, self._perfiles_dir / f"{nombre_yaml}.yaml"
+            )
 
         return dto
 
@@ -47,21 +48,9 @@ class ParsearPerfilLinkedInUseCase:
         entidad = self._parser.parsear_archivo(ruta_pdf)
         dto = EmpleoMapper.perfil_detallado_entidad_a_dto(entidad)
 
-        if guardar_como_yaml:
-            self._guardar_perfil_yaml(dto, nombre_yaml)
+        if guardar_como_yaml and self._exporter is not None:
+            self._exporter.exportar_yaml(
+                entidad, self._perfiles_dir / f"{nombre_yaml}.yaml"
+            )
 
         return dto
-
-    def _guardar_perfil_yaml(
-        self, dto: PerfilCandidatoDetalladoDTO, nombre_yaml: str
-    ) -> Path:
-        self._perfiles_dir.mkdir(parents=True, exist_ok=True)
-        clean_name = nombre_yaml.removesuffix(".yaml").removesuffix(".yml")
-        target_file = self._perfiles_dir / f"{clean_name}.yaml"
-
-        data: dict[str, Any] = dto.model_dump()
-        target_file.write_text(
-            yaml.dump(data, allow_unicode=True, sort_keys=False),
-            encoding="utf-8",
-        )
-        return target_file
