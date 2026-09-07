@@ -19,3 +19,7 @@ class OfertaNoEncontradaError(EmpleoDomainException):
 
 class PerfilNoEncontradoError(EmpleoDomainException):
     """Raised when a professional profile file or record is not found."""
+
+
+class LinkedInPDFParsingError(EmpleoDomainException):
+    """Raised when parsing a LinkedIn profile PDF fails or format is invalid."""

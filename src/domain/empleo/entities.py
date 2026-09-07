@@ -203,3 +203,50 @@ def obtener_perfil_agustin_bustos() -> PerfilProfesional:
             ModalidadTrabajo.REMOTO,
         ),
     )
+
+
+@dataclass(frozen=True)
+class ContactoPerfil:
+    """Información de contacto personal extraída del perfil."""
+
+    nombre: str
+    email: str = ""
+    telefono: str = ""
+    linkedin_url: str = ""
+    ubicacion: str = ""
+
+
+@dataclass(frozen=True)
+class ExperienciaPerfil:
+    """Detalle de una posición laboral desempeñada."""
+
+    empresa: str
+    puesto: str
+    periodo: str
+    duracion: str = ""
+    ubicacion: str = ""
+    descripcion: str = ""
+    es_actual: bool = False
+
+
+@dataclass(frozen=True)
+class EducacionPerfil:
+    """Detalle de un hito educativo o certificación académica."""
+
+    institucion: str
+    titulo: str
+    periodo: str = ""
+
+
+@dataclass(frozen=True)
+class PerfilCandidatoDetallado:
+    """Agregado con la información completa extraída y normalizada desde LinkedIn."""
+
+    contacto: ContactoPerfil
+    titular: str
+    extracto: str
+    aptitudes_principales: tuple[str, ...] = ()
+    experiencias: tuple[ExperienciaPerfil, ...] = ()
+    educacion: tuple[EducacionPerfil, ...] = ()
+    palabras_clave_detectadas: tuple[str, ...] = ()
+    anios_experiencia_estimados: float = 0.0

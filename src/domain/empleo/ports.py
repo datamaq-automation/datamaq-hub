@@ -1,11 +1,13 @@
 """Port interfaces for empleo bounded context."""
 
+from pathlib import Path
 from typing import Protocol
 
 from src.domain.empleo.entities import (
     InteraccionPostulacion,
     OfertaLaboral,
     OportunidadLaboral,
+    PerfilCandidatoDetallado,
     PerfilProfesional,
 )
 from src.domain.empleo.value_objects import EstadoOportunidad, FuenteOferta
@@ -96,4 +98,16 @@ class PerfilProfesionalRepositoryPort(Protocol):
 
     def obtener_perfil(self, nombre: str = "agustin_bustos") -> PerfilProfesional:
         """Carga y retorna una entidad PerfilProfesional por su identificador/nombre."""
+        ...
+
+
+class LinkedInProfileParserPort(Protocol):
+    """Puerto para parsear perfiles de LinkedIn exportados en formato PDF."""
+
+    def parsear_pdf(self, contenido_pdf: bytes) -> PerfilCandidatoDetallado:
+        """Parsea los bytes de un PDF de LinkedIn y retorna el perfil detallado."""
+        ...
+
+    def parsear_archivo(self, ruta_archivo: Path) -> PerfilCandidatoDetallado:
+        """Parsea un archivo local PDF de LinkedIn y retorna el perfil detallado."""
         ...
