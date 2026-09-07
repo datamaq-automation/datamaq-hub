@@ -1,0 +1,158 @@
+id_plan: vaca_muerta
+titulo: Inserción Laboral en Vaca Muerta (Cuenca Neuquina)
+descripcion: Plan de posicionamiento, prospección y validación técnica para Agustín Leonardo Bustos
+responsable: Agustín Leonardo Bustos
+tareas:
+  - id: A1
+    titulo: Actualización de Perfil LinkedIn
+    descripcion: Titular SEO, Acerca de con reenmarcado semántico, 20 skills y ubicación Neuquén/Añelo.
+    fase: "Fase 1: Alistamiento de Activos"
+    estado: PENDIENTE
+    predecesores: []
+    optimista: 1.0
+    mas_probable: 1.0
+    pesimista: 2.0
+    responsable: Agustín Leonardo Bustos
+
+  - id: A2
+    titulo: Confección de CV Formato ATS
+    descripcion: Versiones de 1 y 2 páginas con keywords de MT 13.2kV, VFDs ABB/Siemens, CBM y APM.
+    fase: "Fase 1: Alistamiento de Activos"
+    estado: PENDIENTE
+    predecesores: [A1]
+    optimista: 1.0
+    mas_probable: 2.0
+    pesimista: 3.0
+    responsable: Agustín Leonardo Bustos
+
+  - id: A3
+    titulo: Setup y Verificación de CRM Datamaq Hub
+    descripcion: Verificación de base relacional MySQL VPS, SQLite local y scripts de seguimiento CLI.
+    fase: "Fase 1: Alistamiento de Activos"
+    estado: COMPLETADA
+    predecesores: []
+    optimista: 0.5
+    mas_probable: 1.0
+    pesimista: 2.0
+    responsable: Agustín Leonardo Bustos
+
+  - id: B1
+    titulo: Contacto con Consultoras Boutique de Neuquén
+    descripcion: Presentación en Patagonia Resources, Vincular, SI-RH Añelo, SHR y Petrol Human.
+    fase: "Fase 2: Prospección Multicanal"
+    estado: PENDIENTE
+    predecesores: [A2]
+    optimista: 2.0
+    mas_probable: 3.0
+    pesimista: 5.0
+    responsable: Agustín Leonardo Bustos
+
+  - id: B2
+    titulo: Carga de Perfil en ATS de Operadoras
+    descripcion: Registro en portales corporativos de YPF Talent, Techint/Tecpetrol, PAE y Vista.
+    fase: "Fase 2: Prospección Multicanal"
+    estado: PENDIENTE
+    predecesores: [A2]
+    optimista: 2.0
+    mas_probable: 3.0
+    pesimista: 5.0
+    responsable: Agustín Leonardo Bustos
+
+  - id: B3
+    titulo: Mapeo de Hiring Managers en LinkedIn
+    descripcion: Identificación de 15-20 Superintendentes de Mantenimiento y Jefes de Planta en Añelo.
+    fase: "Fase 2: Prospección Multicanal"
+    estado: PENDIENTE
+    predecesores: [A1]
+    optimista: 1.0
+    mas_probable: 2.0
+    pesimista: 3.0
+    responsable: Agustín Leonardo Bustos
+
+  - id: B4
+    titulo: Prospección Directa Outbound
+    descripcion: Envíos InMail directos y personalizados con pitch técnico de Uptime y CBM (3-5 diarios).
+    fase: "Fase 2: Prospección Multicanal"
+    estado: PENDIENTE
+    predecesores: [B3, A2]
+    optimista: 5.0
+    mas_probable: 7.0
+    pesimista: 10.0
+    responsable: Agustín Leonardo Bustos
+
+  - id: C1
+    titulo: Postulaciones Formales a Vacantes en ATS
+    descripcion: Aplicaciones dirigidas a búsquedas abiertas activas con score de afinidad > 70%.
+    fase: "Fase 3: Postulaciones y Pipeline"
+    estado: PENDIENTE
+    predecesores: [B2]
+    optimista: 3.0
+    mas_probable: 5.0
+    pesimista: 8.0
+    responsable: Agustín Leonardo Bustos
+
+  - id: C2
+    titulo: Gestión Activa de Respuestas y Seguimiento CRM
+    descripcion: Registro de contactos, interacciones y feedback usando scripts/gestionar_empleo_db.py.
+    fase: "Fase 3: Postulaciones y Pipeline"
+    estado: PENDIENTE
+    predecesores: [C1, B4, B1]
+    optimista: 4.0
+    mas_probable: 5.0
+    pesimista: 7.0
+    responsable: Agustín Leonardo Bustos
+
+  - id: D1
+    titulo: Screening Telefónico / RRHH
+    descripcion: Entrevista filtro de disponibilidad rotacional 14x7, logística y bandas salariales.
+    fase: "Fase 4: Rondas de Entrevistas"
+    estado: PENDIENTE
+    predecesores: [C2]
+    optimista: 2.0
+    mas_probable: 3.0
+    pesimista: 5.0
+    responsable: Agustín Leonardo Bustos
+
+  - id: D2
+    titulo: Entrevistas Técnicas con Jefatura de Mantenimiento
+    descripcion: Defensa de experiencia práctica en MT 13.2kV, comisionado de VFDs y CBM en planta.
+    fase: "Fase 4: Rondas de Entrevistas"
+    estado: PENDIENTE
+    predecesores: [D1]
+    optimista: 3.0
+    mas_probable: 4.0
+    pesimista: 6.0
+    responsable: Agustín Leonardo Bustos
+
+  - id: D3
+    titulo: Examen Médico Preocupacional O&G
+    descripcion: Acreditación física de ley para régimen rotacional y operaciones en yacimiento/meseta.
+    fase: "Fase 4: Rondas de Entrevistas"
+    estado: PENDIENTE
+    predecesores: [D2]
+    optimista: 3.0
+    mas_probable: 5.0
+    pesimista: 8.0
+    responsable: Agustín Leonardo Bustos
+
+  - id: E1
+    titulo: Propuesta Económica Formal y Cierre
+    descripcion: Negociación del paquete integral (básico, desarraigo, rotación) y firma de oferta.
+    fase: "Fase 5: Contratación y Despliegue"
+    estado: PENDIENTE
+    predecesores: [D3]
+    optimista: 2.0
+    mas_probable: 3.0
+    pesimista: 5.0
+    responsable: Agustín Leonardo Bustos
+
+  - id: E2
+    titulo: Inducción HSE de Cuenca y Subida a Yacimiento
+    descripcion: Curso de seguridad de cuenca, entrega de EPP ignífugo y traslado a Añelo.
+    fase: "Fase 5: Contratación y Despliegue"
+    estado: PENDIENTE
+    predecesores: [E1]
+    optimista: 3.0
+    mas_probable: 4.0
+    pesimista: 6.0
+    responsable: Agustín Leonardo Bustos

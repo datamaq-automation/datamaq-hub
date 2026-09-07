@@ -5,6 +5,8 @@ data/*.sqlite*
 !data/paritarias/*.json
 !data/perfiles/
 !data/perfiles/*.yaml
+!data/pert/
+!data/pert/*.yaml
 data/.backups/
 __pycache__/
 venv/
