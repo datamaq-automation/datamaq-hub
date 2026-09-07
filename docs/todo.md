@@ -75,10 +75,13 @@
 ## 💻 Backlog Técnico y Arquitectura de Software
 
 ### Dominio Empleo y Planificación
-- [ ] **Motor Dinámico de Cálculo PERT-CPM (`scripts/calcular_pert_cpm.py`):**
-  - [ ] Definir esquema de red en `data/pert/camino_critico_vaca_muerta.yaml`.
-  - [ ] Implementar algoritmo Forward/Backward Pass para cálculo de ES, EF, LS, LF, holguras y varianza en Python.
-  - [ ] Generador automático de gráficos Mermaid y tablas actualizadas en Markdown.
+- [x] **Motor Dinámico de Cálculo PERT-CPM y API REST Kanban (`src/domain/planificacion/`, `src/infrastructure/fastapi/routes/planificacion_routes.py`):**
+  - [x] Definir esquema de red en `data/pert/camino_critico_vaca_muerta.yaml`.
+  - [x] Implementar algoritmo Forward/Backward Pass para cálculo de ES, EF, LS, LF, holguras y varianza en Python (`CalculadorPertCpmService`).
+  - [x] Generador automático de gráficos Mermaid y serialización Kanban en DTOs.
+  - [x] Exponer endpoints REST: `GET /api/v1/planificacion/kanban` y `PATCH /api/v1/planificacion/tareas/{id_tarea}/estado`.
+  - [x] Persistencia atómica de estados en archivos YAML (`YamlPlanificacionGateway`).
+  - [x] Especificación técnica formal en `specs/planificacion_kanban_pert.md`.
 - [ ] **Inyección Completa de `YamlPerfilGateway`:**
   - [ ] Inyectar el repositorio de perfiles en `BuscarOfertasVacaMuertaUseCase` para soportar múltiples archivos YAML de perfil de búsqueda desde la API REST (`--perfil=apm_confiabilidad`).
 - [ ] **Nuevos Gateways de Portales Petroleros:**

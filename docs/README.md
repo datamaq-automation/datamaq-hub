@@ -54,6 +54,7 @@ docs/
 | **[`busqueda_laboral_vaca_muerta.md`](busqueda_laboral_vaca_muerta.md)** | Manual operativo, CRM relacional y diagnóstico estratégico del motor de búsqueda laboral en Vaca Muerta (YPF, Tecpetrol, PAE, Vista). | **SSOT Activo** |
 | **[`estrategia_linkedin_vaca_muerta.md`](estrategia_linkedin_vaca_muerta.md)** | Estrategia de posicionamiento en LinkedIn, reenmarcado semántico de perfil híbrido (MT 13.2kV + Python/APM), 20 skills clave y consultoras boutique de Neuquén. | **SSOT Activo** |
 | **[`pert_camino_critico_vaca_muerta.md`](pert_camino_critico_vaca_muerta.md)** | Planificación PERT/CPM: camino crítico (35 días hábiles), holguras, ruta sub-crítica Outbound y análisis de incertidumbre. | **SSOT Activo** |
+| **[`../specs/planificacion_kanban_pert.md`](../specs/planificacion_kanban_pert.md)** | Especificación técnica formal: motor algorítmico PERT-CPM, persistencia YAML y endpoints REST de tablero Kanban. | **Aprobado / Implementado** |
 | **[`todo.md`](todo.md)** | Registro vivo de tareas pendientes (TODO), backlog del camino crítico en Vaca Muerta y mejoras de software. | **SSOT Activo** |
 
 ---

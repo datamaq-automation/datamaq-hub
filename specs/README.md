@@ -24,6 +24,7 @@
 | **[`credit_card_parser.md`](credit_card_parser.md)** | Procesamiento de Tarjetas de Crédito | **Aprobado / Diseñado** | Procesamiento de resúmenes de tarjetas de crédito (Visa/Mastercard de BBVA y Banco Provincia) e integración en el Briefing Diario. |
 | **[`usage_api.md`](usage_api.md)** | Consulta de Usage de APIs | **Aprobado / Diseñado** | Monitoreo y consolidación de saldo/tokens de DeepSeek API y Antigravity (AGY) CLI. |
 | **[`busqueda_laboral_vaca_muerta.md`](busqueda_laboral_vaca_muerta.md)** | Búsqueda Laboral en Vaca Muerta | **Aprobado / Implementado** | Motor multifuente (YPF, Tecpetrol, PAE, Vista), scoring para APM/Confiabilidad e interfaz manual API/CLI. |
+| **[`planificacion_kanban_pert.md`](planificacion_kanban_pert.md)** | Tablero Kanban y Red PERT-CPM Dinámica | **Aprobado / Implementado** | Tablero Kanban (pendientes, en proceso, finalizadas), cálculo algorítmico PERT-CPM, camino crítico y diagrama Mermaid. |
 
 ---
 
