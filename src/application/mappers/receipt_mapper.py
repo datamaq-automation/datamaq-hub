@@ -135,15 +135,14 @@ class ReceiptMapper:
             return digits
 
         mes_pago_norm = _to_ym(entity.agente.mes_pago)
-        items = entity.resumen_liquidos or []
-
         nominal = 0.0
         retro = 0.0
         sac = 0.0
         otros = 0.0
 
-        if items:
-            for item in items:
+        # Priorizar resumen_liquidos si existen para respetar clasificaciones de conceptos enriquecidas
+        if entity.resumen_liquidos:
+            for item in entity.resumen_liquidos:
                 liq = item.liquido_pesos
                 p_liq = _to_ym(item.periodo_liquidado)
                 c_norm = (item.concepto_normalizado or "").lower()
@@ -161,7 +160,7 @@ class ReceiptMapper:
                     nominal += liq
                 else:
                     otros += liq
-        else:
+        elif entity.liquidaciones:
             for liq_seq in entity.liquidaciones:
                 liq = liq_seq.liquido_calculado
                 p_liq = _to_ym(liq_seq.cargo.periodo_liquidado)

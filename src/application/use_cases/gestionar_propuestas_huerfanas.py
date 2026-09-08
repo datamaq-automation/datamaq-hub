@@ -169,8 +169,14 @@ class GestionarPropuestasHuerfanasUseCase:
             motivo: MotivoCese | None = None
 
             try:
-                partes_pago = recibo.agente.mes_pago.split("-")
-                mes_pago_ym = f"{partes_pago[0]}{partes_pago[1]}"
+                raw_mes = (recibo.agente.mes_pago or "").strip()
+                if "/" in raw_mes:
+                    parts = [p.strip() for p in raw_mes.split("/") if p.strip()]
+                    mes_pago_ym = f"{parts[1]}{parts[0].zfill(2)}"
+                else:
+                    digits = re.sub(r"\D", "", raw_mes)
+                    mes_pago_ym = digits
+
                 mes_prop_ym = f"{f_desde.year:04d}{f_desde.month:02d}"
                 if mes_prop_ym < mes_pago_ym:
                     _, ultimo_dia = calendar.monthrange(f_desde.year, f_desde.month)

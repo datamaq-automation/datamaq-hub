@@ -191,7 +191,7 @@ class ConfirmarPropuestasDTO(BaseModel):
     model_config = ConfigDict(extra="ignore")
 
     propuestas: list[PropuestaDesignacionDTO] = Field(
-        default_factory=list[PropuestaDesignacionDTO],
+        ...,
         min_length=1,
         description="Lista de propuestas revisadas y aprobadas por el usuario para persistir",
     )

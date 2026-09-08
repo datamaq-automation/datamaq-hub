@@ -278,7 +278,17 @@ def test_parser_escuela_codigo_y_fecha_desde_retroactiva() -> None:
 
     propuestas = use_case.obtener_propuestas("recibo-retro")
     prop_retro = next(p for p in propuestas if p.secuencia == "001")
+    prop_retro.situacion_revista = "SUPLENTE"
     assert prop_retro.fecha_desde == "2026-06-01"
+
+    # Confirmar propuesta retroactiva y verificar que la designación se cree cesada (fecha_hasta y motivo_cese)
+    confirmadas = use_case.confirmar_propuestas(
+        "recibo-retro",
+        ConfirmarPropuestasDTO(propuestas=[prop_retro]),
+    )
+    assert len(confirmadas) == 1
+    assert confirmadas[0].fecha_hasta == "2026-06-30"
+    assert confirmadas[0].motivo_cese == "FIN_SUPLENCIA"
 
     # Validaciones HTTP/DTO para propuesta vacía
     with pytest.raises(ValidationError):
