@@ -224,16 +224,19 @@ class ConciliadorReciboDocenteService:
                     fecha_hasta = getattr(desig_match.vigencia, "fecha_hasta", None)
 
                 # Clasificar estado
-                if fecha_hasta is not None and es_retroactivo:
-                    estado = EstadoLineaConciliacion.CONCILIADO_RETROACTIVO
-                    obs = f"Suplencia/cargo cesado el {fecha_hasta}, cobrado retroactivo en {mes_pago_norm} ({motivo})"
-                elif (
+                if (
                     modulos_recibo > 0
                     and modulos_desig > 0
                     and abs(modulos_recibo - modulos_desig) > 0.01
                 ):
                     estado = EstadoLineaConciliacion.DISCREPANCIA
                     obs = f"Discrepancia en módulos: recibo={modulos_recibo} vs designación={modulos_desig} ({motivo})"
+                elif es_retroactivo:
+                    estado = EstadoLineaConciliacion.CONCILIADO_RETROACTIVO
+                    if fecha_hasta is not None:
+                        obs = f"Suplencia/cargo cesado el {fecha_hasta}, cobrado retroactivo en {mes_pago_norm} ({motivo})"
+                    else:
+                        obs = f"Cobrado retroactivo en {mes_pago_norm} ({motivo})"
                 else:
                     estado = EstadoLineaConciliacion.CONCILIADO_EXACTO
                     obs = f"Conciliado correctamente ({motivo})"
