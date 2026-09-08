@@ -123,3 +123,74 @@ class ConciliacionResponseDTO(BaseModel):
         default_factory=dict[str, Any],
         description="Resumen consolidado de haberes y desvíos",
     )
+
+
+class DesignacionNoLiquidadaDTO(BaseModel):
+    """Representación de una designación docente activa no liquidada para seguimiento diferido."""
+
+    model_config = ConfigDict(extra="ignore")
+
+    id_seguimiento: str = Field(
+        description="Identificador único del registro de seguimiento"
+    )
+    id_recibo: str = Field(description="Recibo en el cual no se liquidó")
+    id_designacion: str = Field(description="UUID de la designación docente activa")
+    docente_cuit: str = Field(description="CUIT del docente")
+    mes_pago: str = Field(description="Mes de pago del recibo auditado")
+    secuencia: str | None = Field(
+        default=None, description="Secuencia esperada del cargo"
+    )
+    escuela_codigo: str = Field(description="Establecimiento educativo")
+    modulos: float = Field(description="Carga horaria o módulos del cargo")
+    situacion_revista: str = Field(
+        description="Situación de revista (TITULAR, PROVISIONAL, SUPLENTE)"
+    )
+    periodos_consecutivos: int = Field(
+        default=1, description="Cantidad de períodos consecutivos sin cobrar"
+    )
+    alerta_2_periodos: bool = Field(
+        default=False,
+        description="True si encadena 2 o más períodos consecutivos sin liquidar",
+    )
+    estado: str = Field(
+        default="PENDIENTE", description="Estado del seguimiento: PENDIENTE o RESUELTO"
+    )
+    id_recibo_resolucion: str | None = Field(
+        default=None, description="Recibo donde finalmente se liquidó el cargo"
+    )
+    creado_en: str = Field(default="", description="Fecha y hora de registro isoformat")
+
+
+class PropuestaDesignacionDTO(BaseModel):
+    """Borrador estructurado precargado desde una línea huérfana de recibo para revisión y alta."""
+
+    model_config = ConfigDict(extra="ignore")
+
+    secuencia: str = Field(description="Secuencia del cargo en recibo")
+    escuela_codigo: str = Field(
+        description="Código de escuela extraído (ej. 055IS0199)"
+    )
+    distrito: str = Field(default="", description="Distrito escolar (ej. 055)")
+    tipo_nivel: str = Field(default="", description="Tipo de nivel (ej. IS, MT)")
+    escuela_numero: str = Field(default="", description="Número de escuela (ej. 0199)")
+    cargo_codigo: str = Field(default="", description="Código de cargo o asignatura")
+    situacion_revista: str = Field(
+        default="TITULAR",
+        description="Situación de revista propuesta (TITULAR, PROVISIONAL, SUPLENTE)",
+    )
+    modulos_horas: float = Field(default=0.0, description="Módulos u horas semanales")
+    fecha_desde: str = Field(
+        description="Fecha de inicio calculada/propuesta (YYYY-MM-DD)"
+    )
+    observaciones: str = Field(default="", description="Observaciones pre-completadas")
+
+
+class ConfirmarPropuestasDTO(BaseModel):
+    """Solicitud para la creación confirmada en bulk de designaciones huérfanas seleccionadas."""
+
+    model_config = ConfigDict(extra="ignore")
+
+    propuestas: list[PropuestaDesignacionDTO] = Field(
+        default_factory=list[PropuestaDesignacionDTO],
+        description="Lista de propuestas revisadas y aprobadas por el usuario para persistir",
+    )

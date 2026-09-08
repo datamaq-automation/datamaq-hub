@@ -2,7 +2,12 @@ from typing import Any
 
 from src.adapters.presenters.receipt_presenter import ReceiptPresenter
 from src.application.dtos.common_dto import APIResponseDTO
-from src.application.dtos.conciliacion_dto import ConciliacionResponseDTO
+from src.application.dtos.conciliacion_dto import (
+    ConciliacionResponseDTO,
+    ConfirmarPropuestasDTO,
+    DesignacionNoLiquidadaDTO,
+    PropuestaDesignacionDTO,
+)
 from src.application.dtos.horarios_docencia_dto import DesignacionDocenteDTO
 from src.application.dtos.receipt_dto import (
     DesgloseFinancieroDTO,
@@ -15,9 +20,13 @@ from src.application.use_cases.crear_designaciones_desde_recibo import (
     CrearDesignacionesDesdeReciboUseCase,
 )
 from src.application.use_cases.eliminar_recibo import EliminarReciboUseCase
+from src.application.use_cases.gestionar_propuestas_huerfanas import (
+    GestionarPropuestasHuerfanasUseCase,
+)
 from src.application.use_cases.listar_recibos import ListarRecibosUseCase
 from src.application.use_cases.obtener_recibo import ObtenerReciboUseCase
 from src.application.use_cases.parse_receipt import ParseReceiptUseCase
+from src.domain.recibos.ports import SeguimientoNoLiquidadosRepositoryPort
 
 
 class ReceiptController:
@@ -31,6 +40,9 @@ class ReceiptController:
         eliminar_use_case: EliminarReciboUseCase | None = None,
         conciliar_use_case: ConciliarReciboUseCase | None = None,
         crear_desde_recibo_use_case: CrearDesignacionesDesdeReciboUseCase | None = None,
+        gestionar_propuestas_use_case: GestionarPropuestasHuerfanasUseCase
+        | None = None,
+        seguimiento_repository: SeguimientoNoLiquidadosRepositoryPort | None = None,
     ) -> None:
         self._parse_use_case = parse_use_case
         self._obtener_use_case = obtener_use_case
@@ -38,6 +50,8 @@ class ReceiptController:
         self._eliminar_use_case = eliminar_use_case
         self._conciliar_use_case = conciliar_use_case
         self._crear_desde_recibo_use_case = crear_desde_recibo_use_case
+        self._gestionar_propuestas_use_case = gestionar_propuestas_use_case
+        self._seguimiento_repository = seguimiento_repository
 
     def parse_bytes(
         self,
@@ -210,3 +224,88 @@ class ReceiptController:
                 ]
             )
         return output.getvalue()
+
+    def obtener_propuestas_huerfanas(
+        self, id_recibo: str
+    ) -> APIResponseDTO[list[PropuestaDesignacionDTO]]:
+        """Obtiene borradores estructurados precargados para las líneas huérfanas del recibo."""
+        if not self._gestionar_propuestas_use_case:
+            raise RuntimeError("GestionarPropuestasHuerfanasUseCase no configurado.")
+        propuestas = self._gestionar_propuestas_use_case.obtener_propuestas(id_recibo)
+        return APIResponseDTO[list[PropuestaDesignacionDTO]](
+            success=True, data=propuestas
+        )
+
+    def confirmar_propuestas_huerfanas(
+        self, id_recibo: str, solicitud: ConfirmarPropuestasDTO
+    ) -> APIResponseDTO[list[DesignacionDocenteDTO]]:
+        """Persiste las designaciones huérfanas explícitamente confirmadas por el usuario."""
+        if not self._gestionar_propuestas_use_case:
+            raise RuntimeError("GestionarPropuestasHuerfanasUseCase no configurado.")
+        creadas = self._gestionar_propuestas_use_case.confirmar_propuestas(
+            id_recibo=id_recibo, solicitud=solicitud
+        )
+        return APIResponseDTO[list[DesignacionDocenteDTO]](success=True, data=creadas)
+
+    def obtener_no_liquidados_recibo(
+        self, id_recibo: str
+    ) -> APIResponseDTO[list[DesignacionNoLiquidadaDTO]]:
+        """Obtiene las designaciones vigentes no cobradas en un recibo específico."""
+        if not self._seguimiento_repository:
+            raise RuntimeError("SeguimientoNoLiquidadosRepositoryPort no configurado.")
+        domain_items = self._seguimiento_repository.obtener_por_recibo(id_recibo)
+        dtos = [
+            DesignacionNoLiquidadaDTO(
+                id_seguimiento=item.id_seguimiento,
+                id_recibo=item.id_recibo,
+                id_designacion=item.id_designacion,
+                docente_cuit=item.docente_cuit,
+                mes_pago=item.mes_pago,
+                secuencia=item.secuencia,
+                escuela_codigo=item.escuela_codigo,
+                modulos=item.modulos,
+                situacion_revista=item.situacion_revista,
+                periodos_consecutivos=item.periodos_consecutivos,
+                alerta_2_periodos=item.alerta_2_periodos,
+                estado=item.estado,
+                id_recibo_resolucion=item.id_recibo_resolucion,
+                creado_en=item.creado_en,
+            )
+            for item in domain_items
+        ]
+        return APIResponseDTO[list[DesignacionNoLiquidadaDTO]](success=True, data=dtos)
+
+    def listar_no_liquidados(
+        self,
+        cuit: str | None = None,
+        solo_pendientes: bool = False,
+        solo_alertas: bool = False,
+    ) -> APIResponseDTO[list[DesignacionNoLiquidadaDTO]]:
+        """Obtiene el historial y seguimiento diferido de designaciones no liquidadas."""
+        if not self._seguimiento_repository:
+            raise RuntimeError("SeguimientoNoLiquidadosRepositoryPort no configurado.")
+        domain_items = self._seguimiento_repository.listar(
+            docente_cuit=cuit,
+            solo_pendientes=solo_pendientes,
+            solo_alertas=solo_alertas,
+        )
+        dtos = [
+            DesignacionNoLiquidadaDTO(
+                id_seguimiento=item.id_seguimiento,
+                id_recibo=item.id_recibo,
+                id_designacion=item.id_designacion,
+                docente_cuit=item.docente_cuit,
+                mes_pago=item.mes_pago,
+                secuencia=item.secuencia,
+                escuela_codigo=item.escuela_codigo,
+                modulos=item.modulos,
+                situacion_revista=item.situacion_revista,
+                periodos_consecutivos=item.periodos_consecutivos,
+                alerta_2_periodos=item.alerta_2_periodos,
+                estado=item.estado,
+                id_recibo_resolucion=item.id_recibo_resolucion,
+                creado_en=item.creado_en,
+            )
+            for item in domain_items
+        ]
+        return APIResponseDTO[list[DesignacionNoLiquidadaDTO]](success=True, data=dtos)

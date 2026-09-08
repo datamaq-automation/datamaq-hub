@@ -213,3 +213,23 @@ class ReciboSueldo:
     )
     totales: TotalesConsolidados = field(default_factory=TotalesConsolidados)
     metadata: dict[str, Any] = field(default_factory=dict[str, Any])
+
+
+@dataclass
+class DesignacionNoLiquidada:
+    """Designación escolar docente activa que no fue percibida en el recibo de haberes."""
+
+    id_recibo: str
+    id_designacion: str
+    docente_cuit: str
+    mes_pago: str
+    secuencia: str | None
+    escuela_codigo: str
+    modulos: float
+    situacion_revista: str
+    periodos_consecutivos: int = 1
+    alerta_2_periodos: bool = False
+    estado: str = "PENDIENTE"  # "PENDIENTE" | "RESUELTO"
+    id_recibo_resolucion: str | None = None
+    id_seguimiento: str = ""
+    creado_en: str = ""

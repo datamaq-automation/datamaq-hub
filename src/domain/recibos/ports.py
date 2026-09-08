@@ -4,7 +4,7 @@ from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from typing import Any
 
-from src.domain.recibos.entities import ReciboSueldo
+from src.domain.recibos.entities import DesignacionNoLiquidada, ReciboSueldo
 
 
 @dataclass
@@ -78,3 +78,34 @@ class ReciboRepositoryPort(ABC):
 
     @abstractmethod
     def obtener_por_hash(self, pdf_hash: str) -> ReciboSueldo | None: ...
+
+
+class SeguimientoNoLiquidadosRepositoryPort(ABC):
+    """Puerto para persistir y auditar designaciones docentes activas no liquidadas."""
+
+    @abstractmethod
+    def guardar(self, item: DesignacionNoLiquidada) -> DesignacionNoLiquidada: ...
+
+    @abstractmethod
+    def guardar_batch(self, items: list[DesignacionNoLiquidada]) -> None: ...
+
+    @abstractmethod
+    def obtener_por_recibo(self, id_recibo: str) -> list[DesignacionNoLiquidada]: ...
+
+    @abstractmethod
+    def listar(
+        self,
+        docente_cuit: str | None = None,
+        solo_pendientes: bool = False,
+        solo_alertas: bool = False,
+    ) -> list[DesignacionNoLiquidada]: ...
+
+    @abstractmethod
+    def obtener_ultimas_pendientes(
+        self, docente_cuit: str
+    ) -> list[DesignacionNoLiquidada]: ...
+
+    @abstractmethod
+    def resolver_designaciones(
+        self, docente_cuit: str, ids_designacion: list[str], id_recibo_resolucion: str
+    ) -> None: ...

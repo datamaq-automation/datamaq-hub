@@ -14,7 +14,12 @@ from fastapi import (
 from src.adapters.controllers.dependencies import get_receipt_controller
 from src.adapters.controllers.receipt_controller import ReceiptController
 from src.application.dtos.common_dto import APIResponseDTO
-from src.application.dtos.conciliacion_dto import ConciliacionResponseDTO
+from src.application.dtos.conciliacion_dto import (
+    ConciliacionResponseDTO,
+    ConfirmarPropuestasDTO,
+    DesignacionNoLiquidadaDTO,
+    PropuestaDesignacionDTO,
+)
 from src.application.dtos.horarios_docencia_dto import DesignacionDocenteDTO
 from src.application.dtos.receipt_dto import (
     DesgloseFinancieroDTO,
@@ -197,4 +202,76 @@ async def exportar_conciliacion_csv(
         headers={
             "Content-Disposition": f'attachment; filename="conciliacion_{id_recibo}.csv"'
         },
+    )
+
+
+@router.get(
+    "/no-liquidados",
+    response_model=APIResponseDTO[list[DesignacionNoLiquidadaDTO]],
+    summary="Historial y seguimiento diferido de designaciones no liquidadas",
+    description=(
+        "Lista el historial de cargos docentes activos que no fueron liquidados en recibos, "
+        "con filtros por CUIT, estado de pendiente/resuelto y alertas por 2 o más períodos consecutivos."
+    ),
+)
+async def listar_no_liquidados(
+    controller: Annotated[ReceiptController, Depends(get_receipt_controller)],
+    cuit: Annotated[str | None, Query(description="CUIT del docente a filtrar")] = None,
+    solo_pendientes: Annotated[
+        bool, Query(description="True para ver solo cobros no resueltos")
+    ] = False,
+    solo_alertas: Annotated[
+        bool, Query(description="True para ver solo deudas de 2+ períodos consecutivos")
+    ] = False,
+) -> APIResponseDTO[list[DesignacionNoLiquidadaDTO]]:
+    return controller.listar_no_liquidados(
+        cuit=cuit, solo_pendientes=solo_pendientes, solo_alertas=solo_alertas
+    )
+
+
+@router.get(
+    "/{id_recibo}/no-liquidados",
+    response_model=APIResponseDTO[list[DesignacionNoLiquidadaDTO]],
+    summary="Designaciones vigentes no liquidadas en un recibo específico",
+    description="Devuelve el detalle de cargos docentes activos que no fueron cobrados en el recibo auditado.",
+)
+async def obtener_no_liquidados_recibo(
+    id_recibo: str,
+    controller: Annotated[ReceiptController, Depends(get_receipt_controller)],
+) -> APIResponseDTO[list[DesignacionNoLiquidadaDTO]]:
+    return controller.obtener_no_liquidados_recibo(id_recibo)
+
+
+@router.get(
+    "/{id_recibo}/propuestas-huerfanas",
+    response_model=APIResponseDTO[list[PropuestaDesignacionDTO]],
+    summary="Obtener propuestas estructuradas desde líneas huérfanas del recibo",
+    description=(
+        "Genera borradores estructurados precargados a partir de las líneas percibidas sin designación, "
+        "listos para ser revisados, modificados y confirmados por el usuario."
+    ),
+)
+async def obtener_propuestas_huerfanas(
+    id_recibo: str,
+    controller: Annotated[ReceiptController, Depends(get_receipt_controller)],
+) -> APIResponseDTO[list[PropuestaDesignacionDTO]]:
+    return controller.obtener_propuestas_huerfanas(id_recibo)
+
+
+@router.post(
+    "/{id_recibo}/confirmar-propuestas-huerfanas",
+    response_model=APIResponseDTO[list[DesignacionDocenteDTO]],
+    summary="Crear en bulk únicamente las designaciones huérfanas confirmadas",
+    description=(
+        "Persiste de manera definitiva el subconjunto de propuestas huérfanas que fueron "
+        "revisadas y aprobadas por el usuario."
+    ),
+)
+async def confirmar_propuestas_huerfanas(
+    id_recibo: str,
+    solicitud: ConfirmarPropuestasDTO,
+    controller: Annotated[ReceiptController, Depends(get_receipt_controller)],
+) -> APIResponseDTO[list[DesignacionDocenteDTO]]:
+    return controller.confirmar_propuestas_huerfanas(
+        id_recibo=id_recibo, solicitud=solicitud
     )

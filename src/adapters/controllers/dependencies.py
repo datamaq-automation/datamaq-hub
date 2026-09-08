@@ -28,6 +28,9 @@ from src.adapters.gateways.sql_designacion_docente_gateway import (
     SQLDesignacionDocenteGateway,
 )
 from src.adapters.gateways.sql_recibo_gateway import SQLReciboGateway
+from src.adapters.gateways.sql_seguimiento_no_liquidados_gateway import (
+    SQLSeguimientoNoLiquidadosGateway,
+)
 from src.adapters.gateways.sql_tarjeta_gateway import SQLTarjetaGateway
 from src.application.use_cases.actualizar_designacion import (
     ActualizarDesignacionUseCase,
@@ -47,6 +50,9 @@ from src.application.use_cases.eliminar_designacion import EliminarDesignacionUs
 from src.application.use_cases.eliminar_recibo import EliminarReciboUseCase
 from src.application.use_cases.empleo.parsear_perfil_linkedin_use_case import (
     ParsearPerfilLinkedInUseCase,
+)
+from src.application.use_cases.gestionar_propuestas_huerfanas import (
+    GestionarPropuestasHuerfanasUseCase,
 )
 from src.application.use_cases.get_mail_detail import GetMailDetailUseCase
 from src.application.use_cases.get_unread_summary import GetUnreadSummaryUseCase
@@ -81,6 +87,7 @@ from src.domain.recibos.ports import (
     PDFExtractorPort,
     ReceiptParserRegistryPort,
     ReciboRepositoryPort,
+    SeguimientoNoLiquidadosRepositoryPort,
 )
 from src.domain.tarjetas.ports import TarjetaCreditoParserPort, TarjetaRepositoryPort
 
@@ -142,8 +149,25 @@ def get_eliminar_recibo_use_case() -> EliminarReciboUseCase:
     return EliminarReciboUseCase(repository=get_recibo_repository_gateway())
 
 
+@lru_cache
+def get_seguimiento_no_liquidados_repository_gateway() -> (
+    SeguimientoNoLiquidadosRepositoryPort
+):
+    return SQLSeguimientoNoLiquidadosGateway()
+
+
 def get_conciliar_recibo_use_case() -> ConciliarReciboUseCase:
     return ConciliarReciboUseCase(
+        recibo_repository=get_recibo_repository_gateway(),
+        designacion_repository=get_designacion_docente_repository_gateway(),
+        seguimiento_repository=get_seguimiento_no_liquidados_repository_gateway(),
+    )
+
+
+def get_gestionar_propuestas_huerfanas_use_case() -> (
+    GestionarPropuestasHuerfanasUseCase
+):
+    return GestionarPropuestasHuerfanasUseCase(
         recibo_repository=get_recibo_repository_gateway(),
         designacion_repository=get_designacion_docente_repository_gateway(),
     )
@@ -191,6 +215,8 @@ def get_receipt_controller() -> ReceiptController:
         eliminar_use_case=get_eliminar_recibo_use_case(),
         conciliar_use_case=get_conciliar_recibo_use_case(),
         crear_desde_recibo_use_case=get_crear_designaciones_desde_recibo_use_case(),
+        gestionar_propuestas_use_case=get_gestionar_propuestas_huerfanas_use_case(),
+        seguimiento_repository=get_seguimiento_no_liquidados_repository_gateway(),
     )
 
 
