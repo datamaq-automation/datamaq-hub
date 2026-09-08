@@ -91,7 +91,9 @@ class EmpleoMapper:
             salario_moneda=entidad.salario_moneda,
             salario_bruto_neto=entidad.salario_bruto_neto,
             url_fuente=entidad.url_fuente,
-            estado=entidad.estado.value if isinstance(entidad.estado, EstadoOportunidad) else str(entidad.estado),
+            estado=entidad.estado.value
+            if isinstance(entidad.estado, EstadoOportunidad)
+            else str(entidad.estado),
             fecha_publicacion=entidad.fecha_publicacion,
             fecha_postulacion=entidad.fecha_postulacion,
             fecha_entrevista=entidad.fecha_entrevista,
@@ -220,8 +222,12 @@ class EmpleoMapper:
             titular=entidad.titular,
             extracto=entidad.extracto,
             aptitudes_principales=list(entidad.aptitudes_principales),
-            experiencias=[EmpleoMapper.experiencia_entidad_a_dto(e) for e in entidad.experiencias],
-            educacion=[EmpleoMapper.educacion_entidad_a_dto(ed) for ed in entidad.educacion],
+            experiencias=[
+                EmpleoMapper.experiencia_entidad_a_dto(e) for e in entidad.experiencias
+            ],
+            educacion=[
+                EmpleoMapper.educacion_entidad_a_dto(ed) for ed in entidad.educacion
+            ],
             palabras_clave_detectadas=list(entidad.palabras_clave_detectadas),
             anios_experiencia_estimados=entidad.anios_experiencia_estimados,
         )

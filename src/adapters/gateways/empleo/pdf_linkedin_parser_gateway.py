@@ -1,7 +1,8 @@
-from collections.abc import Sequence
 import io
-from pathlib import Path
 import re
+from collections.abc import Sequence
+from pathlib import Path
+
 import pdfplumber
 
 from src.domain.empleo.entities import (
@@ -161,7 +162,9 @@ class PdfplumberLinkedInParserGateway(LinkedInProfileParserPort):
 
         email = "".join(email_parts).replace(" ", "")
         raw_linkedin = " ".join(linkedin_parts)
-        linkedin_url = re.sub(r"\(LinkedIn\)", "", raw_linkedin).strip().replace(" ", "")
+        linkedin_url = (
+            re.sub(r"\(LinkedIn\)", "", raw_linkedin).strip().replace(" ", "")
+        )
         if linkedin_url and not linkedin_url.startswith("http"):
             linkedin_url = f"https://{linkedin_url}"
 
@@ -210,9 +213,7 @@ class PdfplumberLinkedInParserGateway(LinkedInProfileParserPort):
 
         return titular, extracto, experiencias, educacion
 
-    def _parsear_bloques_experiencia(
-        self, texto_exp: str
-    ) -> list[ExperienciaPerfil]:
+    def _parsear_bloques_experiencia(self, texto_exp: str) -> list[ExperienciaPerfil]:
         """Parsea la lista de cargos, empresas y periodos."""
         experiencias: list[ExperienciaPerfil] = []
         if not texto_exp.strip():
@@ -245,8 +246,7 @@ class PdfplumberLinkedInParserGateway(LinkedInProfileParserPort):
                 i += 2
                 ubicacion = ""
                 if i < len(lines) and any(
-                    kw in lines[i]
-                    for kw in ["Argentina", "Buenos Aires", "Neuquén"]
+                    kw in lines[i] for kw in ["Argentina", "Buenos Aires", "Neuquén"]
                 ):
                     ubicacion = lines[i]
                     i += 1

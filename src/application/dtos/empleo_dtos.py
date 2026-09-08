@@ -224,8 +224,12 @@ class PerfilCandidatoDetalladoDTO(BaseModel):
     titular: str
     extracto: str
     aptitudes_principales: list[str] = Field(default_factory=list[str])
-    experiencias: list[ExperienciaPerfilDTO] = Field(default_factory=list[ExperienciaPerfilDTO])
-    educacion: list[EducacionPerfilDTO] = Field(default_factory=list[EducacionPerfilDTO])
+    experiencias: list[ExperienciaPerfilDTO] = Field(
+        default_factory=list[ExperienciaPerfilDTO]
+    )
+    educacion: list[EducacionPerfilDTO] = Field(
+        default_factory=list[EducacionPerfilDTO]
+    )
     palabras_clave_detectadas: list[str] = Field(default_factory=list[str])
     anios_experiencia_estimados: float = 0.0
 
