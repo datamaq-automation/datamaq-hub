@@ -130,7 +130,6 @@ class ConciliadorReciboDocenteService:
         designaciones_matcheadas_ids: set[str] = set()
         # Track designaciones ya usadas por cada período devengado
         designaciones_usadas_por_periodo: dict[str, set[str]] = {}
-        cargos_matcheados: dict[tuple[str, str], Any] = {}
 
         total_recibo = 0.0
 
@@ -182,31 +181,24 @@ class ConciliadorReciboDocenteService:
             modulos_recibo = float(getattr(item, "modulos", 0.0))
             revista_recibo = str(getattr(item, "revista", ""))
 
-            cargo_key = (escuela_cod, secuencia)
-            if cargo_key in cargos_matcheados:
-                desig_match = cargos_matcheados[cargo_key]
-                motivo = "Coincidencia por cargo agrupado (escuela y secuencia)"
-            else:
-                usadas_este_periodo = designaciones_usadas_por_periodo.setdefault(
-                    periodo_liq, set()
-                )
-                desigs_candidatas = [
-                    d
-                    for d in designaciones
-                    if str(getattr(d, "id_designacion", "")) not in usadas_este_periodo
-                ]
+            usadas_este_periodo = designaciones_usadas_por_periodo.setdefault(
+                periodo_liq, set()
+            )
+            desigs_candidatas = [
+                d
+                for d in designaciones
+                if str(getattr(d, "id_designacion", "")) not in usadas_este_periodo
+            ]
 
-                # Buscar designación coincidente
-                desig_match, motivo = cls._buscar_designacion_coincidente(
-                    escuela_cod=escuela_cod,
-                    secuencia=secuencia,
-                    periodo_liq=periodo_liq,
-                    modulos=modulos_recibo,
-                    revista=revista_recibo,
-                    designaciones=desigs_candidatas,
-                )
-                if desig_match:
-                    cargos_matcheados[cargo_key] = desig_match
+            # Buscar designación coincidente
+            desig_match, motivo = cls._buscar_designacion_coincidente(
+                escuela_cod=escuela_cod,
+                secuencia=secuencia,
+                periodo_liq=periodo_liq,
+                modulos=modulos_recibo,
+                revista=revista_recibo,
+                designaciones=desigs_candidatas,
+            )
 
             if desig_match:
                 id_desig = getattr(desig_match, "id_designacion", None)
