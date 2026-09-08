@@ -37,6 +37,42 @@ class LineaConciliadaDTO(BaseModel):
     observacion: str = Field(description="Detalle o justificación de la conciliación")
 
 
+class CargoConciliadoDTO(BaseModel):
+    """Representa la conciliación agrupada a nivel cargo (escuela + secuencia)."""
+
+    model_config = ConfigDict(extra="ignore")
+
+    secuencia: str = Field(description="Secuencia del cargo")
+    escuela_codigo: str = Field(description="Código de escuela o establecimiento")
+    id_designacion: str | None = Field(
+        default=None, description="UUID de la designación coincidente"
+    )
+    revista_recibo: str = Field(
+        default="", description="Situación de revista en recibo"
+    )
+    revista_designacion: str | None = Field(
+        default=None, description="Situación de revista en designación"
+    )
+    modulos_recibo: float = Field(default=0.0, description="Módulos en recibo")
+    modulos_designacion: float | None = Field(
+        default=None, description="Módulos en designación"
+    )
+    importe_total: float = Field(
+        description="Suma de importes netos de todas las líneas del cargo"
+    )
+    cantidad_lineas: int = Field(
+        description="Cantidad de líneas liquidadas para este cargo"
+    )
+    estado: EstadoLineaConciliacion = Field(
+        description="Estado de la conciliación del cargo"
+    )
+    lineas_explicadas: list[LineaConciliadaDTO] = Field(
+        default_factory=list[LineaConciliadaDTO],
+        description="Líneas componentes del cargo explicadas",
+    )
+    observacion: str = Field(default="", description="Detalle de conciliación")
+
+
 class ConciliacionResponseDTO(BaseModel):
     """Reporte completo de conciliación mensual: liquidado vs esperado."""
 
@@ -62,6 +98,14 @@ class ConciliacionResponseDTO(BaseModel):
     designaciones_no_cobradas: list[LineaConciliadaDTO] = Field(
         default_factory=list[LineaConciliadaDTO],
         description="Designaciones vigentes que no fueron liquidadas en este recibo",
+    )
+    cargos_conciliados: list[CargoConciliadoDTO] = Field(
+        default_factory=list[CargoConciliadoDTO],
+        description="Cargos consolidados conciliados (agrupados por escuela y secuencia)",
+    )
+    cargos_huerfanos_recibo: list[CargoConciliadoDTO] = Field(
+        default_factory=list[CargoConciliadoDTO],
+        description="Cargos del recibo sin designación registrada",
     )
     total_liquidado_recibo: float = Field(
         description="Total neto percibido según recibo"
