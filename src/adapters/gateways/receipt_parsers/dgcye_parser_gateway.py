@@ -290,6 +290,9 @@ class DGCyEParserGateway(ReceiptParserPort):
                     )
 
                 periodo_cargo = (match_liq.cargo.periodo_liquidado or "").strip()
+                if periodo_cargo:
+                    item.periodo_liquidado = periodo_cargo
+
                 es_retro = False
                 if (
                     periodo_cargo
