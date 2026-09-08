@@ -201,23 +201,37 @@ class SQLSeguimientoNoLiquidadosGateway(SeguimientoNoLiquidadosRepositoryPort):
     def resolver_designaciones(
         self, docente_cuit: str, ids_designacion: list[str], id_recibo_resolucion: str
     ) -> None:
-        """Marca como RESUELTO el seguimiento de designaciones liquidadas en un período posterior."""
-        if not ids_designacion:
-            return
+        """Marca como RESUELTO el seguimiento de designaciones liquidadas en un recibo y revierte a PENDIENTE si ya no lo están."""
         with self._get_session() as session, session.begin():
-            stmt = (
-                update(DesignacionNoLiquidadaModel)
-                .where(
-                    DesignacionNoLiquidadaModel.docente_cuit == docente_cuit,
-                    DesignacionNoLiquidadaModel.id_designacion.in_(ids_designacion),
-                    DesignacionNoLiquidadaModel.estado == "PENDIENTE",
+            if ids_designacion:
+                stmt_resolve = (
+                    update(DesignacionNoLiquidadaModel)
+                    .where(
+                        DesignacionNoLiquidadaModel.docente_cuit == docente_cuit,
+                        DesignacionNoLiquidadaModel.id_designacion.in_(ids_designacion),
+                        DesignacionNoLiquidadaModel.estado == "PENDIENTE",
+                    )
+                    .values(
+                        estado="RESUELTO",
+                        id_recibo_resolucion=id_recibo_resolucion,
+                    )
                 )
-                .values(
-                    estado="RESUELTO",
-                    id_recibo_resolucion=id_recibo_resolucion,
-                )
+                session.execute(stmt_resolve)
+
+            stmt_unresolve = update(DesignacionNoLiquidadaModel).where(
+                DesignacionNoLiquidadaModel.docente_cuit == docente_cuit,
+                DesignacionNoLiquidadaModel.id_recibo_resolucion
+                == id_recibo_resolucion,
             )
-            session.execute(stmt)
+            if ids_designacion:
+                stmt_unresolve = stmt_unresolve.where(
+                    DesignacionNoLiquidadaModel.id_designacion.not_in(ids_designacion)
+                )
+            stmt_unresolve = stmt_unresolve.values(
+                estado="PENDIENTE",
+                id_recibo_resolucion=None,
+            )
+            session.execute(stmt_unresolve)
 
     def eliminar_por_designacion(self, id_designacion: str) -> None:
         """Elimina los registros de seguimiento asociados a una designación eliminada."""
