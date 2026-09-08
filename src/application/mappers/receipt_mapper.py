@@ -151,15 +151,13 @@ class ReceiptMapper:
 
                 if "sac" in c_norm or "874" in op or "SAC" in op.upper():
                     sac += liq
-                elif "retro" in c_norm or (
+                elif c_norm == "sueldo":
+                    nominal += liq
+                elif c_norm == "retroactivo" or (
                     p_liq and mes_pago_norm and p_liq < mes_pago_norm
                 ):
                     retro += liq
-                elif (
-                    "sueldo" in c_norm
-                    or (p_liq and mes_pago_norm and p_liq == mes_pago_norm)
-                    or not p_liq
-                ):
+                elif (p_liq and mes_pago_norm and p_liq == mes_pago_norm) or not p_liq:
                     nominal += liq
                 else:
                     otros += liq
