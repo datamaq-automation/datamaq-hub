@@ -66,6 +66,7 @@ class ConciliarReciboUseCase:
                 for item in self._seguimiento_repository.obtener_ultimas_pendientes(
                     cuit_normalizado
                 )
+                if item.id_recibo != id_recibo
             }
             no_liquidadas_batch: list[DesignacionNoLiquidada] = []
             for nd in resultado.designaciones_no_cobradas:

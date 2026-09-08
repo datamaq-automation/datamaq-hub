@@ -245,6 +245,8 @@ class ReceiptController:
         creadas = self._gestionar_propuestas_use_case.confirmar_propuestas(
             id_recibo=id_recibo, solicitud=solicitud
         )
+        if self._conciliar_use_case:
+            self._conciliar_use_case.execute(id_recibo)
         return APIResponseDTO[list[DesignacionDocenteDTO]](success=True, data=creadas)
 
     def obtener_no_liquidados_recibo(
