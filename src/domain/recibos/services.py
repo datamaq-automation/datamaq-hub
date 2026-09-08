@@ -594,13 +594,28 @@ class ConciliadorReciboDocenteService:
         if not fecha_desde_str:
             return True
 
+        # Normalizar periodo_ym a formato YYYY-MM (ej: "08 / 2026" -> "2026-08", "202608" -> "2026-08")
+        raw_p = (periodo_ym or "").strip()
+        if "/" in raw_p:
+            parts = [p.strip() for p in raw_p.split("/") if p.strip()]
+            if len(parts) == 2 and len(parts[0]) <= 2 and len(parts[1]) == 4:
+                p_norm = f"{parts[1]}-{parts[0].zfill(2)}"
+            else:
+                p_norm = raw_p
+        else:
+            digits = re.sub(r"\D", "", raw_p)
+            if len(digits) == 6:
+                p_norm = f"{digits[:4]}-{digits[4:]}"
+            else:
+                p_norm = raw_p
+
         desde_ym = fecha_desde_str[:7]
-        if periodo_ym < desde_ym:
+        if p_norm < desde_ym:
             return False
 
         if fecha_hasta_str:
             hasta_ym = str(fecha_hasta_str)[:7]
-            if periodo_ym > hasta_ym:
+            if p_norm > hasta_ym:
                 return False
 
         return True

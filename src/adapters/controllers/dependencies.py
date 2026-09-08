@@ -280,7 +280,8 @@ def get_actualizar_designacion_use_case() -> ActualizarDesignacionUseCase:
 
 def get_eliminar_designacion_use_case() -> EliminarDesignacionUseCase:
     repo = get_designacion_docente_repository_gateway()
-    return EliminarDesignacionUseCase(repository=repo)
+    seg_repo = get_seguimiento_no_liquidados_repository_gateway()
+    return EliminarDesignacionUseCase(repository=repo, seguimiento_repository=seg_repo)
 
 
 def get_horarios_docencia_controller() -> HorariosDocenciaController:

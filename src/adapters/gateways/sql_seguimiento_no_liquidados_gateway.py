@@ -201,6 +201,18 @@ class SQLSeguimientoNoLiquidadosGateway(SeguimientoNoLiquidadosRepositoryPort):
             )
             session.execute(stmt)
 
+    def eliminar_por_designacion(self, id_designacion: str) -> None:
+        """Elimina los registros de seguimiento asociados a una designación eliminada."""
+        if not id_designacion:
+            return
+        with self._get_session() as session, session.begin():
+            stmt = select(DesignacionNoLiquidadaModel).where(
+                DesignacionNoLiquidadaModel.id_designacion == id_designacion
+            )
+            models = session.scalars(stmt).all()
+            for m in models:
+                session.delete(m)
+
     @staticmethod
     def _to_domain(model: DesignacionNoLiquidadaModel) -> DesignacionNoLiquidada:
         return DesignacionNoLiquidada(

@@ -109,3 +109,6 @@ class SeguimientoNoLiquidadosRepositoryPort(ABC):
     def resolver_designaciones(
         self, docente_cuit: str, ids_designacion: list[str], id_recibo_resolucion: str
     ) -> None: ...
+
+    @abstractmethod
+    def eliminar_por_designacion(self, id_designacion: str) -> None: ...
