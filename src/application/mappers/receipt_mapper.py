@@ -121,18 +121,20 @@ class ReceiptMapper:
 
     @classmethod
     def _calcular_desglose(cls, entity: ReciboSueldo) -> DesgloseFinancieroDTO:
-        raw_mes = (entity.agente.mes_pago or "").strip()
-        # Normalizar mes_pago a formato YYYYMM (ej: "08 / 2026" -> "202608", "2026-08" -> "202608")
-        if "/" in raw_mes:
-            parts = [p.strip() for p in raw_mes.split("/") if p.strip()]
-            if len(parts) == 2 and len(parts[0]) <= 2 and len(parts[1]) == 4:
-                mes_pago_norm = f"{parts[1]}{parts[0].zfill(2)}"
-            else:
-                mes_pago_norm = re.sub(r"\D", "", raw_mes)
-        else:
-            digits = re.sub(r"\D", "", raw_mes)
-            mes_pago_norm = digits
+        def _to_ym(raw: str | None) -> str:
+            val = (raw or "").strip()
+            if not val:
+                return ""
+            if "/" in val:
+                parts = [p.strip() for p in val.split("/") if p.strip()]
+                if len(parts) == 2 and len(parts[0]) <= 2 and len(parts[1]) == 4:
+                    return f"{parts[1]}{parts[0].zfill(2)}"
+            digits = re.sub(r"\D", "", val)
+            if len(digits) == 6:
+                return digits
+            return digits
 
+        mes_pago_norm = _to_ym(entity.agente.mes_pago)
         items = entity.resumen_liquidos or []
 
         nominal = 0.0
@@ -143,27 +145,33 @@ class ReceiptMapper:
         if items:
             for item in items:
                 liq = item.liquido_pesos
-                p_liq = re.sub(r"\D", "", item.periodo_liquidado or "")
+                p_liq = _to_ym(item.periodo_liquidado)
                 c_norm = (item.concepto_normalizado or "").lower()
                 op = item.orden_pago or item.orden_pago_codigo or ""
 
                 if "sac" in c_norm or "874" in op or "SAC" in op.upper():
                     sac += liq
-                elif "retro" in c_norm or (p_liq and p_liq < mes_pago_norm):
+                elif "retro" in c_norm or (
+                    p_liq and mes_pago_norm and p_liq < mes_pago_norm
+                ):
                     retro += liq
-                elif "sueldo" in c_norm or p_liq == mes_pago_norm or not p_liq:
+                elif (
+                    "sueldo" in c_norm
+                    or (p_liq and mes_pago_norm and p_liq == mes_pago_norm)
+                    or not p_liq
+                ):
                     nominal += liq
                 else:
                     otros += liq
         else:
             for liq_seq in entity.liquidaciones:
                 liq = liq_seq.liquido_calculado
-                p_liq = re.sub(r"\D", "", liq_seq.cargo.periodo_liquidado or "")
+                p_liq = _to_ym(liq_seq.cargo.periodo_liquidado)
                 op = liq_seq.cargo.orden_pago or ""
 
                 if "874" in op or "SAC" in op.upper():
                     sac += liq
-                elif p_liq and p_liq < mes_pago_norm:
+                elif p_liq and mes_pago_norm and p_liq < mes_pago_norm:
                     retro += liq
                 else:
                     nominal += liq

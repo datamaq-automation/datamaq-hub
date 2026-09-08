@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import calendar
 import re
 import uuid
 from datetime import date, datetime, timezone
@@ -14,7 +15,11 @@ from src.application.dtos.horarios_docencia_dto import DesignacionDocenteDTO
 from src.application.mappers.horarios_docencia_mapper import HorariosDocenciaMapper
 from src.domain.horarios_docencia.entities import DesignacionDocente
 from src.domain.horarios_docencia.ports import DesignacionDocenteRepositoryPort
-from src.domain.horarios_docencia.value_objects import PeriodoVigencia, SituacionRevista
+from src.domain.horarios_docencia.value_objects import (
+    MotivoCese,
+    PeriodoVigencia,
+    SituacionRevista,
+)
 from src.domain.recibos.exceptions import ReciboNotFoundError
 from src.domain.recibos.ports import ReciboRepositoryPort
 from src.domain.recibos.services import ConciliadorReciboDocenteService
@@ -158,6 +163,26 @@ class GestionarPropuestasHuerfanasUseCase:
                 f_desde = datetime.now(timezone.utc).date()
 
             revista_enum = _map_revista(prop.situacion_revista)
+
+            # Determinar si la propuesta es retroactiva respecto al mes de pago del recibo
+            f_hasta: date | None = None
+            motivo: MotivoCese | None = None
+
+            try:
+                partes_pago = recibo.agente.mes_pago.split("-")
+                mes_pago_ym = f"{partes_pago[0]}{partes_pago[1]}"
+                mes_prop_ym = f"{f_desde.year:04d}{f_desde.month:02d}"
+                if mes_prop_ym < mes_pago_ym:
+                    _, ultimo_dia = calendar.monthrange(f_desde.year, f_desde.month)
+                    f_hasta = date(f_desde.year, f_desde.month, ultimo_dia)
+                    motivo = (
+                        MotivoCese.FIN_SUPLENCIA
+                        if revista_enum == SituacionRevista.SUPLENTE
+                        else MotivoCese.OTRO
+                    )
+            except (IndexError, AttributeError, ValueError):
+                pass
+
             nueva = DesignacionDocente(
                 id_designacion=f"desig_{uuid.uuid4().hex[:12]}",
                 docente_cuit=cuit_normalizado,
@@ -165,7 +190,8 @@ class GestionarPropuestasHuerfanasUseCase:
                 distrito=prop.distrito or prop.escuela_codigo[:3],
                 cargo_asignatura=prop.cargo_codigo or "DOCENTE",
                 revista=revista_enum,
-                vigencia=PeriodoVigencia(fecha_desde=f_desde),
+                vigencia=PeriodoVigencia(fecha_desde=f_desde, fecha_hasta=f_hasta),
+                motivo_cese=motivo,
                 modulos=int(prop.modulos_horas),
                 secuencia=sec_num,
                 observaciones=prop.observaciones,
