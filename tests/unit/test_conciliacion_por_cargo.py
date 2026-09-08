@@ -1,4 +1,7 @@
+import os
 from datetime import date
+
+import pytest
 
 from src.adapters.gateways.pdfplumber_extractor_gateway import (
     PdfPlumberExtractorGateway,
@@ -14,8 +17,12 @@ from src.domain.recibos.services import ConciliadorReciboDocenteService
 
 
 def test_conciliacion_por_cargo_sec_016_dos_lineas_explicadas() -> None:
+    pdf_path = "data/36528392-2026-09-07.pdf"
+    if not os.path.exists(pdf_path):
+        pytest.skip(f"PDF real fixture '{pdf_path}' no presente en entorno.")
+
     extractor = PdfPlumberExtractorGateway()
-    extracted = extractor.extract_from_path("data/36528392-2026-09-07.pdf")
+    extracted = extractor.extract_from_path(pdf_path)
     parser = DGCyEParserGateway()
     recibo = parser.parse(extracted)
 
