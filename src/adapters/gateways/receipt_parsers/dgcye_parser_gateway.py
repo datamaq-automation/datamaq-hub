@@ -250,15 +250,23 @@ class DGCyEParserGateway(ReceiptParserPort):
         mes_pago_raw: str,
     ) -> None:
         """Correlaciona líneas de resumen con liquidaciones detalladas para clasificar conceptos."""
-        mes_pago_clean = mes_pago_raw.replace("/", "").replace(" ", "").strip()
-        if (
-            len(mes_pago_clean) == 6
-            and mes_pago_clean[:2].isdigit()
-            and mes_pago_clean[2:].isdigit()
-        ):
-            mes_pago_ym = f"{mes_pago_clean[2:]}{mes_pago_clean[:2]}"
+        mes_pago_raw_str = (mes_pago_raw or "").strip()
+        if "/" in mes_pago_raw_str:
+            parts = [p.strip() for p in mes_pago_raw_str.split("/") if p.strip()]
+            if len(parts) == 2 and len(parts[0]) <= 2 and len(parts[1]) == 4:
+                mes_pago_ym = f"{parts[1]}{parts[0].zfill(2)}"
+            else:
+                mes_pago_ym = re.sub(r"\D", "", mes_pago_raw_str)
         else:
-            mes_pago_ym = mes_pago_clean
+            mes_pago_clean = re.sub(r"\D", "", mes_pago_raw_str)
+            if (
+                len(mes_pago_clean) == 6
+                and mes_pago_clean[:2].isdigit()
+                and mes_pago_clean[2:].isdigit()
+            ):
+                mes_pago_ym = f"{mes_pago_clean[2:]}{mes_pago_clean[:2]}"
+            else:
+                mes_pago_ym = mes_pago_clean
 
         usadas_idx: set[int] = set()
         for item in resumen_liquidos:
