@@ -1,13 +1,26 @@
 from typing import Annotated, Any
 
-from fastapi import APIRouter, Depends, File, HTTPException, Query, UploadFile, status
+from fastapi import (
+    APIRouter,
+    Depends,
+    File,
+    HTTPException,
+    Query,
+    Response,
+    UploadFile,
+    status,
+)
 
 from src.adapters.controllers.dependencies import get_receipt_controller
 from src.adapters.controllers.receipt_controller import ReceiptController
 from src.application.dtos.common_dto import APIResponseDTO
 from src.application.dtos.conciliacion_dto import ConciliacionResponseDTO
 from src.application.dtos.horarios_docencia_dto import DesignacionDocenteDTO
-from src.application.dtos.receipt_dto import ReceiptResponseDTO, ReceiptSummaryDTO
+from src.application.dtos.receipt_dto import (
+    DesgloseFinancieroDTO,
+    ReceiptResponseDTO,
+    ReceiptSummaryDTO,
+)
 
 router = APIRouter(prefix="/recibos", tags=["Recibos"])
 
@@ -146,4 +159,42 @@ async def crear_designaciones_huerfanas(
 ) -> APIResponseDTO[list[DesignacionDocenteDTO]]:
     return controller.crear_designaciones_huerfanas(
         id_recibo=id_recibo, secuencias=secuencias
+    )
+
+
+@router.get(
+    "/{id_recibo}/desglose",
+    response_model=APIResponseDTO[DesgloseFinancieroDTO],
+    summary="Desglose financiero: período neto vs arrastre retroactivo y SAC",
+    description=(
+        "Separa el importe neto cobrado en el recibo discriminando entre el período nominal corriente, "
+        "arrastre de retroactivos de meses anteriores, SAC y otros conceptos."
+    ),
+)
+async def desglosar_recibo(
+    id_recibo: str,
+    controller: Annotated[ReceiptController, Depends(get_receipt_controller)],
+) -> APIResponseDTO[DesgloseFinancieroDTO]:
+    return controller.desglosar(id_recibo)
+
+
+@router.get(
+    "/{id_recibo}/conciliacion/export.csv",
+    summary="Exportar resultado de conciliación en formato CSV",
+    description=(
+        "Exporta un archivo CSV con delimitador ';' codificado en UTF-8 conteniendo el desglose de "
+        "líneas conciliadas, huérfanas y designaciones no cobradas para su análisis en hojas de cálculo."
+    ),
+)
+async def exportar_conciliacion_csv(
+    id_recibo: str,
+    controller: Annotated[ReceiptController, Depends(get_receipt_controller)],
+) -> Response:
+    csv_content = controller.exportar_conciliacion_csv(id_recibo)
+    return Response(
+        content=csv_content,
+        media_type="text/csv",
+        headers={
+            "Content-Disposition": f'attachment; filename="conciliacion_{id_recibo}.csv"'
+        },
     )

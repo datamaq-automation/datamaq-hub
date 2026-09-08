@@ -4,6 +4,7 @@ from src.application.dtos.receipt_dto import (
     AgenteDTO,
     CargoDTO,
     ConceptoItemDTO,
+    DesgloseFinancieroDTO,
     EmpleadorDTO,
     EstablecimientoDTO,
     LiquidacionSecuenciaDTO,
@@ -112,6 +113,42 @@ class ReceiptMapper:
             estado_cierre=entity.totales.estado_cierre,
             total_declarado=entity.totales.total_declarado,
             diferencia_cierre=entity.totales.diferencia_cierre,
+            desglose=DesgloseFinancieroDTO(
+                mes_pago=entity.agente.mes_pago,
+                total_liquido=entity.totales.total_liquido,
+                importe_periodo_nominal=round(
+                    sum(
+                        item.liquido_pesos
+                        for item in entity.resumen_liquidos
+                        if item.concepto_normalizado == "sueldo"
+                    ),
+                    2,
+                ),
+                importe_retroactivos=round(
+                    sum(
+                        item.liquido_pesos
+                        for item in entity.resumen_liquidos
+                        if item.concepto_normalizado == "retroactivo"
+                    ),
+                    2,
+                ),
+                importe_sac=round(
+                    sum(
+                        item.liquido_pesos
+                        for item in entity.resumen_liquidos
+                        if item.concepto_normalizado == "SAC"
+                    ),
+                    2,
+                ),
+                importe_otros=round(
+                    sum(
+                        item.liquido_pesos
+                        for item in entity.resumen_liquidos
+                        if item.concepto_normalizado == "otros"
+                    ),
+                    2,
+                ),
+            ),
             metadata=dict(entity.metadata),
         )
 
