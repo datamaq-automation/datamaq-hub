@@ -121,16 +121,16 @@ class ReceiptMapper:
 
     @classmethod
     def _calcular_desglose(cls, entity: ReciboSueldo) -> DesgloseFinancieroDTO:
-        raw_mes = entity.agente.mes_pago or ""
+        raw_mes = (entity.agente.mes_pago or "").strip()
         # Normalizar mes_pago a formato YYYYMM (ej: "08 / 2026" -> "202608", "2026-08" -> "202608")
-        digits = re.sub(r"\D", "", raw_mes)
-        if len(digits) == 6:
-            # Si venía en formato MMYYYY (082026) -> convertir a YYYYMM (202608)
-            if raw_mes.find("/") != -1 and raw_mes.find("/") < raw_mes.rfind("202"):
-                mes_pago_norm = digits[2:] + digits[:2]
+        if "/" in raw_mes:
+            parts = [p.strip() for p in raw_mes.split("/") if p.strip()]
+            if len(parts) == 2 and len(parts[0]) <= 2 and len(parts[1]) == 4:
+                mes_pago_norm = f"{parts[1]}{parts[0].zfill(2)}"
             else:
-                mes_pago_norm = digits
+                mes_pago_norm = re.sub(r"\D", "", raw_mes)
         else:
+            digits = re.sub(r"\D", "", raw_mes)
             mes_pago_norm = digits
 
         items = entity.resumen_liquidos or []
