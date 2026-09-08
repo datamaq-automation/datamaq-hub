@@ -59,15 +59,48 @@ class ReciboModel(Base):
     total_haberes: Mapped[float] = mapped_column(Float, default=0.0)
     total_descuentos: Mapped[float] = mapped_column(Float, default=0.0)
     total_liquido: Mapped[float] = mapped_column(Float, default=0.0)
+    pdf_hash: Mapped[str | None] = mapped_column(String(64), index=True, nullable=True)
+    estado_cierre: Mapped[str | None] = mapped_column(
+        String(20), default="SIN_TOTAL", nullable=True
+    )
+    total_declarado: Mapped[float | None] = mapped_column(Float, nullable=True)
     creado_en: Mapped[datetime] = mapped_column(
         DateTime, default=lambda: datetime.now(timezone.utc)
     )
     payload_json: Mapped[str] = mapped_column(Text, nullable=False)
 
 
+def _migrate_recibos_schema(engine: Engine) -> None:
+    """Aplica migraciones no destructivas a tablas existentes."""
+    from sqlalchemy import inspect, text
+
+    with engine.connect() as conn:
+        inspector = inspect(engine)
+        if "recibos_sueldo" in inspector.get_table_names():
+            cols = {c["name"] for c in inspector.get_columns("recibos_sueldo")}
+            if "pdf_hash" not in cols:
+                conn.execute(
+                    text("ALTER TABLE recibos_sueldo ADD COLUMN pdf_hash VARCHAR(64)")
+                )
+                conn.commit()
+            if "estado_cierre" not in cols:
+                conn.execute(
+                    text(
+                        "ALTER TABLE recibos_sueldo ADD COLUMN estado_cierre VARCHAR(20) DEFAULT 'SIN_TOTAL'"
+                    )
+                )
+                conn.commit()
+            if "total_declarado" not in cols:
+                conn.execute(
+                    text("ALTER TABLE recibos_sueldo ADD COLUMN total_declarado FLOAT")
+                )
+                conn.commit()
+
+
 def init_recibos_db(database_url: str) -> Engine:
     engine = create_engine(database_url, pool_pre_ping=True)
     Base.metadata.create_all(engine)
+    _migrate_recibos_schema(engine)
     return engine
 
 
@@ -93,13 +126,31 @@ class SQLReciboGateway(ReciboRepositoryPort):
         else:
             self._engine: Engine = create_engine(self.database_url, pool_pre_ping=True)
         Base.metadata.create_all(self._engine)
+        _migrate_recibos_schema(self._engine)
         self._session_factory = sessionmaker(bind=self._engine)
 
     def _get_session(self) -> Session:
         return self._session_factory()
 
+    def obtener_por_hash(self, pdf_hash: str) -> ReciboSueldo | None:
+        """Recupera un recibo existente por el hash SHA-256 de su PDF."""
+        if not pdf_hash:
+            return None
+        with self._get_session() as session:
+            stmt = select(ReciboModel).where(ReciboModel.pdf_hash == pdf_hash)
+            model = session.scalars(stmt).first()
+            if not model:
+                return None
+            return self._model_to_entity(model)
+
     def guardar(self, recibo: ReciboSueldo) -> ReciboSueldo:
-        """Persiste un recibo de sueldo asegurando un ID único."""
+        """Persiste un recibo de sueldo asegurando un ID único e idempotencia por hash."""
+        if recibo.pdf_hash:
+            existente = self.obtener_por_hash(recibo.pdf_hash)
+            if existente:
+                existente.es_duplicado = True
+                return existente
+
         if not recibo.id_recibo:
             recibo.id_recibo = str(uuid.uuid4())
 
@@ -121,6 +172,9 @@ class SQLReciboGateway(ReciboRepositoryPort):
             total_haberes=recibo.totales.total_haberes,
             total_descuentos=recibo.totales.total_descuentos,
             total_liquido=recibo.totales.total_liquido,
+            pdf_hash=recibo.pdf_hash,
+            estado_cierre=recibo.totales.estado_cierre,
+            total_declarado=recibo.totales.total_declarado,
             creado_en=datetime.now(timezone.utc),
             payload_json=payload_str,
         )
@@ -197,7 +251,10 @@ class SQLReciboGateway(ReciboRepositoryPort):
                     total_haberes=model.total_haberes,
                     total_descuentos=model.total_descuentos,
                     total_liquido=model.total_liquido,
+                    total_declarado=model.total_declarado,
+                    estado_cierre=model.estado_cierre or "SIN_TOTAL",
                 ),
+                pdf_hash=model.pdf_hash,
             )
 
     @staticmethod
@@ -227,6 +284,15 @@ class SQLReciboGateway(ReciboRepositoryPort):
                     orden_pago_codigo=item.orden_pago_codigo,
                     orden_pago_descripcion=item.orden_pago_descripcion,
                     liquido_pesos=item.liquido_pesos,
+                    distrito=item.distrito,
+                    tipo_nivel=item.tipo_nivel,
+                    escuela=item.escuela,
+                    revista=item.revista,
+                    orden_pago=item.orden_pago,
+                    importe=item.importe
+                    if item.importe is not None
+                    else item.liquido_pesos,
+                    concepto_normalizado=item.concepto_normalizado,
                 )
                 for item in dto.resumen_liquidos
             ],
@@ -276,6 +342,11 @@ class SQLReciboGateway(ReciboRepositoryPort):
                 total_haberes=dto.totales.total_haberes,
                 total_descuentos=dto.totales.total_descuentos,
                 total_liquido=dto.totales.total_liquido,
+                total_declarado=dto.totales.total_declarado,
+                diferencia_cierre=dto.totales.diferencia_cierre,
+                estado_cierre=dto.totales.estado_cierre,
             ),
+            pdf_hash=getattr(dto, "pdf_hash", None),
+            es_duplicado=getattr(dto, "es_duplicado", False),
             metadata=dict(dto.metadata),
         )

@@ -45,6 +45,15 @@ class ReceiptMapper:
                     orden_pago_codigo=item.orden_pago_codigo,
                     orden_pago_descripcion=item.orden_pago_descripcion,
                     liquido_pesos=item.liquido_pesos,
+                    distrito=item.distrito,
+                    tipo_nivel=item.tipo_nivel,
+                    escuela=item.escuela,
+                    revista=item.revista,
+                    orden_pago=item.orden_pago,
+                    importe=item.importe
+                    if item.importe is not None
+                    else item.liquido_pesos,
+                    concepto_normalizado=item.concepto_normalizado,
                 )
                 for item in entity.resumen_liquidos
             ],
@@ -94,7 +103,15 @@ class ReceiptMapper:
                 total_haberes=entity.totales.total_haberes,
                 total_descuentos=entity.totales.total_descuentos,
                 total_liquido=entity.totales.total_liquido,
+                total_declarado=entity.totales.total_declarado,
+                diferencia_cierre=entity.totales.diferencia_cierre,
+                estado_cierre=entity.totales.estado_cierre,
             ),
+            pdf_hash=entity.pdf_hash,
+            es_duplicado=entity.es_duplicado,
+            estado_cierre=entity.totales.estado_cierre,
+            total_declarado=entity.totales.total_declarado,
+            diferencia_cierre=entity.totales.diferencia_cierre,
             metadata=dict(entity.metadata),
         )
 

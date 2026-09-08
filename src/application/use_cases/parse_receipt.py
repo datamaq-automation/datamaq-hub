@@ -1,3 +1,7 @@
+from __future__ import annotations
+
+import hashlib
+
 """Use case for parsing salary receipt PDFs."""
 
 from src.application.dtos.receipt_dto import ReceiptResponseDTO
@@ -28,11 +32,21 @@ class ParseReceiptUseCase:
         filename: str = "receipt.pdf",
         persistir: bool = False,
     ) -> ReceiptResponseDTO:
-        """Parse raw PDF byte stream."""
+        """Parse raw PDF byte stream with fingerprint and dedupe check."""
+        pdf_hash = hashlib.sha256(pdf_bytes).hexdigest()
+        if persistir and self._repository is not None:
+            existente = self._repository.obtener_por_hash(pdf_hash)
+            if existente:
+                existente.es_duplicado = True
+                existente.metadata["es_duplicado"] = True
+                return ReceiptMapper.to_dto(existente)
+
         extracted_pdf = self._extractor.extract_from_bytes(pdf_bytes)
         parser = self._parser_registry.get_parser(extracted_pdf)
         receipt_entity = parser.parse(extracted_pdf)
+        receipt_entity.pdf_hash = pdf_hash
         receipt_entity.metadata["filename"] = filename
+        receipt_entity.metadata["pdf_hash"] = pdf_hash
 
         if persistir and self._repository is not None:
             receipt_entity = self._repository.guardar(receipt_entity)
@@ -44,11 +58,24 @@ class ParseReceiptUseCase:
         file_path: str,
         persistir: bool = False,
     ) -> ReceiptResponseDTO:
-        """Parse PDF from filesystem path."""
+        """Parse PDF from filesystem path with fingerprint and dedupe check."""
+        with open(file_path, "rb") as f:
+            pdf_bytes = f.read()
+        pdf_hash = hashlib.sha256(pdf_bytes).hexdigest()
+
+        if persistir and self._repository is not None:
+            existente = self._repository.obtener_por_hash(pdf_hash)
+            if existente:
+                existente.es_duplicado = True
+                existente.metadata["es_duplicado"] = True
+                return ReceiptMapper.to_dto(existente)
+
         extracted_pdf = self._extractor.extract_from_path(file_path)
         parser = self._parser_registry.get_parser(extracted_pdf)
         receipt_entity = parser.parse(extracted_pdf)
+        receipt_entity.pdf_hash = pdf_hash
         receipt_entity.metadata["filename"] = file_path
+        receipt_entity.metadata["pdf_hash"] = pdf_hash
 
         if persistir and self._repository is not None:
             receipt_entity = self._repository.guardar(receipt_entity)

@@ -42,6 +42,21 @@ class ResumenLiquidoItemDTO(BaseModel):
     orden_pago_codigo: str
     orden_pago_descripcion: str
     liquido_pesos: float
+    distrito: str | None = Field(default=None, description="Distrito escolar (ej. 055)")
+    tipo_nivel: str | None = Field(default=None, description="Nivel/modalidad (IS, MT)")
+    escuela: str | None = Field(default=None, description="Número de escuela/instituto")
+    revista: str | None = Field(
+        default=None, description="Situación de revista (PRO, SUP)"
+    )
+    orden_pago: str | None = Field(
+        default=None, description="Orden de pago presupuestaria"
+    )
+    importe: float | None = Field(
+        default=None, description="Importe líquido de la línea"
+    )
+    concepto_normalizado: str | None = Field(
+        default=None, description="Taxonomía: sueldo, retroactivo, SAC, otros"
+    )
 
 
 class EstablecimientoDTO(BaseModel):
@@ -101,6 +116,23 @@ class LiquidacionSecuenciaDTO(BaseModel):
     liquido_calculado: float
 
 
+class DesgloseFinancieroDTO(BaseModel):
+    """Desglose de importes: período nominal vs retroactivos vs SAC."""
+
+    model_config = ConfigDict(extra="ignore")
+
+    mes_pago: str = Field(description="Período de pago del recibo")
+    total_liquido: float = Field(description="Total líquido liquidado")
+    importe_periodo_nominal: float = Field(
+        default=0.0, description="Importe neto devengado en el mes corriente"
+    )
+    importe_retroactivos: float = Field(
+        default=0.0, description="Importe neto devengado en períodos anteriores"
+    )
+    importe_sac: float = Field(default=0.0, description="Importe correspondiente a SAC")
+    importe_otros: float = Field(default=0.0, description="Otros conceptos netos")
+
+
 class TotalesConsolidadosDTO(BaseModel):
     """Consolidated totals DTO."""
 
@@ -111,6 +143,16 @@ class TotalesConsolidadosDTO(BaseModel):
     total_haberes: float
     total_descuentos: float
     total_liquido: float
+    total_declarado: float | None = Field(
+        default=None, description="Total declarado en cabecera del PDF"
+    )
+    diferencia_cierre: float = Field(
+        default=0.0, description="Diferencia entre suma de líneas y total declarado"
+    )
+    estado_cierre: str = Field(
+        default="SIN_TOTAL",
+        description="Estado de integridad de cierre: VALIDO, DISCREPANCIA, SIN_TOTAL",
+    )
 
 
 class ReceiptResponseDTO(BaseModel):
@@ -124,6 +166,23 @@ class ReceiptResponseDTO(BaseModel):
     id_recibo: str | None = Field(
         default=None, description="Identificador único del recibo persistido"
     )
+    pdf_hash: str | None = Field(
+        default=None, description="Fingerprint SHA-256 del archivo PDF"
+    )
+    es_duplicado: bool = Field(
+        default=False,
+        description="True si el recibo ya existía previamente en la base de datos",
+    )
+    estado_cierre: str = Field(
+        default="SIN_TOTAL",
+        description="Integridad de cierre: VALIDO, DISCREPANCIA, SIN_TOTAL",
+    )
+    total_declarado: float | None = Field(
+        default=None, description="Total declarado en PDF si existe"
+    )
+    diferencia_cierre: float = Field(
+        default=0.0, description="Diferencia matemática de cierre"
+    )
     resumen_liquidos: list[ResumenLiquidoItemDTO] = Field(
         default_factory=list[ResumenLiquidoItemDTO]
     )
@@ -131,6 +190,9 @@ class ReceiptResponseDTO(BaseModel):
         default_factory=list[LiquidacionSecuenciaDTO]
     )
     totales: TotalesConsolidadosDTO
+    desglose: DesgloseFinancieroDTO | None = Field(
+        default=None, description="Desglose período neto vs retroactivos vs SAC"
+    )
     metadata: dict[str, Any] = Field(default_factory=dict[str, Any])
 
 

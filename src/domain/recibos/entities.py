@@ -91,6 +91,13 @@ class ResumenLiquidoItem:
     orden_pago_codigo: str
     orden_pago_descripcion: str
     liquido_pesos: float
+    distrito: str | None = None
+    tipo_nivel: str | None = None
+    escuela: str | None = None
+    revista: str | None = None
+    orden_pago: str | None = None
+    importe: float | None = None
+    concepto_normalizado: str | None = None
 
 
 @dataclass
@@ -102,6 +109,9 @@ class TotalesConsolidados:
     total_haberes: float = 0.0
     total_descuentos: float = 0.0
     total_liquido: float = 0.0
+    total_declarado: float | None = None
+    diferencia_cierre: float = 0.0
+    estado_cierre: str = "SIN_TOTAL"
 
 
 from enum import Enum
@@ -136,6 +146,26 @@ class LineaConciliada:
 
 
 @dataclass
+class CargoConciliado:
+    """Representa la conciliación agrupada a nivel cargo (escuela + secuencia)."""
+
+    secuencia: str
+    escuela_codigo: str
+    id_designacion: str | None
+    revista_recibo: str
+    revista_designacion: str | None
+    modulos_recibo: float
+    modulos_designacion: float | None
+    importe_total: float
+    cantidad_lineas: int
+    estado: EstadoLineaConciliacion
+    lineas_explicadas: list[LineaConciliada] = field(
+        default_factory=list[LineaConciliada]
+    )
+    observacion: str = ""
+
+
+@dataclass
 class ResultadoConciliacion:
     """Resultado integral de la conciliación de un recibo mensual frente a designaciones históricas."""
 
@@ -153,6 +183,12 @@ class ResultadoConciliacion:
     designaciones_no_cobradas: list[LineaConciliada] = field(
         default_factory=list[LineaConciliada]
     )
+    cargos_conciliados: list[CargoConciliado] = field(
+        default_factory=list[CargoConciliado]
+    )
+    cargos_huerfanos_recibo: list[CargoConciliado] = field(
+        default_factory=list[CargoConciliado]
+    )
     total_liquidado_recibo: float = 0.0
     total_liquidado_conciliado: float = 0.0
     total_liquidado_huerfano: float = 0.0
@@ -167,6 +203,8 @@ class ReciboSueldo:
     empleador: Empleador
     agente: Agente
     id_recibo: str = ""
+    pdf_hash: str | None = None
+    es_duplicado: bool = False
     resumen_liquidos: list[ResumenLiquidoItem] = field(
         default_factory=list[ResumenLiquidoItem]
     )

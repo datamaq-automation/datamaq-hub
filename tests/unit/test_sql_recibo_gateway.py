@@ -113,3 +113,27 @@ def test_listar_y_eliminar_recibos() -> None:
     eliminado = gateway.eliminar("rec-1")
     assert eliminado is True
     assert gateway.obtener_por_id("rec-1") is None
+
+
+def test_dedupe_idempotencia_por_hash() -> None:
+    gateway = SQLReciboGateway(database_url="sqlite:///:memory:")
+    r1 = _crear_recibo_dummy(cuit="20-36528392-4", mes_pago="2026-08")
+    r1.id_recibo = "rec-original"
+    r1.pdf_hash = "abcdef1234567890"
+
+    guardado1 = gateway.guardar(r1)
+    assert guardado1.id_recibo == "rec-original"
+    assert guardado1.es_duplicado is False
+
+    # Segundo recibo con diferente id generado pero mismo hash
+    r2 = _crear_recibo_dummy(cuit="20-36528392-4", mes_pago="2026-08")
+    r2.id_recibo = "rec-duplicado"
+    r2.pdf_hash = "abcdef1234567890"
+
+    guardado2 = gateway.guardar(r2)
+    assert guardado2.id_recibo == "rec-original"
+    assert guardado2.es_duplicado is True
+
+    # Verificar que solo existe 1 registro en la DB
+    total = gateway.listar(cuit="20365283924")
+    assert len(total) == 1

@@ -75,3 +75,6 @@ class ReciboRepositoryPort(ABC):
 
     @abstractmethod
     def eliminar(self, id_recibo: str) -> bool: ...
+
+    @abstractmethod
+    def obtener_por_hash(self, pdf_hash: str) -> ReciboSueldo | None: ...
