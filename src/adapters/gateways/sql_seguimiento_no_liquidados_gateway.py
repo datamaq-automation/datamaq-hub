@@ -108,29 +108,47 @@ class SQLSeguimientoNoLiquidadosGateway(SeguimientoNoLiquidadosRepositoryPort):
         return item
 
     def guardar_batch(self, items: list[DesignacionNoLiquidada]) -> None:
-        """Persiste una lista de registros de seguimiento."""
+        """Persiste una lista de registros de seguimiento realizando un upsert por (id_recibo, id_designacion)."""
         if not items:
             return
         with self._get_session() as session, session.begin():
             for item in items:
-                id_seg = item.id_seguimiento or f"seg_{uuid.uuid4().hex[:12]}"
-                model = DesignacionNoLiquidadaModel(
-                    id_seguimiento=id_seg,
-                    id_recibo=item.id_recibo,
-                    id_designacion=item.id_designacion,
-                    docente_cuit=item.docente_cuit,
-                    mes_pago=item.mes_pago,
-                    secuencia=item.secuencia,
-                    escuela_codigo=item.escuela_codigo,
-                    modulos=item.modulos,
-                    situacion_revista=item.situacion_revista,
-                    periodos_consecutivos=item.periodos_consecutivos,
-                    alerta_2_periodos=item.alerta_2_periodos,
-                    estado=item.estado,
-                    id_recibo_resolucion=item.id_recibo_resolucion,
+                stmt = select(DesignacionNoLiquidadaModel).where(
+                    DesignacionNoLiquidadaModel.id_recibo == item.id_recibo,
+                    DesignacionNoLiquidadaModel.id_designacion == item.id_designacion,
                 )
-                session.merge(model)
-                item.id_seguimiento = id_seg
+                existing = session.scalars(stmt).first()
+                if existing:
+                    existing.docente_cuit = item.docente_cuit
+                    existing.mes_pago = item.mes_pago
+                    existing.secuencia = item.secuencia
+                    existing.escuela_codigo = item.escuela_codigo
+                    existing.modulos = item.modulos
+                    existing.situacion_revista = item.situacion_revista
+                    existing.periodos_consecutivos = item.periodos_consecutivos
+                    existing.alerta_2_periodos = item.alerta_2_periodos
+                    existing.estado = item.estado
+                    existing.id_recibo_resolucion = item.id_recibo_resolucion
+                    item.id_seguimiento = existing.id_seguimiento
+                else:
+                    id_seg = item.id_seguimiento or f"seg_{uuid.uuid4().hex[:12]}"
+                    model = DesignacionNoLiquidadaModel(
+                        id_seguimiento=id_seg,
+                        id_recibo=item.id_recibo,
+                        id_designacion=item.id_designacion,
+                        docente_cuit=item.docente_cuit,
+                        mes_pago=item.mes_pago,
+                        secuencia=item.secuencia,
+                        escuela_codigo=item.escuela_codigo,
+                        modulos=item.modulos,
+                        situacion_revista=item.situacion_revista,
+                        periodos_consecutivos=item.periodos_consecutivos,
+                        alerta_2_periodos=item.alerta_2_periodos,
+                        estado=item.estado,
+                        id_recibo_resolucion=item.id_recibo_resolucion,
+                    )
+                    session.merge(model)
+                    item.id_seguimiento = id_seg
 
     def obtener_por_recibo(self, id_recibo: str) -> list[DesignacionNoLiquidada]:
         """Obtiene las designaciones no liquidadas para un recibo específico."""

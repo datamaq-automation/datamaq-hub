@@ -585,11 +585,12 @@ class ConciliadorReciboDocenteService:
     @classmethod
     def _designacion_cubre_periodo(cls, desig: Any, periodo_ym: str) -> bool:
         fecha_desde_str = str(getattr(desig, "fecha_desde", ""))
-        fecha_hasta_str = getattr(desig, "fecha_hasta", None)
+        fecha_hasta_val = getattr(desig, "fecha_hasta", None)
         if hasattr(desig, "vigencia") and desig.vigencia:
             vig = desig.vigencia
             fecha_desde_str = str(getattr(vig, "fecha_desde", ""))
-            fecha_hasta_str = getattr(vig, "fecha_hasta", None)
+            if fecha_hasta_val is None:
+                fecha_hasta_val = getattr(vig, "fecha_hasta", None)
 
         if not fecha_desde_str:
             return True
@@ -613,8 +614,8 @@ class ConciliadorReciboDocenteService:
         if p_norm < desde_ym:
             return False
 
-        if fecha_hasta_str:
-            hasta_ym = str(fecha_hasta_str)[:7]
+        if fecha_hasta_val:
+            hasta_ym = str(fecha_hasta_val)[:7]
             if p_norm > hasta_ym:
                 return False
 
