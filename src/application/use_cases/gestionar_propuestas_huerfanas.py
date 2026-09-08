@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import re
 import uuid
 from datetime import date, datetime, timezone
 
@@ -26,6 +27,37 @@ def _map_revista(raw_revista: str) -> SituacionRevista:
     if "SUP" in upper:
         return SituacionRevista.SUPLENTE
     return SituacionRevista.PROVISIONAL
+
+
+def _parse_escuela_codigo(escuela_raw: str) -> tuple[str, str, str, str]:
+    """Parsea una cadena de establecimiento (ej. '11-ESCOBAR MT-0001', '055IS0199', '116 MT 0001')
+    en (escuela_codigo_limpio, distrito, tipo_nivel, escuela_numero).
+    """
+    raw = (escuela_raw or "").strip()
+    if not raw:
+        return "", "", "", ""
+
+    # Caso compacto estándar DGCyE: 3 dígitos distrito + 2 letras nivel + 4 dígitos escuela (ej. 055IS0199)
+    m_compact = re.match(r"^(\d{3})([A-Za-z]{2})(\d{4})$", raw)
+    if m_compact:
+        dist, niv, num = m_compact.groups()
+        return raw, dist, niv.upper(), num
+
+    # Caso con guiones o espacios (ej. '11-ESCOBAR MT-0001', '116 MT 0001', '055 IS 0199')
+    # Buscar patrón de nivel (MT, IS, EP, EEST, EEE, EES, JI, CEC, etc.) y número de escuela al final
+    m_complex = re.match(
+        r"^(\d{1,3})(?:-[^\s]+)?\s+([A-Za-z]{2,4})[\s-]*(\d{1,4})$", raw
+    )
+    if m_complex:
+        dist_num, niv, num = m_complex.groups()
+        dist = dist_num.zfill(3)
+        num_str = num.zfill(4)
+        codigo_normalizado = f"{dist}{niv.upper()}{num_str}"
+        return codigo_normalizado, dist, niv.upper(), num_str
+
+    # Fallback genérico si no coincide con los patrones exactos
+    dist = raw[:3] if len(raw) >= 3 and raw[:3].isdigit() else ""
+    return raw, dist, "", ""
 
 
 class GestionarPropuestasHuerfanasUseCase:
@@ -57,31 +89,41 @@ class GestionarPropuestasHuerfanasUseCase:
             recibo=recibo, designaciones=list(designaciones)
         )
 
-        # Determinar fecha base (primer día del mes de pago)
+        # Determinar fecha base por defecto (primer día del mes de pago)
         try:
             partes = recibo.agente.mes_pago.split("-")
-            fecha_inicio = f"{partes[0]}-{partes[1]}-01"
+            fecha_inicio_defecto = f"{partes[0]}-{partes[1]}-01"
         except (IndexError, AttributeError, ValueError):
             today = datetime.now(timezone.utc).date()
-            fecha_inicio = f"{today.year}-{today.month:02d}-01"
+            fecha_inicio_defecto = f"{today.year}-{today.month:02d}-01"
 
         propuestas: list[PropuestaDesignacionDTO] = []
         for h in resultado.lineas_huerfanas_recibo:
-            escuela_codigo = h.escuela_codigo
-            distrito = h.escuela_codigo[:3] if len(h.escuela_codigo) >= 3 else ""
-            tipo_nivel = h.escuela_codigo[3:5] if len(h.escuela_codigo) >= 5 else ""
-            escuela_num = h.escuela_codigo[5:] if len(h.escuela_codigo) > 5 else ""
+            cod_norm, distrito, tipo_nivel, escuela_num = _parse_escuela_codigo(
+                h.escuela_codigo
+            )
+
+            # Bug 3: Usar periodo_liquidado si está disponible (ej. "2026-06" -> "2026-06-01")
+            if (
+                h.periodo_liquidado
+                and len(h.periodo_liquidado) == 7
+                and "-" in h.periodo_liquidado
+            ):
+                fecha_desde = f"{h.periodo_liquidado}-01"
+            else:
+                fecha_desde = fecha_inicio_defecto
+
             propuestas.append(
                 PropuestaDesignacionDTO(
                     secuencia=h.secuencia,
-                    escuela_codigo=escuela_codigo,
+                    escuela_codigo=cod_norm or h.escuela_codigo,
                     distrito=distrito,
                     tipo_nivel=tipo_nivel,
                     escuela_numero=escuela_num,
                     cargo_codigo="DOCENTE",
                     situacion_revista=_map_revista(h.revista_recibo).value,
                     modulos_horas=h.modulos_recibo,
-                    fecha_desde=fecha_inicio,
+                    fecha_desde=fecha_desde,
                     observaciones=f"Propuesta generada automáticamente desde línea huérfana Sec {h.secuencia} recibo {id_recibo}",
                 )
             )
@@ -92,6 +134,11 @@ class GestionarPropuestasHuerfanasUseCase:
         self, id_recibo: str, solicitud: ConfirmarPropuestasDTO
     ) -> list[DesignacionDocenteDTO]:
         """Persiste únicamente las designaciones huérfanas explícitamente confirmadas por el usuario."""
+        if not solicitud.propuestas:
+            raise ValueError(
+                "Debe enviar al menos una propuesta de designación para confirmar."
+            )
+
         recibo = self._recibo_repository.obtener_por_id(id_recibo)
         if not recibo:
             raise ReciboNotFoundError(f"Recibo '{id_recibo}' no encontrado.")

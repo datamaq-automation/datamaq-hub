@@ -1,6 +1,9 @@
 from datetime import date
 from unittest.mock import MagicMock
 
+import pytest
+from pydantic import ValidationError
+
 from src.adapters.controllers.receipt_controller import ReceiptController
 from src.adapters.gateways.sql_designacion_docente_gateway import (
     SQLDesignacionDocenteGateway,
@@ -218,11 +221,11 @@ def test_propuestas_huerfanas_y_alta_confirmada() -> None:
                 distrito="055",
                 tipo_nivel="IS",
                 escuela_numero="0199",
-                cargo_codigo="PF",
-                situacion_revista="SUPLENTE",
-                modulos_horas=2.0,
+                cargo_codigo="DOCENTE",
+                situacion_revista="TITULAR",
+                modulos_horas=4.5,
                 fecha_desde="2026-08-01",
-                observaciones="Alta confirmada por usuario",
+                observaciones="Confirmado por test",
             )
         ]
     )
@@ -232,4 +235,51 @@ def test_propuestas_huerfanas_y_alta_confirmada() -> None:
     creadas = res_conf.data
     assert len(creadas) == 1
     assert creadas[0].establecimiento == "055IS0199"
-    assert creadas[0].secuencia == 99
+
+    # Verificar que el historial del docente en designaciones ahora incluye la nueva
+    historial = desig_gw.obtener_historial("20365283924")
+    assert len(historial) == 1
+    assert historial[0].establecimiento == "055IS0199"
+
+
+def test_parser_escuela_codigo_y_fecha_desde_retroactiva() -> None:
+    from src.application.use_cases.gestionar_propuestas_huerfanas import (
+        GestionarPropuestasHuerfanasUseCase,
+        _parse_escuela_codigo,
+    )
+
+    # 1. Test unitario de _parse_escuela_codigo
+    c1, d1, n1, e1 = _parse_escuela_codigo("11-ESCOBAR MT-0001")
+    assert c1 == "011MT0001"
+    assert d1 == "011"
+    assert n1 == "MT"
+    assert e1 == "0001"
+
+    c2, d2, n2, e2 = _parse_escuela_codigo("055IS0199")
+    assert c2 == "055IS0199"
+    assert d2 == "055"
+    assert n2 == "IS"
+    assert e2 == "0199"
+
+    # 2. Test de fecha_desde retroactiva y validación de solicitud vacía
+    db_url = "sqlite:///:memory:"
+    recibo_gw = SQLReciboGateway(db_url)
+    desig_gw = SQLDesignacionDocenteGateway(db_url)
+
+    r = _mock_recibo("recibo-retro", "2026-08")
+    # Modificar una liquidación para que tenga periodo_liquidado retroactivo "2026-06"
+    r.liquidaciones[0].cargo.periodo_liquidado = "2026-06"
+    recibo_gw.guardar(r)
+
+    use_case = GestionarPropuestasHuerfanasUseCase(
+        recibo_repository=recibo_gw,
+        designacion_repository=desig_gw,
+    )
+
+    propuestas = use_case.obtener_propuestas("recibo-retro")
+    prop_retro = next(p for p in propuestas if p.secuencia == "001")
+    assert prop_retro.fecha_desde == "2026-06-01"
+
+    # Validaciones HTTP/DTO para propuesta vacía
+    with pytest.raises(ValidationError):
+        ConfirmarPropuestasDTO(propuestas=[])

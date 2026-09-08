@@ -113,43 +113,70 @@ class ReceiptMapper:
             estado_cierre=entity.totales.estado_cierre,
             total_declarado=entity.totales.total_declarado,
             diferencia_cierre=entity.totales.diferencia_cierre,
-            desglose=DesgloseFinancieroDTO(
-                mes_pago=entity.agente.mes_pago,
-                total_liquido=entity.totales.total_liquido,
-                importe_periodo_nominal=round(
-                    sum(
-                        item.liquido_pesos
-                        for item in entity.resumen_liquidos
-                        if item.concepto_normalizado == "sueldo"
-                    ),
-                    2,
-                ),
-                importe_retroactivos=round(
-                    sum(
-                        item.liquido_pesos
-                        for item in entity.resumen_liquidos
-                        if item.concepto_normalizado == "retroactivo"
-                    ),
-                    2,
-                ),
-                importe_sac=round(
-                    sum(
-                        item.liquido_pesos
-                        for item in entity.resumen_liquidos
-                        if item.concepto_normalizado == "SAC"
-                    ),
-                    2,
-                ),
-                importe_otros=round(
-                    sum(
-                        item.liquido_pesos
-                        for item in entity.resumen_liquidos
-                        if item.concepto_normalizado == "otros"
-                    ),
-                    2,
-                ),
-            ),
+            desglose=ReceiptMapper._calcular_desglose(entity),
             metadata=dict(entity.metadata),
+        )
+
+    @classmethod
+    def _calcular_desglose(cls, entity: ReciboSueldo) -> DesgloseFinancieroDTO:
+        mes_pago_norm = (entity.agente.mes_pago or "").replace("-", "").strip()
+        items = entity.resumen_liquidos or []
+
+        nominal = 0.0
+        retro = 0.0
+        sac = 0.0
+        otros = 0.0
+
+        if items:
+            for item in items:
+                liq = item.liquido_pesos
+                p_liq = (item.periodo_liquidado or "").replace("-", "").strip()
+                c_norm = (item.concepto_normalizado or "").lower()
+                op = item.orden_pago or item.orden_pago_codigo or ""
+
+                if "sac" in c_norm or "874" in op or "SAC" in op.upper():
+                    sac += liq
+                elif "retro" in c_norm or (p_liq and p_liq < mes_pago_norm):
+                    retro += liq
+                elif "sueldo" in c_norm or p_liq == mes_pago_norm or not p_liq:
+                    nominal += liq
+                else:
+                    otros += liq
+        else:
+            for liq_seq in entity.liquidaciones:
+                liq = liq_seq.liquido_calculado
+                p_liq = (liq_seq.cargo.periodo_liquidado or "").replace("-", "").strip()
+                op = liq_seq.cargo.orden_pago or ""
+
+                if "874" in op or "SAC" in op.upper():
+                    sac += liq
+                elif p_liq and p_liq < mes_pago_norm:
+                    retro += liq
+                else:
+                    nominal += liq
+
+        total_liquido = round(entity.totales.total_liquido, 2)
+        nominal_r = round(nominal, 2)
+        retro_r = round(retro, 2)
+        sac_r = round(sac, 2)
+        otros_r = round(otros, 2)
+
+        # Ajustar únicamente centavos por desvío de redondeo (diff <= 0.05) si el total no coincide exactamente
+        suma_desglose = round(nominal_r + retro_r + sac_r + otros_r, 2)
+        diff = round(total_liquido - suma_desglose, 2)
+        if 0.0 < abs(diff) <= 0.05:
+            if nominal_r > 0:
+                nominal_r = round(nominal_r + diff, 2)
+            elif retro_r > 0:
+                retro_r = round(retro_r + diff, 2)
+
+        return DesgloseFinancieroDTO(
+            mes_pago=entity.agente.mes_pago,
+            total_liquido=total_liquido,
+            importe_periodo_nominal=nominal_r,
+            importe_retroactivos=retro_r,
+            importe_sac=sac_r,
+            importe_otros=otros_r,
         )
 
     @staticmethod
