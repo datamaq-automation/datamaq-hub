@@ -1,5 +1,7 @@
 """Mapper to transform Domain Entities into Application DTOs."""
 
+import re
+
 from src.application.dtos.receipt_dto import (
     AgenteDTO,
     CargoDTO,
@@ -119,7 +121,18 @@ class ReceiptMapper:
 
     @classmethod
     def _calcular_desglose(cls, entity: ReciboSueldo) -> DesgloseFinancieroDTO:
-        mes_pago_norm = (entity.agente.mes_pago or "").replace("-", "").strip()
+        raw_mes = entity.agente.mes_pago or ""
+        # Normalizar mes_pago a formato YYYYMM (ej: "08 / 2026" -> "202608", "2026-08" -> "202608")
+        digits = re.sub(r"\D", "", raw_mes)
+        if len(digits) == 6:
+            # Si venía en formato MMYYYY (082026) -> convertir a YYYYMM (202608)
+            if raw_mes.find("/") != -1 and raw_mes.find("/") < raw_mes.rfind("202"):
+                mes_pago_norm = digits[2:] + digits[:2]
+            else:
+                mes_pago_norm = digits
+        else:
+            mes_pago_norm = digits
+
         items = entity.resumen_liquidos or []
 
         nominal = 0.0
@@ -130,7 +143,7 @@ class ReceiptMapper:
         if items:
             for item in items:
                 liq = item.liquido_pesos
-                p_liq = (item.periodo_liquidado or "").replace("-", "").strip()
+                p_liq = re.sub(r"\D", "", item.periodo_liquidado or "")
                 c_norm = (item.concepto_normalizado or "").lower()
                 op = item.orden_pago or item.orden_pago_codigo or ""
 
@@ -145,7 +158,7 @@ class ReceiptMapper:
         else:
             for liq_seq in entity.liquidaciones:
                 liq = liq_seq.liquido_calculado
-                p_liq = (liq_seq.cargo.periodo_liquidado or "").replace("-", "").strip()
+                p_liq = re.sub(r"\D", "", liq_seq.cargo.periodo_liquidado or "")
                 op = liq_seq.cargo.orden_pago or ""
 
                 if "874" in op or "SAC" in op.upper():
