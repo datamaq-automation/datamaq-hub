@@ -67,10 +67,13 @@ class DGCyEParserGateway(ReceiptParserPort):
 
         empleador = self._parse_empleador(cleaned_lines)
         agente = self._parse_agente(cleaned_lines)
-        resumen_liquidos = self._parse_resumen_liquidos(cleaned_lines)
+        resumen_liquidos, total_declarado = self._parse_resumen_liquidos(cleaned_lines)
         liquidaciones = self._parse_liquidaciones(cleaned_lines)
+        self._enrich_resumen_liquidos(resumen_liquidos, liquidaciones, agente.mes_pago)
 
-        totales = TotalesCalculatorService.calculate(liquidaciones, resumen_liquidos)
+        totales = TotalesCalculatorService.calculate(
+            liquidaciones, resumen_liquidos, total_declarado=total_declarado
+        )
 
         return ReciboSueldo(
             tipo_recibo=TipoRecibo.DGCYE_PBA,
@@ -165,9 +168,12 @@ class DGCyEParserGateway(ReceiptParserPort):
             mes_pago="",
         )
 
-    def _parse_resumen_liquidos(self, lines: list[str]) -> list[ResumenLiquidoItem]:
+    def _parse_resumen_liquidos(
+        self, lines: list[str]
+    ) -> tuple[list[ResumenLiquidoItem], float | None]:
         items: list[ResumenLiquidoItem] = []
         in_liquidos = False
+        total_declarado: float | None = None
 
         for line in lines:
             if line.strip() == "LIQUIDOS":
@@ -177,6 +183,12 @@ class DGCyEParserGateway(ReceiptParserPort):
                 line.startswith("TOTAL ")
                 or "CARACTERISTICAS DEL ESTABLECIMIENTO" in line
             ):
+                if line.startswith("TOTAL "):
+                    m_total = re.search(r"TOTAL\s+([\d\.,]+)", line)
+                    if m_total:
+                        total_declarado = float(
+                            ImporteMonetario.from_raw(m_total.group(1))
+                        )
                 in_liquidos = False
                 break
             if in_liquidos:
@@ -190,6 +202,26 @@ class DGCyEParserGateway(ReceiptParserPort):
                     estab_code, sec, per, f_pago, op_code, op_desc, monto_str = (
                         m.groups()
                     )
+                    norm_op_desc = TextNormalizerService.normalize(op_desc)
+                    monto = float(ImporteMonetario.from_raw(monto_str))
+
+                    distrito = None
+                    tipo_nivel = None
+                    escuela = None
+                    m_estab = re.match(
+                        r"^(\d+)\s+([A-Z]+)\s+(\d+)$", estab_code.strip()
+                    )
+                    if m_estab:
+                        distrito = m_estab.group(1)
+                        tipo_nivel = m_estab.group(2)
+                        escuela = m_estab.group(3)
+
+                    revista = None
+                    if "PRO" in norm_op_desc:
+                        revista = "PRO"
+                    elif "SUP" in norm_op_desc:
+                        revista = "SUP"
+
                     items.append(
                         ResumenLiquidoItem(
                             establecimiento_codigo=estab_code,
@@ -197,14 +229,94 @@ class DGCyEParserGateway(ReceiptParserPort):
                             periodo_liquidado=per,
                             fecha_pago=f_pago,
                             orden_pago_codigo=op_code,
-                            orden_pago_descripcion=TextNormalizerService.normalize(
-                                op_desc
-                            ),
-                            liquido_pesos=float(ImporteMonetario.from_raw(monto_str)),
+                            orden_pago_descripcion=norm_op_desc,
+                            liquido_pesos=monto,
+                            distrito=distrito,
+                            tipo_nivel=tipo_nivel,
+                            escuela=escuela,
+                            revista=revista,
+                            orden_pago=op_code,
+                            importe=monto,
+                            concepto_normalizado="sueldo",
                         )
                     )
 
-        return items
+        return items, total_declarado
+
+    def _enrich_resumen_liquidos(
+        self,
+        resumen_liquidos: list[ResumenLiquidoItem],
+        liquidaciones: list[LiquidacionSecuencia],
+        mes_pago_raw: str,
+    ) -> None:
+        """Correlaciona líneas de resumen con liquidaciones detalladas para clasificar conceptos."""
+        mes_pago_clean = mes_pago_raw.replace("/", "").replace(" ", "").strip()
+        if (
+            len(mes_pago_clean) == 6
+            and mes_pago_clean[:2].isdigit()
+            and mes_pago_clean[2:].isdigit()
+        ):
+            mes_pago_ym = f"{mes_pago_clean[2:]}{mes_pago_clean[:2]}"
+        else:
+            mes_pago_ym = mes_pago_clean
+
+        usadas_idx: set[int] = set()
+        for item in resumen_liquidos:
+            match_liq: LiquidacionSecuencia | None = None
+            for idx, liq in enumerate(liquidaciones):
+                if idx in usadas_idx:
+                    continue
+                if (
+                    liq.cargo.secuencia.strip() == item.secuencia.strip()
+                    and abs(liq.liquido_calculado - item.liquido_pesos) <= 0.05
+                ):
+                    match_liq = liq
+                    usadas_idx.add(idx)
+                    break
+
+            if match_liq:
+                if not item.revista and match_liq.cargo.situacion_revista:
+                    rev = match_liq.cargo.situacion_revista.upper()
+                    item.revista = (
+                        "PRO" if "PRO" in rev else ("SUP" if "SUP" in rev else rev)
+                    )
+
+                periodo_cargo = (match_liq.cargo.periodo_liquidado or "").strip()
+                es_retro = False
+                if (
+                    periodo_cargo
+                    and len(periodo_cargo) == 6
+                    and len(mes_pago_ym) == 6
+                    and periodo_cargo < mes_pago_ym
+                ):
+                    es_retro = True
+
+                codigos_haberes = [
+                    c.codigo for c in match_liq.conceptos if (c.haberes or 0.0) > 0
+                ]
+                es_sac = any(cod in ("0820", "0821") for cod in codigos_haberes)
+                tiene_basico = any(cod in ("0510", "0511") for cod in codigos_haberes)
+
+                if es_retro:
+                    item.concepto_normalizado = "retroactivo"
+                elif es_sac and not tiene_basico:
+                    item.concepto_normalizado = "SAC"
+                elif tiene_basico or periodo_cargo == mes_pago_ym:
+                    item.concepto_normalizado = "sueldo"
+                elif es_sac:
+                    item.concepto_normalizado = "SAC"
+                else:
+                    item.concepto_normalizado = "otros"
+            else:
+                desc = (item.orden_pago_descripcion or "").upper()
+                if "RETRO" in desc:
+                    item.concepto_normalizado = "retroactivo"
+                elif "SAC" in desc or "AGUINALDO" in desc:
+                    item.concepto_normalizado = "SAC"
+                elif "SDOS" in desc:
+                    item.concepto_normalizado = "sueldo"
+                else:
+                    item.concepto_normalizado = "otros"
 
     def _parse_liquidaciones(self, lines: list[str]) -> list[LiquidacionSecuencia]:
         start_idx = 0

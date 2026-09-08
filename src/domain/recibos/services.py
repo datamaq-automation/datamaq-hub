@@ -46,9 +46,7 @@ class TextNormalizerService:
         return t.strip()
 
     @staticmethod
-    def extract_regex(
-        pattern: str | re.Pattern[str], text: str, group: int = 0
-    ) -> str | None:
+    def extract_regex(pattern: str | re.Pattern[str], text: str, group: int = 0) -> str | None:
         m = re.search(pattern, text)
         if m:
             return m.group(group)
@@ -62,6 +60,7 @@ class TotalesCalculatorService:
     def calculate(
         liquidaciones: list[LiquidacionSecuencia],
         resumen_liquidos: list[ResumenLiquidoItem] | None = None,
+        total_declarado: float | None = None,
     ) -> TotalesConsolidados:
         total_rem = 0.0
         total_no_rem = 0.0
@@ -87,8 +86,14 @@ class TotalesCalculatorService:
 
         if resumen_liquidos:
             sum_resumen = sum(r.liquido_pesos for r in resumen_liquidos)
-            if abs(sum_resumen - total_liq) <= TOLERANCIA_REDONDEO_CENTAVOS:
+            if not liquidaciones or abs(sum_resumen - total_liq) <= TOLERANCIA_REDONDEO_CENTAVOS:
                 total_liq = sum_resumen
+
+        diferencia = 0.0
+        estado = "SIN_TOTAL"
+        if total_declarado is not None:
+            diferencia = round(abs(total_liq - total_declarado), 2)
+            estado = "VALIDO" if diferencia <= 0.05 else "DISCREPANCIA"
 
         return TotalesConsolidados(
             total_haberes_remunerativos=round(total_rem, 2),
@@ -96,6 +101,9 @@ class TotalesCalculatorService:
             total_haberes=round(total_haberes, 2),
             total_descuentos=round(total_desc, 2),
             total_liquido=round(total_liq, 2),
+            total_declarado=total_declarado,
+            diferencia_cierre=diferencia,
+            estado_cierre=estado,
         )
 
 
@@ -166,13 +174,9 @@ class ConciliadorReciboDocenteService:
             modulos_recibo = float(getattr(item, "modulos", 0.0))
             revista_recibo = str(getattr(item, "revista", ""))
 
-            usadas_este_periodo = designaciones_usadas_por_periodo.setdefault(
-                periodo_liq, set()
-            )
+            usadas_este_periodo = designaciones_usadas_por_periodo.setdefault(periodo_liq, set())
             desigs_candidatas = [
-                d
-                for d in designaciones
-                if str(getattr(d, "id_designacion", "")) not in usadas_este_periodo
+                d for d in designaciones if str(getattr(d, "id_designacion", "")) not in usadas_este_periodo
             ]
 
             # Buscar designación coincidente
@@ -202,11 +206,7 @@ class ConciliadorReciboDocenteService:
                 if fecha_hasta is not None and es_retroactivo:
                     estado = EstadoLineaConciliacion.CONCILIADO_RETROACTIVO
                     obs = f"Suplencia/cargo cesado el {fecha_hasta}, cobrado retroactivo en {mes_pago_norm} ({motivo})"
-                elif (
-                    modulos_recibo > 0
-                    and modulos_desig > 0
-                    and abs(modulos_recibo - modulos_desig) > 0.01
-                ):
+                elif modulos_recibo > 0 and modulos_desig > 0 and abs(modulos_recibo - modulos_desig) > 0.01:
                     estado = EstadoLineaConciliacion.DISCREPANCIA
                     obs = f"Discrepancia en módulos: recibo={modulos_recibo} vs designación={modulos_desig} ({motivo})"
                 else:
@@ -258,10 +258,7 @@ class ConciliadorReciboDocenteService:
                 and cls._designacion_estaba_vigente_en(d, mes_pago_norm)
             ):
                 sec_d = str(getattr(d, "secuencia", "") or "")
-                esc_d = str(
-                    getattr(d, "escuela_numero", "")
-                    or getattr(d, "establecimiento", "")
-                )
+                esc_d = str(getattr(d, "escuela_numero", "") or getattr(d, "establecimiento", ""))
                 mod_d = float(getattr(d, "modulos", 0.0))
                 rev_d = str(getattr(d, "revista", ""))
 
@@ -415,16 +412,10 @@ class ConciliadorReciboDocenteService:
         if recibo_distrito_num == "116":
             if distrito_desig and "escobar" not in distrito_desig:
                 return False
-            if (
-                "tigre" in estab_desig
-                or "san fernando" in estab_desig
-                or "pilar" in estab_desig
-            ):
+            if "tigre" in estab_desig or "san fernando" in estab_desig or "pilar" in estab_desig:
                 return False
         elif recibo_distrito_num == "055":
-            if distrito_desig and not any(
-                k in distrito_desig for k in ("tigre", "san fernando", "055")
-            ):
+            if distrito_desig and not any(k in distrito_desig for k in ("tigre", "san fernando", "055")):
                 return False
             if "escobar" in estab_desig or "pilar" in estab_desig:
                 return False
@@ -433,9 +424,7 @@ class ConciliadorReciboDocenteService:
                 return False
 
         # Extraer números de escuela de la designación
-        nums_desig = [
-            int(n) for n in re.findall(r"\d+", f"{esc_num_desig} {estab_desig}")
-        ]
+        nums_desig = [int(n) for n in re.findall(r"\d+", f"{esc_num_desig} {estab_desig}")]
 
         # En recibos DGCyE PBA "055 IS 0199", el número de escuela es el último (199)
         if len(recibo_nums) >= 2:
@@ -445,44 +434,30 @@ class ConciliadorReciboDocenteService:
 
         # Heurísticas para nombres de sedes conocidos (si omiten el número en el nombre)
         # EEST N°1 Tigre: sedes Tejedor / Marabotto
-        if (
-            "055 mt 0001" in recibo_str
-            or ("055" in recibo_str and "0001" in recibo_str)
-        ) and any(
-            k in estab_desig
-            for k in ("tejedor", "marabotto", "eest 1", "eest n°1", "eest n° 1")
+        if ("055 mt 0001" in recibo_str or ("055" in recibo_str and "0001" in recibo_str)) and any(
+            k in estab_desig for k in ("tejedor", "marabotto", "eest 1", "eest n°1", "eest n° 1")
         ):
             return True
         # EEST N°3 Tigre
-        if (
-            "055 mt 0003" in recibo_str
-            or ("055" in recibo_str and "0003" in recibo_str)
-        ) and any(k in estab_desig for k in ("eest 3", "eest n°3", "eest n° 3")):
+        if ("055 mt 0003" in recibo_str or ("055" in recibo_str and "0003" in recibo_str)) and any(
+            k in estab_desig for k in ("eest 3", "eest n°3", "eest n° 3")
+        ):
             return True
         # EEST N°1 Escobar: sedes Independencia / Marin / Yrigoyen
-        if (
-            "116 mt 0001" in recibo_str
-            or ("116" in recibo_str and "0001" in recibo_str)
-        ) and any(
-            k in estab_desig
-            for k in ("independencia", "marin", "yrigoyen", "eest 1", "eest n°1")
+        if ("116 mt 0001" in recibo_str or ("116" in recibo_str and "0001" in recibo_str)) and any(
+            k in estab_desig for k in ("independencia", "marin", "yrigoyen", "eest 1", "eest n°1")
         ):
             return True
         # ISFDyT N°199 Tigre
-        if (
-            "055 is 0199" in recibo_str
-            or ("055" in recibo_str and "0199" in recibo_str)
-        ) and any(k in estab_desig for k in ("199", "isfdyt", "isft")):
+        if ("055 is 0199" in recibo_str or ("055" in recibo_str and "0199" in recibo_str)) and any(
+            k in estab_desig for k in ("199", "isfdyt", "isft")
+        ):
             return True
 
         # Substring fallback
-        if esc_num_desig and (
-            esc_num_desig in recibo_str or recibo_str in esc_num_desig
-        ):
+        if esc_num_desig and (esc_num_desig in recibo_str or recibo_str in esc_num_desig):
             return True
-        return bool(
-            estab_desig and (estab_desig in recibo_str or recibo_str in estab_desig)
-        )
+        return bool(estab_desig and (estab_desig in recibo_str or recibo_str in estab_desig))
 
     @classmethod
     def _designacion_cubre_periodo(cls, desig: Any, periodo_ym: str) -> bool:
