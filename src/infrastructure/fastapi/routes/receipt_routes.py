@@ -103,6 +103,30 @@ async def listar_recibos(
 
 
 @router.get(
+    "/no-liquidados",
+    response_model=APIResponseDTO[list[DesignacionNoLiquidadaDTO]],
+    summary="Historial y seguimiento diferido de designaciones no liquidadas",
+    description=(
+        "Lista el historial de cargos docentes activos que no fueron liquidados en recibos, "
+        "con filtros por CUIT, estado de pendiente/resuelto y alertas por 2 o más períodos consecutivos."
+    ),
+)
+async def listar_no_liquidados(
+    controller: Annotated[ReceiptController, Depends(get_receipt_controller)],
+    cuit: Annotated[str | None, Query(description="CUIT del docente a filtrar")] = None,
+    solo_pendientes: Annotated[
+        bool, Query(description="True para ver solo cobros no resueltos")
+    ] = False,
+    solo_alertas: Annotated[
+        bool, Query(description="True para ver solo deudas de 2+ períodos consecutivos")
+    ] = False,
+) -> APIResponseDTO[list[DesignacionNoLiquidadaDTO]]:
+    return controller.listar_no_liquidados(
+        cuit=cuit, solo_pendientes=solo_pendientes, solo_alertas=solo_alertas
+    )
+
+
+@router.get(
     "/{id_recibo}",
     response_model=APIResponseDTO[ReceiptResponseDTO],
     summary="Obtener detalle de un recibo de sueldo",
@@ -202,30 +226,6 @@ async def exportar_conciliacion_csv(
         headers={
             "Content-Disposition": f'attachment; filename="conciliacion_{id_recibo}.csv"'
         },
-    )
-
-
-@router.get(
-    "/no-liquidados",
-    response_model=APIResponseDTO[list[DesignacionNoLiquidadaDTO]],
-    summary="Historial y seguimiento diferido de designaciones no liquidadas",
-    description=(
-        "Lista el historial de cargos docentes activos que no fueron liquidados en recibos, "
-        "con filtros por CUIT, estado de pendiente/resuelto y alertas por 2 o más períodos consecutivos."
-    ),
-)
-async def listar_no_liquidados(
-    controller: Annotated[ReceiptController, Depends(get_receipt_controller)],
-    cuit: Annotated[str | None, Query(description="CUIT del docente a filtrar")] = None,
-    solo_pendientes: Annotated[
-        bool, Query(description="True para ver solo cobros no resueltos")
-    ] = False,
-    solo_alertas: Annotated[
-        bool, Query(description="True para ver solo deudas de 2+ períodos consecutivos")
-    ] = False,
-) -> APIResponseDTO[list[DesignacionNoLiquidadaDTO]]:
-    return controller.listar_no_liquidados(
-        cuit=cuit, solo_pendientes=solo_pendientes, solo_alertas=solo_alertas
     )
 
 
